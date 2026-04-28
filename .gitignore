@@ -1,0 +1,30 @@
+# .gitignore для парсера рыбных товаров
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Результаты работы
+*.xlsx
+*.log
+parser_output.log
+
+# Окружение
+.env
+
+# OS
+.DS_Store
+Thumbs.db

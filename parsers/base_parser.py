@@ -15,7 +15,6 @@ class BaseParser(ABC):
     def __init__(self, store_name: str, base_url: str):
         self.store_name = store_name
         self.base_url = base_url
-        self.session = None
     
     @abstractmethod
     async def parse_fish_products(self) -> List[FishProduct]:
@@ -39,7 +38,7 @@ class BaseParser(ABC):
     
     async def fetch_page(self, url: str, headers: Optional[dict] = None) -> Optional[str]:
         """
-        Загрузка страницы с обработкой ошибок
+        Загрузка страницы с использованием curl-cffi для обхода блокировок
         
         Args:
             url: URL страницы
@@ -48,28 +47,41 @@ class BaseParser(ABC):
         Returns:
             HTML содержимое или None при ошибке
         """
-        import aiohttp
+        from curl_cffi import requests as curl_requests
         from fake_useragent import UserAgent
         
         if headers is None:
             ua = UserAgent()
             headers = {
                 'User-Agent': ua.random,
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
                 'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
                 'Accept-Encoding': 'gzip, deflate, br',
                 'Connection': 'keep-alive',
                 'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Cache-Control': 'max-age=0',
             }
         
         try:
-            async with aiohttp.ClientSession(headers=headers) as session:
-                async with session.get(url, timeout=30) as response:
-                    if response.status == 200:
-                        return await response.text()
-                    else:
-                        logger.warning(f"Ошибка загрузки {url}: статус {response.status}")
-                        return None
+            # Используем impersonate для эмуляции реального браузера
+            response = curl_requests.get(
+                url,
+                headers=headers,
+                timeout=30,
+                impersonate='chrome120',
+                allow_redirects=True,
+                verify=False
+            )
+            
+            if response.status_code == 200:
+                return response.text
+            else:
+                logger.warning(f"Ошибка загрузки {url}: статус {response.status_code}")
+                return None
         except Exception as e:
             logger.error(f"Ошибка при загрузке {url}: {e}")
             return None

@@ -2,7 +2,6 @@
 Парсер Перекрестка
 """
 from typing import List
-from bs4 import BeautifulSoup
 from loguru import logger
 
 from models.product import FishProduct
@@ -32,20 +31,44 @@ class PerekrestokParser(BaseParser):
         for category_url in self.categories:
             logger.info(f"Парсинг категории: {category_url}")
             
-            html = await self.fetch_page(category_url)
+            # Используем requests-html с JavaScript
+            html = await self.fetch_page_with_js(category_url)
             if not html:
+                logger.warning(f"Не удалось загрузить страницу {category_url}")
                 await self.delay(2)
                 continue
             
             soup = BeautifulSoup(html, 'lxml')
             
-            # Ищем карточки товаров
-            product_cards = soup.select('div[class*="product"], div[class*="card"], article[class*="product"]')
+            # Ищем карточки товаров - различные селекторы
+            product_cards = (
+                soup.select('div[class*="product-card"]') or
+                soup.select('div[class*="ProductCard"]') or
+                soup.select('article[class*="product"]') or
+                soup.select('div[data-product-id]') or
+                soup.select('div[class*="catalog-item"]')
+            )
+            
+            if not product_cards:
+                # Пробуем найти все элементы с ценами
+                product_cards = soup.select('div[class*="price"], span[class*="price"]')
+            
+            logger.debug(f"Найдено элементов на странице: {len(product_cards)}")
             
             for card in product_cards[:50]:
                 try:
-                    name_elem = card.select_one('h3, [class*="name"], [class*="title"], a[href*="/product/"]')
-                    price_elem = card.select_one('[class*="price"], [class*="cost"]')
+                    name_elem = (
+                        card.select_one('h3') or
+                        card.select_one('[class*="name"]') or
+                        card.select_one('[class*="title"]') or
+                        card.select_one('a[href*="/product/"]') or
+                        card.select_one('[data-name]')
+                    )
+                    price_elem = (
+                        card.select_one('[class*="price"]') or
+                        card.select_one('[class*="cost"]') or
+                        card.select_one('[data-price]')
+                    )
                     link_elem = card.select_one('a[href*="/product/"]')
                     
                     if not name_elem or not price_elem:
@@ -58,7 +81,7 @@ class PerekrestokParser(BaseParser):
                     if not url.startswith('http'):
                         url = f"https://perekrestok.ru{url}" if url else category_url
                     
-                    if name and price:
+                    if name and price and len(name) > 2:
                         product = FishProduct(
                             name=name,
                             price=price,
@@ -72,8 +95,9 @@ class PerekrestokParser(BaseParser):
                     logger.debug(f"Ошибка при парсинге карточки: {e}")
                     continue
             
-            logger.info(f"Найдено товаров в категории: {len([p for p in products if category_url in p.url])}")
-            await self.delay(2)
+            count_in_category = len([p for p in products if category_url in p.url or not p.url])
+            logger.info(f"Найдено товаров в категории: {count_in_category}")
+            await self.delay(3)
         
         await self.close()
         logger.info(f"Всего найдено товаров в Перекрестке: {len(products)}")

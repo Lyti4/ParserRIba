@@ -120,6 +120,18 @@ class BaseParser(ABC):
             logger.error(f"Ошибка при загрузке {url} с JS: {e}")
             return None
     
+    async def fetch_page_with_js(self, url: str) -> Optional[str]:
+        """
+        Загрузка страницы с JavaScript рендерингом (алиас для fetch_page_js)
+        
+        Args:
+            url: URL страницы
+            
+        Returns:
+            HTML содержимое или None при ошибке
+        """
+        return await self.fetch_page_js(url)
+    
     def clean_price(self, price_str: str) -> Optional[float]:
         """
         Очистка строки цены и преобразование в float

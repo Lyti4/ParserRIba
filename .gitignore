@@ -1,1 +1,47 @@
-Nothing should be ignored based on the provided file changes. The only modified file is 'parsers/perekrestok.py', which appears to be a source code file and should not be ignored.
+```
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Dependencies
+.venv/
+venv/
+env/
+pip-log.txt
+pip-selfcheck.json
+
+# Build and distribution artifacts
+build/
+dist/
+*.egg
+*.egg-info/
+*.so
+*.whl
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Editor specific
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# Environment variables
+.env
+.env.local
+*.env.*
+```

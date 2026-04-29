@@ -293,6 +293,9 @@ class PerekrestokParser(BaseParser):
         self.all_products = []
         self.visited_urls = set()
         
+        # Файл для сохранения сессии (cookies)
+        session_file = "perekrestok_session.json"
+        
         # Запускаем браузер
         if not await self.start_browser():
             logger.error("Не удалось запустить браузер")
@@ -301,19 +304,33 @@ class PerekrestokParser(BaseParser):
         try:
             assert self.page is not None
             
+            # Пытаемся загрузить сохраненные cookies
+            if await self.load_cookies(session_file):
+                logger.info("✅ Загружена сохраненная сессия, капча не должна появиться")
+            else:
+                logger.info("📝 Сохраненной сессии нет, потребуется решение капчи")
+            
             # Шаг 1: Заходим на главную и ищем каталог
             logger.info(f"📂 Переход на главную страницу: {self.main_url}")
             await self.page.goto(self.main_url, wait_until="domcontentloaded", timeout=60000)
             
-            # ⏸️ ПАУЗА ДЛЯ РЕШЕНИЯ КАПЧИ (15 секунд)
-            logger.warning("⏸️ ПАУЗА 15 СЕКУНД ДЛЯ РЕШЕНИЯ КАПЧИ ВРУЧНУЮ!")
-            logger.warning("👉 Если появилась капча - решите её в открывшемся браузере")
-            for i in range(15, 0, -1):
-                print(f"\r⏳ Осталось секунд: {i:2d}", end="", flush=True)
-                await asyncio.sleep(1)
-            print()  # Новая строка после обратного отсчета
+            # ⏸️ ПАУЗА ДЛЯ РЕШЕНИЯ КАПЧИ (60 секунд)
+            if not await self.load_cookies(session_file):
+                logger.warning("=" * 70)
+                logger.warning("⏸️ ПАУЗА 60 СЕКУНД ДЛЯ РЕШЕНИЯ КАПЧИ ВРУЧНУЮ!")
+                logger.warning("👉 Если появилась капча - решите её в открывшемся браузере")
+                logger.warning("👉 После решения капчи скрипт автоматически продолжит работу")
+                logger.warning("=" * 70)
+                for i in range(60, 0, -1):
+                    print(f"\r⏳ Осталось секунд: {i:2d}", end="", flush=True)
+                    await asyncio.sleep(1)
+                print()  # Новая строка после обратного отсчета
+                
+                # Сохраняем cookies после решения капчи
+                logger.info("💾 Сохранение сессии для будущих запусков...")
+                await self.save_cookies(session_file)
             
-            await asyncio.sleep(2)  # Дополнительная пауза после решения капчи
+            await asyncio.sleep(3)  # Дополнительная пауза после решения капчи/загрузки сессии
             
             # Делаем скриншот для отладки
             await self.screenshot("debug_main_page.png")
@@ -398,4 +415,7 @@ class PerekrestokParser(BaseParser):
             return self.all_products
             
         finally:
+            # Сохраняем cookies перед закрытием (на случай если сессия обновилась)
+            session_file = "perekrestok_session.json"
+            await self.save_cookies(session_file)
             await self.close()

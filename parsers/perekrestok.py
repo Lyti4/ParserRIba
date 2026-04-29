@@ -304,7 +304,16 @@ class PerekrestokParser(BaseParser):
             # Шаг 1: Заходим на главную и ищем каталог
             logger.info(f"📂 Переход на главную страницу: {self.main_url}")
             await self.page.goto(self.main_url, wait_until="domcontentloaded", timeout=60000)
-            await asyncio.sleep(3)
+            
+            # ⏸️ ПАУЗА ДЛЯ РЕШЕНИЯ КАПЧИ (15 секунд)
+            logger.warning("⏸️ ПАУЗА 15 СЕКУНД ДЛЯ РЕШЕНИЯ КАПЧИ ВРУЧНУЮ!")
+            logger.warning("👉 Если появилась капча - решите её в открывшемся браузере")
+            for i in range(15, 0, -1):
+                print(f"\r⏳ Осталось секунд: {i:2d}", end="", flush=True)
+                await asyncio.sleep(1)
+            print()  # Новая строка после обратного отсчета
+            
+            await asyncio.sleep(2)  # Дополнительная пауза после решения капчи
             
             # Делаем скриншот для отладки
             await self.screenshot("debug_main_page.png")

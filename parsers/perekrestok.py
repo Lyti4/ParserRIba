@@ -4,6 +4,7 @@
 from typing import List, Optional, Set
 import re
 import asyncio
+import random
 from bs4 import BeautifulSoup
 from loguru import logger
 
@@ -314,14 +315,15 @@ class PerekrestokParser(BaseParser):
             logger.info(f"📂 Переход на главную страницу: {self.main_url}")
             await self.page.goto(self.main_url, wait_until="domcontentloaded", timeout=60000)
             
-            # ⏸️ ПАУЗА ДЛЯ РЕШЕНИЯ КАПЧИ (60 секунд)
+            # ⏸️ ПАУЗА ДЛЯ РЕШЕНИЯ КАПЧИ (90 секунд для надежности)
             if not await self.load_cookies(session_file):
                 logger.warning("=" * 70)
-                logger.warning("⏸️ ПАУЗА 60 СЕКУНД ДЛЯ РЕШЕНИЯ КАПЧИ ВРУЧНУЮ!")
+                logger.warning("⏸️ ПАУЗА 90 СЕКУНД ДЛЯ РЕШЕНИЯ КАПЧИ ВРУЧНУЮ!")
                 logger.warning("👉 Если появилась капча - решите её в открывшемся браузере")
                 logger.warning("👉 После решения капчи скрипт автоматически продолжит работу")
+                logger.warning("👉 Stealth-режим активирован для маскировки под человека")
                 logger.warning("=" * 70)
-                for i in range(60, 0, -1):
+                for i in range(90, 0, -1):
                     print(f"\r⏳ Осталось секунд: {i:2d}", end="", flush=True)
                     await asyncio.sleep(1)
                 print()  # Новая строка после обратного отсчета
@@ -330,7 +332,7 @@ class PerekrestokParser(BaseParser):
                 logger.info("💾 Сохранение сессии для будущих запусков...")
                 await self.save_cookies(session_file)
             
-            await asyncio.sleep(3)  # Дополнительная пауза после решения капчи/загрузки сессии
+            await asyncio.sleep(5)  # Дополнительная пауза после решения капчи/загрузки сессии
             
             # Делаем скриншот для отладки
             await self.screenshot("debug_main_page.png")
@@ -366,11 +368,11 @@ class PerekrestokParser(BaseParser):
                 # Загружаем страницу категории
                 try:
                     await self.page.goto(current_url, wait_until="domcontentloaded", timeout=60000)
-                    await asyncio.sleep(3)
+                    await asyncio.sleep(random.uniform(3.0, 5.0))
                     
-                    # Прокручиваем для lazy loading
-                    await self._scroll_and_load_all(self.page)
-                    await asyncio.sleep(2)
+                    # Прокручиваем для lazy loading (теперь это human_scroll из base_parser)
+                    await self.human_scroll(min_delay=0.8, max_delay=2.0)
+                    await asyncio.sleep(random.uniform(2.0, 4.0))
                     
                     # Получаем HTML
                     html = await self.page.content()
@@ -392,8 +394,8 @@ class PerekrestokParser(BaseParser):
                     logger.error(f"Ошибка при обработке {current_url}: {e}")
                     continue
                 
-                # Небольшая пауза между категориями
-                await asyncio.sleep(2)
+                # Небольшая пауза между категориями (случайная)
+                await asyncio.sleep(random.uniform(2.0, 4.0))
             
             logger.info(f"\n{'='*60}")
             logger.info(f"📊 Всего найдено рыбных товаров в Перекрестке: {len(self.all_products)}")

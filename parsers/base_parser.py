@@ -121,6 +121,47 @@ class BaseParser(ABC):
                 return False
         return True
     
+    async def save_cookies(self, filename: str) -> bool:
+        """Сохранение cookies в JSON файл"""
+        if not self.context:
+            logger.warning("Контекст браузера не создан, нельзя сохранить cookies")
+            return False
+        
+        try:
+            cookies = await self.context.cookies()
+            import json
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(cookies, f, ensure_ascii=False, indent=2)
+            logger.info(f"🍪 Cookies сохранены в файл: {filename}")
+            return True
+        except Exception as e:
+            logger.error(f"Ошибка сохранения cookies: {e}")
+            return False
+    
+    async def load_cookies(self, filename: str) -> bool:
+        """Загрузка cookies из JSON файла"""
+        if not self.context:
+            logger.warning("Контекст браузера не создан, нельзя загрузить cookies")
+            return False
+        
+        import os
+        import json
+        
+        if not os.path.exists(filename):
+            logger.info(f"📁 Файл cookies не найден: {filename}")
+            return False
+        
+        try:
+            with open(filename, 'r', encoding='utf-8') as f:
+                cookies = json.load(f)
+            
+            await self.context.add_cookies(cookies)
+            logger.info(f"🍪 Cookies загружены из файла: {filename}")
+            return True
+        except Exception as e:
+            logger.error(f"Ошибка загрузки cookies: {e}")
+            return False
+    
     async def fetch_page_playwright(self, url: str, wait_selector: Optional[str] = None) -> Optional[str]:
         """
         Загрузка страницы через Playwright с полным рендерингом JS

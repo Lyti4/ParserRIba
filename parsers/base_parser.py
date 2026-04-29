@@ -1,19 +1,22 @@
 """
 Базовый класс для парсеров с использованием Playwright и curl-cffi
+С поддержкой stealth-режима для обхода блокировок
 """
 from abc import ABC, abstractmethod
 from typing import List, Optional
 import asyncio
+import random
 from loguru import logger
 from curl_cffi import requests as curl_requests
 from fake_useragent import UserAgent
 
 try:
     from playwright.async_api import async_playwright, Browser, BrowserContext, Page
+    from playwright_stealth import stealth_async
     PLAYWRIGHT_AVAILABLE = True
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False
-    logger.warning("Playwright не установлен. Установите: pip install playwright")
+    logger.warning("Playwright или playwright-stealth не установлены. Установите: pip install playwright playwright-stealth")
 
 from models.product import FishProduct
 
@@ -100,7 +103,7 @@ class BaseParser(ABC):
             return None
     
     async def start_browser(self):
-        """Запуск браузера Playwright"""
+        """Запуск браузера Playwright в stealth-режиме"""
         if not PLAYWRIGHT_AVAILABLE:
             logger.error("Playwright не доступен. Установите: pip install playwright && playwright install chromium")
             return False
@@ -108,13 +111,71 @@ class BaseParser(ABC):
         if self.browser is None:
             try:
                 pw = await async_playwright().start()
-                self.browser = await pw.chromium.launch(headless=self.headless)
+                
+                # Запускаем браузер с дополнительными аргументами для маскировки
+                args = [
+                    '--disable-blink-features=AutomationControlled',
+                    '--no-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--disable-gpu'
+                ]
+                
+                self.browser = await pw.chromium.launch(
+                    headless=self.headless,
+                    args=args
+                )
+                
+                # Создаем контекст с реалистичными параметрами
                 self.context = await self.browser.new_context(
                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    viewport={"width": 1920, "height": 1080}
+                    viewport={"width": 1920, "height": 1080},
+                    permissions=["geolocation"],
+                    geolocation={"latitude": 55.7558, "longitude": 37.6173},  # Москва
+                    locale="ru-RU",
+                    timezone_id="Europe/Moscow",
+                    color_scheme="light",
+                    extra_http_headers={
+                        "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7"
+                    }
                 )
+                
                 self.page = await self.context.new_page()
+                
+                # Применяем stealth-режим для скрытия признаков автоматизации
+                await stealth_async(self.page)
+                
+                # Дополнительная защита от обнаружения
+                await self.page.add_init_script("""
+                    Object.defineProperty(navigator, 'webdriver', {
+                        get: () => undefined
+                    });
+                    
+                    // Маскировка плагинов
+                    Object.defineProperty(navigator, 'plugins', {
+                        get: () => [1, 2, 3, 4, 5]
+                    });
+                    
+                    // Маскировка языка
+                    Object.defineProperty(navigator, 'language', {
+                        get: () => 'ru-RU'
+                    });
+                    
+                    // Маскировка количества ядер процессора
+                    Object.defineProperty(navigator, 'hardwareConcurrency', {
+                        get: () => 8
+                    });
+                    
+                    // Маскировка памяти
+                    Object.defineProperty(navigator, 'deviceMemory', {
+                        get: () => 8
+                    });
+                """)
+                
                 logger.info(f"🌐 Браузер запущен (режим: {'скрытый' if self.headless else 'ВИДИМЫЙ'})")
+                logger.info("🛡️ Stealth-режим активирован")
                 return True
             except Exception as e:
                 logger.error(f"Ошибка запуска браузера: {e}")
@@ -162,9 +223,39 @@ class BaseParser(ABC):
             logger.error(f"Ошибка загрузки cookies: {e}")
             return False
     
+    async def human_scroll(self, min_delay: float = 0.5, max_delay: float = 1.5):
+        """Имитация человеческой прокрутки страницы"""
+        if not self.page:
+            return
+        
+        try:
+            # Прокрутка вниз небольшими порциями
+            scroll_height = await self.page.evaluate("document.documentElement.scrollHeight")
+            current_scroll = 0
+            step = random.randint(100, 300)
+            
+            while current_scroll < scroll_height:
+                await self.page.evaluate(f"window.scrollBy(0, {step})")
+                current_scroll += step
+                await asyncio.sleep(random.uniform(min_delay, max_delay))
+                
+                # Проверяем, не достигли ли конца
+                new_scroll_height = await self.page.evaluate("document.documentElement.scrollHeight")
+                if new_scroll_height == scroll_height and current_scroll >= scroll_height - 100:
+                    break
+                scroll_height = new_scroll_height
+                step = random.randint(100, 300)
+            
+            # Прокрутка обратно вверх
+            await self.page.evaluate("window.scrollTo(0, 0)")
+            await asyncio.sleep(random.uniform(0.3, 0.7))
+            
+        except Exception as e:
+            logger.warning(f"Ошибка при прокрутке: {e}")
+    
     async def fetch_page_playwright(self, url: str, wait_selector: Optional[str] = None) -> Optional[str]:
         """
-        Загрузка страницы через Playwright с полным рендерингом JS
+        Загрузка страницы через Playwright с полным рендерингом JS и stealth-режимом
         
         Args:
             url: URL страницы
@@ -180,18 +271,25 @@ class BaseParser(ABC):
             assert self.page is not None
             logger.info(f"🔍 Переход на страницу: {url}")
             
+            # Случайная задержка перед переходом (имитация раздумий человека)
+            await asyncio.sleep(random.uniform(1.0, 3.0))
+            
             # Переход на страницу с ожиданием полной загрузки
             await self.page.goto(url, wait_until="domcontentloaded", timeout=60000)
             
-            # Дополнительная пауза для рендеринга
-            await asyncio.sleep(2)
+            # Дополнительная пауза для рендеринга и скриптов сайта
+            await asyncio.sleep(random.uniform(2.0, 4.0))
             
             # Ожидание конкретного элемента если указан
             if wait_selector:
                 try:
                     await self.page.wait_for_selector(wait_selector, timeout=10000)
+                    await asyncio.sleep(random.uniform(0.5, 1.5))
                 except Exception:
                     logger.warning(f"Элемент {wait_selector} не найден, продолжаем без него")
+            
+            # Имитация человеческой прокрутки для подгрузки контента
+            await self.human_scroll()
             
             # Получаем HTML
             html = await self.page.content()

@@ -7,6 +7,7 @@ from parsers.perekrestok import PerekrestokParser
 from parsers.lenta import LentaParser
 from parsers.auchan import AuchanParser
 from parsers.okey import OkeyParser
+from parsers.playwright_parser import PlaywrightParser
 
 __all__ = [
     "PyaterochkaParser",
@@ -15,4 +16,5 @@ __all__ = [
     "LentaParser",
     "AuchanParser",
     "OkeyParser",
+    "PlaywrightParser",
 ]

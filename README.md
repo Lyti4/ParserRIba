@@ -72,6 +72,14 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+**Важно:** Для Playwright также нужно установить браузеры:
+
+```bash
+playwright install chromium
+```
+
+Это загрузит Chromium (~150 МБ) и установит необходимые системные зависимости.
+
 ### Шаг 5: Запуск парсера
 
 ```bash
@@ -201,6 +209,51 @@ pip install --upgrade certifi
 | scraped_at | Время парсинга |
 
 ## 🔧 Для разработчиков
+
+### Playwright - продвинутый парсинг
+
+Для сайтов со сложной защитой используется **Playwright** - это бесплатный open-source инструмент, который:
+
+- ✅ Запускает настоящий браузер Chromium
+- ✅ Выполняет весь JavaScript как реальный пользователь
+- ✅ Обходит детекцию автоматизации
+- ✅ Делает скриншоты страниц
+- ✅ Сохраняет cookies и сессии
+- ✅ Работает локально на вашем компьютере
+
+**Пример использования:**
+
+```python
+from parsers.playwright_parser import PlaywrightParser
+
+parser = PlaywrightParser("Магазин", "https://site.ru")
+
+# Запуск браузера (headless=False покажет окно браузера)
+await parser.start_browser(headless=False)
+
+# Загрузка страницы с полным рендерингом
+html = await parser.fetch_page_playwright("https://site.ru/catalog")
+
+# Скриншот для отладки
+await parser.screenshot("page.png")
+
+# Извлечение данных по селектору
+price = await parser.extract_with_playwright(
+    url="https://site.ru/product/1",
+    selector=".price-value",
+    attribute=None  # None для текста, или укажите атрибут
+)
+
+# Закрытие
+await parser.close()
+```
+
+**Режим отладки:** Чтобы видеть браузер в действии, используйте `headless=False`:
+```python
+await parser.start_browser(headless=False)
+```
+
+Это особенно полезно при разработке и отладке селекторов.
 
 ### Добавление нового магазина
 

@@ -20,13 +20,22 @@ class PlaywrightParser(BaseParser):
         self.context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
         
-    async def start_browser(self, headless: bool = True):
+    async def start_browser(self, headless: bool = None):
         """
         Запуск браузера Chromium
         
         Args:
-            headless: Запускать ли в фоновом режиме (без видимого окна)
+            headless: Запускать ли в фоновом режиме (без видимого окна).
+                     Если None, используется значение из main.py (VISUAL_MODE)
         """
+        # Импортируем VISUAL_MODE из main при необходимости
+        if headless is None:
+            try:
+                from main import VISUAL_MODE
+                headless = not VISUAL_MODE
+            except ImportError:
+                headless = True  # По умолчанию скрытый режим
+        
         try:
             playwright = await async_playwright().start()
             

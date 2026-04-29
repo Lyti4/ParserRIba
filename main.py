@@ -4,6 +4,7 @@
 import asyncio
 from loguru import logger
 import sys
+import os
 
 from config import STORES, OUTPUT_FILE
 from parsers.pyaterochka import PyaterochkaParser
@@ -13,6 +14,14 @@ from parsers.lenta import LentaParser
 from parsers.auchan import AuchanParser
 from parsers.okey import OkeyParser
 from utils.export import export_to_excel, print_best_deals
+
+# ============================================
+# НАСТРОЙКИ ВИЗУАЛЬНОГО РЕЖИМА
+# ============================================
+# Установите True, чтобы видеть окно браузера во время работы
+# Установите False, чтобы работать в фоновом режиме (быстрее)
+VISUAL_MODE = os.getenv("VISUAL_MODE", "False").lower() in ("true", "1", "yes")
+# ============================================
 
 
 # Маппинг магазинов и их парсеров

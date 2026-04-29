@@ -12,8 +12,8 @@ from parsers.base_parser import BaseParser
 class PyaterochkaParser(BaseParser):
     """Парсер для Пятерочки"""
     
-    def __init__(self):
-        super().__init__("Пятерочка", "https://5ka.ru")
+    def __init__(self, headless: bool = True):
+        super().__init__("Пятерочка", "https://5ka.ru", headless=headless)
         self.categories = [
             "https://5ka.ru/cat/ryba_i_moreprodukty",
             "https://5ka.ru/cat/ryba_kopchenaya_i_solenaya",

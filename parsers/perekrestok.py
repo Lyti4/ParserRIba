@@ -12,8 +12,8 @@ from parsers.base_parser import BaseParser
 class PerekrestokParser(BaseParser):
     """Парсер для Перекрестка"""
     
-    def __init__(self):
-        super().__init__("Перекресток", "https://perekrestok.ru")
+    def __init__(self, headless: bool = True):
+        super().__init__("Перекресток", "https://perekrestok.ru", headless=headless)
         self.categories = [
             "https://perekrestok.ru/catalog/ryba-moreprodukty",
             "https://perekrestok.ru/catalog/ryba-kopchenaya-solenaya",

@@ -62,7 +62,8 @@ async def main():
             logger.info(f"🏪 Начинаем парсинг магазина: {store_id}")
             
             parser_class = PARSERS[store_id]
-            parser = parser_class()
+            # Передаем headless=False если VISUAL_MODE=True
+            parser = parser_class(headless=not VISUAL_MODE)
             
             products = await parser.parse_fish_products()
             all_products.extend(products)

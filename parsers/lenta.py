@@ -12,8 +12,8 @@ from parsers.base_parser import BaseParser
 class LentaParser(BaseParser):
     """Парсер для Ленты"""
     
-    def __init__(self):
-        super().__init__("Лента", "https://lenta.com")
+    def __init__(self, headless: bool = True):
+        super().__init__("Лента", "https://lenta.com", headless=headless)
         self.categories = [
             "https://lenta.com/catalog/ryba-moreprodukty",
             "https://lenta.com/catalog/ryba-kopchenaya-solenaya",

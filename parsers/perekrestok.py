@@ -2,6 +2,7 @@
 Парсер Перекрестка
 """
 from typing import List
+from bs4 import BeautifulSoup
 from loguru import logger
 
 from models.product import FishProduct

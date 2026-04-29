@@ -20,7 +20,7 @@ from utils.export import export_to_excel, print_best_deals
 # ============================================
 # Установите True, чтобы видеть окно браузера во время работы
 # Установите False, чтобы работать в фоновом режиме (быстрее)
-VISUAL_MODE = os.getenv("VISUAL_MODE", "False").lower() in ("true", "1", "yes")
+VISUAL_MODE = True  # Изменено на True для видимого режима по умолчанию
 # ============================================
 
 

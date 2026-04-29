@@ -12,8 +12,8 @@ from parsers.base_parser import BaseParser
 class AuchanParser(BaseParser):
     """Парсер для Ашана"""
     
-    def __init__(self):
-        super().__init__("Ашан", "https://auchan.ru")
+    def __init__(self, headless: bool = True):
+        super().__init__("Ашан", "https://auchan.ru", headless=headless)
         self.categories = [
             "https://auchan.ru/catalog/ryba-moreprodukty",
             "https://auchan.ru/catalog/ryba-kopchenaya-solenaya",

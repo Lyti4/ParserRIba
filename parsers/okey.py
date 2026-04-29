@@ -12,8 +12,8 @@ from parsers.base_parser import BaseParser
 class OkeyParser(BaseParser):
     """Парсер для Окей"""
     
-    def __init__(self):
-        super().__init__("Окей", "https://www.okey.ru")
+    def __init__(self, headless: bool = True):
+        super().__init__("Окей", "https://www.okey.ru", headless=headless)
         self.categories = [
             "https://www.okey.ru/catalog/ryba-moreprodukty",
             "https://www.okey.ru/catalog/ryba-kopchenaya-solenaya",

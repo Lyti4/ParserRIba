@@ -12,8 +12,8 @@ from parsers.base_parser import BaseParser
 class MagnitParser(BaseParser):
     """Парсер для Магнита"""
     
-    def __init__(self):
-        super().__init__("Магнит", "https://magnit.ru")
+    def __init__(self, headless: bool = True):
+        super().__init__("Магнит", "https://magnit.ru", headless=headless)
         self.categories = [
             "https://magnit.ru/catalog/ryba-moreprodukty/",
             "https://magnit.ru/catalog/ryba-kopchenaya-solenaya/",

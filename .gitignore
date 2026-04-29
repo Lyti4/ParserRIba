@@ -1,1 +1,4 @@
-Nothing needs to be added to .gitignore since the changes only include source code files (.py), documentation (README.md), and configuration (requirements.txt).
+```
+__pycache__/
+*.pyc
+```

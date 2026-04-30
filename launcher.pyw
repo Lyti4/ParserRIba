@@ -1,4 +1,3 @@
-```python
 # launcher.pyw — Обновленный GUI-лаунчер для ParserRIba (Windows)
 # Исправлены проблемы с отображением кнопок и размера окна
 
@@ -227,8 +226,5 @@ class ParserLauncher:
 
 if __name__ == "__main__":
     ParserLauncher().run()
-```
-
-if __name__ == "__main__":
     ParserLauncher().run()
 ```

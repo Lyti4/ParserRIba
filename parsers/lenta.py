@@ -22,6 +22,12 @@ class LentaParser(BaseParser):
             "https://lenta.com/catalog/moreprodukty",
         ]
     
+    def _get_headers(self) -> dict:
+        """Добавляем заголовки региона для Ленты"""
+        headers = super()._get_headers()
+        headers.update({'X-Region': '77', 'X-Location': 'Moscow'})
+        return headers
+    
     def get_category_urls(self) -> List[str]:
         return self.categories
     

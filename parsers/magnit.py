@@ -15,9 +15,10 @@ class MagnitParser(BaseParser):
     def __init__(self, headless: bool = True):
         super().__init__("Магнит", "https://magnit.ru", headless=headless)
         self.categories = [
-            "https://magnit.ru/catalog/ryba-moreprodukty/",
-            "https://magnit.ru/catalog/ryba-kopchenaya-solenaya/",
-            "https://magnit.ru/catalog/konservy-rybnye/",
+            "https://magnit.ru/catalog/produkty/ryba-i-moreprodukty/",
+            "https://magnit.ru/catalog/produkty/ryba-i-moreprodukty/ryba-svezhaya/",
+            "https://magnit.ru/catalog/produkty/ryba-i-moreprodukty/ryba-kopchenaya/",
+            "https://magnit.ru/catalog/produkty/ryba-i-moreprodukty/konservy/",
         ]
     
     def get_category_urls(self) -> List[str]:

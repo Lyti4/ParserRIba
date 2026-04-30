@@ -69,28 +69,52 @@ class BaseParser(ABC):
             'Cache-Control': 'max-age=0',
         }
     
-    async def fetch_page(self, url: str) -> Optional[str]:
-        """
-        Загрузка страницы с использованием curl-cffi для обхода блокировок
-        
-        Args:
-            url: URL страницы
-            
-        Returns:
-            HTML содержимое или None при ошибке
-        """
+    async def fetch_page(self, url: str, use_impersonate: str = 'chrome124') -> Optional[str]:
+        """Загрузка страницы с улучшенной маскировкой"""
         try:
             headers = self._get_headers()
+            headers.update({
+                'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+                'Sec-Ch-Ua-Mobile': '?0',
+                'Sec-Ch-Ua-Platform': '"Windows"',
+                'Priority': 'u=0, i',
+            })
             
-            # Используем impersonate для эмуляции реального браузера
+            # Выбираем профиль браузера в зависимости от сайта
+            if '5ka.ru' in url:
+                use_impersonate = 'chrome124'
+            elif 'magnit.ru' in url:
+                use_impersonate = 'chrome120'
+            elif 'lenta.com' in url or 'auchan.ru' in url:
+                use_impersonate = 'chrome124'
+            
             response = curl_requests.get(
-                url,
-                headers=headers,
-                timeout=30,
-                impersonate='chrome120',
-                allow_redirects=True,
-                verify=False
+                url, headers=headers, timeout=45,
+                impersonate=use_impersonate,
+                allow_redirects=True, verify=False
             )
+            
+            if response.status_code == 403:
+                if 'captcha' in response.text.lower() or 'access denied' in response.text.lower():
+                    logger.warning(f"⚠️ Защита на {url} - требуется капча или доступ запрещён")
+                    return None
+                # Пробуем другой профиль браузера
+                logger.warning(f"Получен 403 на {url}, пробуем другой профиль...")
+                use_impersonate = 'chrome120' if use_impersonate == 'chrome124' else 'chrome124'
+                response = curl_requests.get(
+                    url, headers=headers, timeout=45,
+                    impersonate=use_impersonate,
+                    allow_redirects=True, verify=False
+                )
+                    
+            if response.status_code == 401:
+                headers['X-Region'] = '77'
+                headers['X-Location'] = 'Moscow'
+                response = curl_requests.get(
+                    url, headers=headers, timeout=45,
+                    impersonate=use_impersonate,
+                    verify=False
+                )
             
             if response.status_code == 200:
                 return response.text
@@ -254,49 +278,45 @@ class BaseParser(ABC):
             logger.warning(f"Ошибка при прокрутке: {e}")
     
     async def fetch_page_playwright(self, url: str, wait_selector: Optional[str] = None) -> Optional[str]:
-        """
-        Загрузка страницы через Playwright с полным рендерингом JS и stealth-режимом
-        
-        Args:
-            url: URL страницы
-            wait_selector: CSS селектор для ожидания (опционально)
-            
-        Returns:
-            HTML содержимое или None
-        """
+        """Загрузка страницы через Playwright с полным рендерингом JS и stealth-режимом"""
         if not await self.start_browser():
             return None
-            
         try:
             assert self.page is not None
-            logger.info(f"🔍 Переход на страницу: {url}")
-            
             # Случайная задержка перед переходом (имитация раздумий человека)
-            await asyncio.sleep(random.uniform(1.0, 3.0))
+            await asyncio.sleep(random.uniform(1.5, 3.5))
             
             # Переход на страницу с ожиданием полной загрузки
-            await self.page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            response = await self.page.goto(url, wait_until="networkidle", timeout=60000)
             
             # Дополнительная пауза для рендеринга и скриптов сайта
-            await asyncio.sleep(random.uniform(2.0, 4.0))
+            await asyncio.sleep(random.uniform(3.0, 5.0))
             
             # Ожидание конкретного элемента если указан
             if wait_selector:
                 try:
-                    await self.page.wait_for_selector(wait_selector, timeout=10000)
-                    await asyncio.sleep(random.uniform(0.5, 1.5))
+                    await self.page.wait_for_selector(wait_selector, timeout=15000, state='attached')
                 except Exception:
-                    logger.warning(f"Элемент {wait_selector} не найден, продолжаем без него")
+                    pass
             
             # Имитация человеческой прокрутки для подгрузки контента
             await self.human_scroll()
             
+            # Ждем завершения всех сетевых запросов
+            await self.page.wait_for_load_state('domcontentloaded')
+            await asyncio.sleep(1.0)
+            
             # Получаем HTML
             html = await self.page.content()
             return html
-            
         except Exception as e:
-            logger.error(f"Ошибка при загрузке {url} через Playwright: {e}")
+            logger.error(f"Playwright ошибка при загрузке {url}: {e}")
+            # Пробуем вернуть хотя бы текущее содержимое страницы
+            if self.page:
+                try:
+                    return await self.page.content()
+                except Exception:
+                    pass
             return None
     
     async def screenshot(self, path: str):

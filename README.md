@@ -44,6 +44,20 @@
 
 ## 🚀 Быстрый старт
 
+### Для пользователей Windows
+
+📖 **Подробная инструкция для Windows:** [QUICK_START_WINDOWS.md](QUICK_START_WINDOWS.md)
+
+**Краткая версия (5 команд):**
+
+```bash
+git clone https://github.com/Lyti4/ParserRIba.git
+cd ParserRIba
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt && playwright install chromium && python main.py
+```
+
 ### Шаг 1: Установка Python
 
 Убедитесь, что у вас установлен **Python 3.9 или выше**:

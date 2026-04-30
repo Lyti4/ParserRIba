@@ -1,4 +1,7 @@
-# launcher.pyw — Исправленная версия (без конфликта pack/grid)
+# launcher.pyw — GUI-лаунчер для ParserRIba (Windows)
+# Запускается двойным кликом, без чёрного окна консоли
+# Версия: Исправлены конфликты слияния и ошибка grid/pack
+
 import customtkinter as ctk
 import subprocess, threading, json, os, sys
 from datetime import datetime
@@ -57,15 +60,15 @@ class ParserLauncher:
         self.log_queue.put(message)
         
     def setup_ui(self):
-        # --- Заголовок (отдельно) ---
+        # --- Заголовок ---
         ctk.CTkLabel(self.app, text="🐟 Парсер рыбных товаров", 
                      font=ctk.CTkFont(size=22, weight="bold")).pack(pady=(15, 5))
 
-        # --- Магазины (ИСПРАВЛЕНО: только grid) ---
+        # --- Магазины (ИСПРАВЛЕНО: только grid внутри фрейма) ---
         stores_frame = ctk.CTkFrame(self.app, fg_color=("gray20", "gray10"))
         stores_frame.pack(fill="x", padx=20, pady=10)
         
-        # Заголовок внутри фрейма теперь через grid (row=0)
+        # Заголовок внутри фрейма через grid (row=0)
         ctk.CTkLabel(stores_frame, text="Выберите магазины:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, columnspan=2, padx=10, pady=(10, 5), sticky="w")
         
         self.store_vars = {}
@@ -102,7 +105,6 @@ class ParserLauncher:
         self.visual_switch = ctk.CTkSwitch(settings_frame, text="Показывать")
         self.visual_switch.select(self.config["visual_mode"])
         self.visual_switch.grid(row=1, column=1, padx=10, pady=5, sticky="w")
-        
         settings_frame.columnconfigure(1, weight=1)
 
         # --- Логи ---

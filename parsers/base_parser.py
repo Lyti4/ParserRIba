@@ -9,6 +9,7 @@ import random
 from loguru import logger
 from curl_cffi import requests as curl_requests
 from fake_useragent import UserAgent
+from functools import wraps
 
 try:
     from playwright.async_api import async_playwright, Browser, BrowserContext, Page
@@ -19,6 +20,26 @@ except ImportError:
     logger.warning("Playwright или playwright-stealth не установлены. Установите: pip install playwright playwright-stealth")
 
 from models.product import FishProduct
+
+# Декоратор для повторных попыток при ошибках
+def retry_on_failure(max_attempts: int = 3, base_delay: int = 2):
+    """Декоратор для повторных попыток при ошибках с экспоненциальной задержкой"""
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            for attempt in range(max_attempts):
+                try:
+                    return await func(*args, **kwargs)
+                except Exception as e:
+                    if attempt == max_attempts - 1:
+                        logger.error(f"Все {max_attempts} попытки исчерпаны для {func.__name__}: {e}")
+                        raise
+                    delay = base_delay * (attempt + 1)
+                    logger.warning(f"Попытка {attempt + 1}/{max_attempts} не удалась: {e}. Ждём {delay}с...")
+                    await asyncio.sleep(delay)
+            return None
+        return wrapper
+    return decorator
 
 
 class BaseParser(ABC):
@@ -69,8 +90,9 @@ class BaseParser(ABC):
             'Cache-Control': 'max-age=0',
         }
     
+    @retry_on_failure(max_attempts=3, base_delay=2)
     async def fetch_page(self, url: str, use_impersonate: str = 'chrome124') -> Optional[str]:
-        """Загрузка страницы с улучшенной маскировкой"""
+        """Загрузка страницы с улучшенной маскировкой и повторными попытками"""
         try:
             headers = self._get_headers()
             headers.update({
@@ -124,7 +146,7 @@ class BaseParser(ABC):
                 
         except Exception as e:
             logger.error(f"Ошибка при загрузке {url}: {e}")
-            return None
+            raise  # Важно: поднимаем исключение для работы декоратора retry_on_failure
     
     async def start_browser(self):
         """Запуск браузера Playwright в stealth-режиме"""

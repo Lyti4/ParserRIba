@@ -1,0 +1,8 @@
+playwright
+playwright-stealth
+curl-cffi
+pandas
+openpyxl
+customtkinter
+pyperclip
+python-dotenv

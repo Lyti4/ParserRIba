@@ -9,7 +9,7 @@ load_dotenv()
 # Магазины для парсинга
 STORES = [
     "pyaterochka",
-    "magnit", 
+    "magnit",
     "perekrestok",
     "lenta",
     "auchan",

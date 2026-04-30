@@ -11,3 +11,4 @@ fake-useragent>=1.4.0
 curl-cffi>=0.7.0
 playwright>=1.42.0
 playwright-stealth>=1.0.6
+customtkinter>=5.2.0

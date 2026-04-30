@@ -2,6 +2,7 @@
 # Запускается двойным кликом, без чёрного окна консоли
 
 import customtkinter as ctk
+import tkinter as tk
 import subprocess, threading, json, os, sys
 from datetime import datetime
 import queue

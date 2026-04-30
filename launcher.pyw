@@ -228,3 +228,7 @@ class ParserLauncher:
 if __name__ == "__main__":
     ParserLauncher().run()
 ```
+
+if __name__ == "__main__":
+    ParserLauncher().run()
+```

@@ -1,1 +1,19 @@
-Nothing should be ignored based on the provided file changes. The only modified file is `launcher.pyw`, which is a source code file and should not be added to .gitignore.
+```
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+.env
+.env.local
+.env.*
+.vscode/
+.idea/
+dist/
+build/
+.coverage
+coverage/
+htmlcov/
+.mypy_cache/
+.pytest_cache/
+```

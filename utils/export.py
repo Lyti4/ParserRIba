@@ -24,9 +24,8 @@ class ExportManager:
             
             df = pd.DataFrame(products)
             
-            # Сортировка по цене (если есть колонка price)
+            # Очистка и сортировка по цене
             if 'price' in df.columns:
-                # Попытка очистить цену от символов валюты и пробелов
                 df['price_numeric'] = df['price'].astype(str).str.replace(r'[^\d,.-]', '', regex=True).str.replace(',', '.', regex=False)
                 df['price_numeric'] = pd.to_numeric(df['price_numeric'], errors='coerce')
                 df = df.sort_values(by='price_numeric')
@@ -35,7 +34,6 @@ class ExportManager:
             with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
                 df.to_excel(writer, index=False, sheet_name='Все товары')
                 
-                # Лист с топ-20 самых дешевых
                 if len(df) > 0:
                     top_20 = df.head(20)
                     top_20.to_excel(writer, index=False, sheet_name='Топ-20 дешевых')

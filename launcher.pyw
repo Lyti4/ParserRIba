@@ -1,11 +1,8 @@
-# launcher.pyw — Обновленный GUI-лаунчер для ParserRIba (Windows)
-# Исправлены проблемы с отображением кнопок и размера окна
-
+# launcher.pyw — Исправленная версия (без конфликта pack/grid)
 import customtkinter as ctk
 import subprocess, threading, json, os, sys
 from datetime import datetime
 import queue
-import tkinter as tk
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
@@ -14,12 +11,9 @@ class ParserLauncher:
     def __init__(self):
         self.app = ctk.CTk()
         self.app.title("🐟 Парсер цен на рыбу — Москва")
-        
-        # Уменьшаем минимальный размер окна, чтобы всё влезало
         self.app.geometry("500x650")
         self.app.minsize(450, 600)
         
-        # Очередь для безопасного обмена данными с потоками
         self.log_queue = queue.Queue()
         self.app.after(100, self.process_log_queue)
         
@@ -38,7 +32,6 @@ class ParserLauncher:
             if os.path.exists("config.json"):
                 with open("config.json", "r", encoding="utf-8") as f:
                     loaded = json.load(f)
-                    # Объединяем, сохраняя дефолты если чего-то нет
                     return {**default, **loaded}
         except: pass
         return default
@@ -64,21 +57,18 @@ class ParserLauncher:
         self.log_queue.put(message)
         
     def setup_ui(self):
-        # --- Верхняя часть (Заголовок и Магазины) ---
-        header_frame = ctk.CTkFrame(self.app, fg_color="transparent")
-        header_frame.pack(fill="x", padx=20, pady=(15, 5))
-        
-        ctk.CTkLabel(header_frame, text="🐟 Парсер рыбных товаров", 
-                     font=ctk.CTkFont(size=22, weight="bold")).pack()
-        
-        # Список магазинов (ScrollableFrame не нужен, если список короткий, но сделаем компактно)
+        # --- Заголовок (отдельно) ---
+        ctk.CTkLabel(self.app, text="🐟 Парсер рыбных товаров", 
+                     font=ctk.CTkFont(size=22, weight="bold")).pack(pady=(15, 5))
+
+        # --- Магазины (ИСПРАВЛЕНО: только grid) ---
         stores_frame = ctk.CTkFrame(self.app, fg_color=("gray20", "gray10"))
         stores_frame.pack(fill="x", padx=20, pady=10)
         
-        ctk.CTkLabel(stores_frame, text="Выберите магазины:", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=10, pady=(10, 5))
+        # Заголовок внутри фрейма теперь через grid (row=0)
+        ctk.CTkLabel(stores_frame, text="Выберите магазины:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, columnspan=2, padx=10, pady=(10, 5), sticky="w")
         
         self.store_vars = {}
-        # Список магазинов (компактно в 2 колонки, если нужно, но пока в 1 для простоты)
         stores_list = [
             ("Пятёрочка", "pyaterochka"), 
             ("Магнит", "magnit"), 
@@ -88,19 +78,18 @@ class ParserLauncher:
             ("О'Кей", "okey")
         ]
         
-        # Используем сетку для чекбоксов, чтобы экономить место
-        row, col = 0, 0
+        row, col = 1, 0 # Начинаем сетку с 1-й строки
         for text, key in stores_list:
             var = ctk.BooleanVar(value=key in self.config["stores"])
             self.store_vars[key] = var
             cb = ctk.CTkCheckBox(stores_frame, text=text, variable=var, width=150)
             cb.grid(row=row, column=col, padx=10, pady=5, sticky="w")
             col += 1
-            if col > 1: # 2 колонки
+            if col > 1: 
                 col = 0
                 row += 1
         
-        # --- Средняя часть (Настройки) ---
+        # --- Настройки ---
         settings_frame = ctk.CTkFrame(self.app, fg_color=("gray20", "gray10"))
         settings_frame.pack(fill="x", padx=20, pady=10)
         
@@ -116,18 +105,16 @@ class ParserLauncher:
         
         settings_frame.columnconfigure(1, weight=1)
 
-        # --- Нижняя часть (Логи и Кнопки) ---
-        
-        # Лог-область (занимает всё доступное место)
+        # --- Логи ---
         log_container = ctk.CTkFrame(self.app, fg_color="transparent")
         log_container.pack(fill="both", expand=True, padx=20, pady=(10, 5))
         
         ctk.CTkLabel(log_container, text="Логи:", anchor="w").pack(fill="x")
         self.log_text = ctk.CTkTextbox(log_container, width=400, font=ctk.CTkFont(size=11))
         self.log_text.pack(fill="both", expand=True, pady=5)
-        self.log_text.configure(state="disabled") # Только чтение
+        self.log_text.configure(state="disabled")
         
-        # Кнопки управления (всегда внизу)
+        # --- Кнопки ---
         btn_frame = ctk.CTkFrame(self.app, fg_color="transparent")
         btn_frame.pack(fill="x", padx=20, pady=(10, 20))
         
@@ -137,14 +124,14 @@ class ParserLauncher:
         ctk.CTkButton(btn_frame, text="📂 Отчёт", command=self.open_report, height=40).pack(side="left", padx=5, fill="x", expand=True)
         ctk.CTkButton(btn_frame, text="⚙️ Настройки", command=self.save_and_close, height=40).pack(side="left", padx=5, fill="x", expand=True)
         
-        # Статус бар внизу
+        # --- Статус ---
         self.status_label = ctk.CTkLabel(self.app, text="✅ Готов к запуску", text_color="green", font=ctk.CTkFont(size=12))
         self.status_label.pack(pady=(0, 10))
         
     def start_parsing(self):
         selected = [k for k, v in self.store_vars.items() if v.get()]
         if not selected:
-            self.log(" Выберите хотя бы один магазин!")
+            self.log("❌ Выберите хотя бы один магазин!")
             return
             
         self.config["stores"] = selected
@@ -156,27 +143,22 @@ class ParserLauncher:
         self.status_label.configure(text="🔄 Парсинг запущен...", text_color="orange")
         self.log(f"🚀 Старт парсинга: {', '.join(selected)}")
         
-        # Запуск в потоке
         threading.Thread(target=self._run_parser, daemon=True).start()
         
     def _run_parser(self):
         try:
-            # Формируем окружение для скрипта
             env = os.environ.copy()
             env["VISUAL_MODE"] = str(self.config["visual_mode"]).lower()
             
-            # Запуск main.py
-            # Используем sys.executable, чтобы точно использовать тот же python
             proc = subprocess.run(
                 [sys.executable, "main.py"],
                 capture_output=True,
                 text=True,
                 cwd=os.path.dirname(os.path.abspath(__file__)),
                 env=env,
-                timeout=300 # Таймаут 5 минут на всякий случай
+                timeout=300
             )
             
-            # Вывод результатов
             output = (proc.stdout + proc.stderr).strip()
             if output:
                 for line in output.split('\n'):
@@ -198,8 +180,6 @@ class ParserLauncher:
     def open_report(self):
         export_dir = os.path.join(os.path.dirname(__file__), "data", "export")
         os.makedirs(export_dir, exist_ok=True)
-        
-        # Пытаемся открыть последний файл
         try:
             files = [f for f in os.listdir(export_dir) if f.endswith('.xlsx')]
             if files:
@@ -226,5 +206,3 @@ class ParserLauncher:
 
 if __name__ == "__main__":
     ParserLauncher().run()
-    ParserLauncher().run()
-```

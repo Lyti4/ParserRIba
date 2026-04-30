@@ -1,9 +1,8 @@
 {
-  "stores": ["pyaterochka", "magnit", "perekrestok"],
+  "stores": ["pyaterochka", "magnit"],
   "delay": 5,
   "visual_mode": true,
-  "output_file": "fish_20260430.xlsx",
+  "output_file": "fish_report.xlsx",
   "max_retries": 3,
-  "timeout": 30,
-  "export_dir": "data/export"
+  "timeout": 30
 }

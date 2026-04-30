@@ -6,6 +6,13 @@ from loguru import logger
 import sys
 import os
 
+# Принудительная кодировка UTF-8 для Windows консоли
+if sys.platform == 'win32':
+    os.system('chcp 65001 >nul')
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except: pass
+
 from config import STORES, OUTPUT_FILE
 from parsers.pyaterochka import PyaterochkaParser
 from parsers.magnit import MagnitParser

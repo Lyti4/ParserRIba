@@ -1,11 +1,10 @@
-# launcher.pyw — запускается двойным кликом, без чёрного окна
+# launcher.pyw — GUI-лаунчер для ParserRIba (Windows)
+# Запускается двойным кликом, без чёрного окна консоли
+
 import customtkinter as ctk
-import subprocess
-import threading
-import json
-import os
-import sys
+import subprocess, threading, json, os, sys
 from datetime import datetime
+import queue
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
@@ -14,19 +13,19 @@ class ParserLauncher:
     def __init__(self):
         self.app = ctk.CTk()
         self.app.title("🐟 Парсер цен на рыбу — Москва")
-        self.app.geometry("500x600")
+        self.app.geometry("520x640")
         self.app.resizable(False, False)
         
-        # Загрузка настроек
-        self.config = self.load_config()
+        self.log_queue = queue.Queue()
+        self.app.after(100, self.process_log_queue)
         
+        self.config = self.load_config()
         self.setup_ui()
         self.app.protocol("WM_DELETE_WINDOW", self.on_close)
         
     def load_config(self):
-        """Загрузка настроек из config.json"""
         default = {
-            "stores": ["pyaterochka", "magnit", "perekrestok"],
+            "stores": ["pyaterochka", "magnit"],
             "delay": 5,
             "visual_mode": True,
             "output_file": f"fish_{datetime.now().strftime('%Y%m%d')}.xlsx"
@@ -34,145 +33,169 @@ class ParserLauncher:
         try:
             if os.path.exists("config.json"):
                 with open("config.json", "r", encoding="utf-8") as f:
-                    loaded = json.load(f)
-                    return {**default, **loaded}
-        except Exception as e:
-            print(f"Ошибка загрузки конфига: {e}")
+                    return {**default, **json.load(f)}
+        except: pass
         return default
         
     def save_config(self):
-        """Сохранение настроек"""
         with open("config.json", "w", encoding="utf-8") as f:
             json.dump(self.config, f, ensure_ascii=False, indent=2)
     
+    def process_log_queue(self):
+        try:
+            while True:
+                message = self.log_queue.get_nowait()
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                self.log_text.configure(state="normal")
+                self.log_text.insert("end", f"[{timestamp}] {message}\n")
+                self.log_text.see("end")
+                self.log_text.configure(state="disabled")
+        except queue.Empty:
+            pass
+        self.app.after(100, self.process_log_queue)
+
+    def log(self, message: str):
+        self.log_queue.put(message)
+        
     def setup_ui(self):
         # Заголовок
-        ctk.CTkLabel(self.app, text="🐟 Парсер рыбных товаров", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=15)
+        ctk.CTkLabel(self.app, text="🐟 Парсер рыбных товаров", 
+                     font=ctk.CTkFont(size=22, weight="bold")).pack(pady=15)
         
         # Выбор магазинов
-        ctk.CTkLabel(self.app, text="Выберите магазины:", anchor="w").pack(pady=(10,5), padx=20, fill="x")
+        stores_frame = ctk.CTkFrame(self.app)
+        stores_frame.pack(fill="x", padx=20, pady=10)
+        
+        ctk.CTkLabel(stores_frame, text="Выберите магазины:", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=10, pady=(10, 5))
+        
         self.store_vars = {}
-        stores = [("Пятёрочка", "pyaterochka"), ("Магнит", "magnit"), ("Перекрёсток", "perekrestok"), 
-                  ("Лента", "lenta"), ("Ашан", "auchan"), ("О'Кей", "okey")]
-        for text, key in stores:
-            var = ctk.BooleanVar(value=key in self.config.get("stores", ["pyaterochka"]))
+        stores_list = [
+            ("Пятёрочка", "pyaterochka"), ("Магнит", "magnit"), 
+            ("Перекрёсток", "perekrestok"), ("Лента", "lenta"), 
+            ("Ашан", "auchan"), ("О'Кей", "okey")
+        ]
+        
+        # Сетка 2 колонки
+        row, col = 0, 0
+        for text, key in stores_list:
+            var = ctk.BooleanVar(value=key in self.config["stores"])
             self.store_vars[key] = var
-            ctk.CTkCheckBox(self.app, text=text, variable=var).pack(pady=2, padx=30, anchor="w")
-        
+            cb = ctk.CTkCheckBox(stores_frame, text=text, variable=var, width=160)
+            cb.grid(row=row, column=col, padx=10, pady=5, sticky="w")
+            col += 1
+            if col > 1:
+                col = 0
+                row += 1
+        stores_frame.columnconfigure(0, weight=1)
+        stores_frame.columnconfigure(1, weight=1)
+
         # Настройки
-        frame = ctk.CTkFrame(self.app)
-        frame.pack(pady=15, padx=20, fill="x")
+        settings_frame = ctk.CTkFrame(self.app)
+        settings_frame.pack(fill="x", padx=20, pady=10)
         
-        ctk.CTkLabel(frame, text="Задержка между запросами (сек):").grid(row=0, column=0, padx=10, pady=5, sticky="w")
-        self.delay_slider = ctk.CTkSlider(frame, from_=2, to=30, number_of_steps=28, command=lambda v: self.config.update(delay=int(v)))
-        self.delay_slider.set(self.config.get("delay", 5))
-        self.delay_slider.grid(row=0, column=1, padx=10, pady=5)
+        ctk.CTkLabel(settings_frame, text="Задержка (сек):").grid(row=0, column=0, padx=15, pady=10, sticky="w")
+        self.delay_slider = ctk.CTkSlider(settings_frame, from_=1, to=30, number_of_steps=29, width=200)
+        self.delay_slider.set(self.config["delay"])
+        self.delay_slider.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
         
-        ctk.CTkLabel(frame, text="Визуальный режим:").grid(row=1, column=0, padx=10, pady=5, sticky="w")
-        self.visual_switch = ctk.CTkSwitch(frame, text="Показывать браузер", 
-                                           command=lambda: self.config.update(visual_mode=self.visual_switch.get()))
-        self.visual_switch.select(self.config.get("visual_mode", True))
+        ctk.CTkLabel(settings_frame, text="Режим:").grid(row=1, column=0, padx=15, pady=5, sticky="w")
+        self.visual_switch = ctk.CTkSwitch(settings_frame, text="Показывать браузер")
+        self.visual_switch.select(self.config["visual_mode"])
         self.visual_switch.grid(row=1, column=1, padx=10, pady=5, sticky="w")
+        settings_frame.columnconfigure(1, weight=1)
+
+        # Логи
+        log_container = ctk.CTkFrame(self.app, fg_color="transparent")
+        log_container.pack(fill="both", expand=True, padx=20, pady=(10, 5))
         
-        # Лог-окно
-        ctk.CTkLabel(self.app, text="📋 Логи:", anchor="w").pack(pady=(10,5), padx=20, fill="x")
-        self.log_text = ctk.CTkTextbox(self.app, width=450, height=150, font=ctk.CTkFont(size=10))
-        self.log_text.pack(pady=5, padx=20)
+        ctk.CTkLabel(log_container, text="Логи работы:", anchor="w").pack(fill="x")
+        self.log_text = ctk.CTkTextbox(log_container, width=400, font=ctk.CTkFont(size=10))
+        self.log_text.pack(fill="both", expand=True, pady=5)
+        self.log_text.configure(state="disabled")
         
         # Кнопки
         btn_frame = ctk.CTkFrame(self.app, fg_color="transparent")
-        btn_frame.pack(pady=20)
+        btn_frame.pack(fill="x", padx=20, pady=(10, 20))
         
-        self.start_btn = ctk.CTkButton(btn_frame, text="▶️ Запустить парсинг", command=self.start_parsing, width=200)
-        self.start_btn.pack(side="left", padx=10)
+        self.start_btn = ctk.CTkButton(btn_frame, text="▶️ ЗАПУСТИТЬ", command=self.start_parsing, height=45, font=ctk.CTkFont(size=16, weight="bold"), fg_color="#2ecc71", hover_color="#27ae60")
+        self.start_btn.pack(side="left", padx=5, fill="x", expand=True)
         
-        ctk.CTkButton(btn_frame, text="📂 Открыть отчёт", command=self.open_report, width=150).pack(side="left", padx=10)
-        ctk.CTkButton(btn_frame, text="⚙️ Сохранить настройки", command=self.save_and_close, width=150).pack(side="left", padx=10)
+        ctk.CTkButton(btn_frame, text="📂 Отчёт", command=self.open_report, height=45).pack(side="left", padx=5, fill="x", expand=True)
+        ctk.CTkButton(btn_frame, text="⚙️ Сохр.", command=self.save_and_close, height=45).pack(side="left", padx=5, fill="x", expand=True)
         
         # Статус
-        self.status_label = ctk.CTkLabel(self.app, text="✅ Готов к запуску", text_color="green")
-        self.status_label.pack(pady=10)
-        
-    def log(self, message: str):
-        """Добавление сообщения в лог-окно"""
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        self.log_text.insert("end", f"[{timestamp}] {message}\n")
-        self.log_text.see("end")
+        self.status_label = ctk.CTkLabel(self.app, text="✅ Готов к запуску", text_color="#2ecc71", font=ctk.CTkFont(size=14))
+        self.status_label.pack(pady=(0, 10))
         
     def start_parsing(self):
-        """Запуск парсера в отдельном потоке"""
-        # Сохраняем выбранные магазины
         selected = [k for k, v in self.store_vars.items() if v.get()]
         if not selected:
             self.log("❌ Выберите хотя бы один магазин!")
             return
             
         self.config["stores"] = selected
+        self.config["delay"] = int(self.delay_slider.get())
+        self.config["visual_mode"] = self.visual_switch.get()
         self.save_config()
         
-        # Блокируем кнопку
-        self.start_btn.configure(state="disabled")
-        self.status_label.configure(text="🔄 Парсинг запущен...", text_color="orange")
-        self.log(f"🚀 Запуск парсинга: {', '.join(selected)}")
+        self.start_btn.configure(state="disabled", text="⏳ Работает...")
+        self.status_label.configure(text="🔄 Парсинг запущен...", text_color="#f39c12")
+        self.log(f"🚀 Старт: {', '.join(selected)}")
         
-        # Запускаем в потоке
         threading.Thread(target=self._run_parser, daemon=True).start()
         
     def _run_parser(self):
-        """Запуск main.py в отдельном процессе"""
         try:
-            script_dir = os.path.dirname(os.path.abspath(__file__))
+            env = os.environ.copy()
+            env["VISUAL_MODE"] = str(self.config["visual_mode"]).lower()
             
-            # Запускаем с захватом вывода
             proc = subprocess.run(
                 [sys.executable, "main.py"],
-                capture_output=True,
-                text=True,
-                cwd=script_dir,
-                env={**os.environ, "VISUAL_MODE": str(self.config.get("visual_mode", True)).lower()}
+                capture_output=True, text=True,
+                cwd=os.path.dirname(os.path.abspath(__file__)),
+                env=env,
+                timeout=600
             )
             
-            # Показываем логи
-            if proc.stdout:
-                for line in proc.stdout.strip().split("\n"):
-                    if line:
-                        self.log(line)
-            if proc.stderr:
-                for line in proc.stderr.strip().split("\n"):
-                    if line:
-                        self.log(f"⚠️ {line}")
-                    
-            # Обновляем статус
+            output = (proc.stdout + proc.stderr).strip()
+            if output:
+                for line in output.split('\n'):
+                    if line: self.log(line)
+            
             if proc.returncode == 0:
-                self.status_label.configure(text="✅ Парсинг завершён!", text_color="green")
-                self.log("🎉 Готово! Отчёт сохранён.")
+                self.status_label.configure(text="✅ Успешно завершено!", text_color="#2ecc71")
+                self.log("🎉 Готово! Проверьте отчет.")
             else:
-                self.status_label.configure(text="❌ Ошибка парсинга", text_color="red")
-                self.log(f"❌ Код возврата: {proc.returncode}")
+                self.status_label.configure(text="❌ Ошибка выполнения", text_color="#e74c3c")
+                self.log(f"⚠️ Код ошибки: {proc.returncode}")
                 
         except Exception as e:
-            self.log(f"❌ Ошибка запуска: {e}")
+            self.log(f"💥 Критическая ошибка: {e}")
             self.status_label.configure(text="❌ Ошибка", text_color="red")
         finally:
-            self.start_btn.configure(state="normal")
+            self.start_btn.configure(state="normal", text="▶️ ЗАПУСТИТЬ")
             
     def open_report(self):
-        """Открытие папки с отчётами"""
         export_dir = os.path.join(os.path.dirname(__file__), "data", "export")
         os.makedirs(export_dir, exist_ok=True)
         try:
+            files = [f for f in os.listdir(export_dir) if f.endswith('.xlsx')]
+            if files:
+                latest = max(files, key=lambda x: os.path.getctime(os.path.join(export_dir, x)))
+                os.startfile(os.path.join(export_dir, latest))
+            else:
+                os.startfile(export_dir)
+                self.log("⚠️ Файлов нет, открыта папка.")
+        except Exception as e:
+            self.log(f"Ошибка: {e}")
             os.startfile(export_dir)
-        except Exception:
-            self.log("Не удалось открыть папку экспорта")
         
     def save_and_close(self):
-        """Сохранение и закрытие"""
         self.save_config()
         self.log("⚙️ Настройки сохранены")
         self.app.destroy()
         
     def on_close(self):
-        """Обработчик закрытия окна"""
         self.save_config()
         self.app.destroy()
         

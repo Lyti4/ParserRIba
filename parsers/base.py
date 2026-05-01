@@ -8,11 +8,22 @@ import time
 from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+from dataclasses import dataclass
 
 from models import Product, ParseResult, CategoryInfo, ParserConfig
 from utils.kb_loader import KBLoader, ShopKnowledge
 from strategies import BaseStrategy
-from policies import PoliciesEngine, PolicyResult
+from policies import PoliciesEngine, PolicyResult, ErrorType, ActionType
+
+
+@dataclass
+class PolicyContext:
+    """Контекст для политик."""
+    shop: str
+    url: str
+    page: int = 1
+    request_id: Optional[str] = None
+    error_count: int = 0
 
 
 class BaseParser(ABC):
@@ -40,10 +51,10 @@ class BaseParser(ABC):
         
         # Загрузка конфигурации из Knowledge Base
         self.kb_loader = KBLoader()
-        self.kb: ShopKnowledgeBase = self.kb_loader.load_shop(shop_name)
+        self.kb: ShopKnowledge = self.kb_loader.load_shop(shop_name)
         
         # Инициализация политик
-        self.policy_engine = PolicyEngine()
+        self.policy_engine = PoliciesEngine()
         
         # Стратегии (заполняются в подклассах)
         self.strategies: List[BaseStrategy] = []

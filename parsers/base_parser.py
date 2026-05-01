@@ -198,3 +198,7 @@ class BaseParser:
             # Берем первое найденное число (основная цена)
             return int(numbers[0])
         return 0
+
+    async def parse(self, delay: int = 10):
+        """Основной метод парсинга (вызывает parse_fish_products)"""
+        return await self.parse_fish_products()

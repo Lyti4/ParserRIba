@@ -373,10 +373,12 @@ class BaseParser:
             self.kb.anti_bot.get("requires_js", False)
         )
         
-        # Загрузка страницы
+        # Загрузка страницы с применением региональных заголовков
         if use_playwright:
+            await self._apply_regional_headers_to_page()
             html = await self.fetch_page_playwright(category_url)
         else:
+            self._apply_regional_headers_to_session()
             html = await self.fetch_page(category_url)
         
         if not html:
@@ -390,9 +392,19 @@ class BaseParser:
                 warnings=warnings
             )
         
+        # Применение стратегий (скролл, lazy load)
+        if use_playwright and self.strategies:
+            for strategy in self.strategies:
+                logger.debug(f"Применение стратегии: {strategy.__class__.__name__}")
+                await strategy.execute(self.page, self.kb.selectors if self.kb else {})
+        
         # Парсинг товаров
         products = []
-        # TODO: Реализовать парсинг с использованием селекторов из KB
+        if use_playwright:
+            products = await self._parse_products_from_page()
+        else:
+            # TODO: Реализовать парсинг для curl-cffi
+            logger.warning("Парсинг через curl-cffi пока не реализован")
         
         duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
         
@@ -405,6 +417,39 @@ class BaseParser:
             warnings=warnings,
             parse_duration_ms=duration_ms
         )
+    
+    def _apply_regional_headers_to_session(self):
+        """Применение региональных заголовков к сессии curl-cffi"""
+        if not self.kb or not self.kb.headers:
+            return
+        
+        custom_headers = self.kb.headers.get("custom", {})
+        for header, value in custom_headers.items():
+            # Подстановка региона если требуется
+            if value == "required" and header in ["X-Region", "X-Region-Id"]:
+                self.session.headers[header] = self.region
+            elif value != "required":
+                self.session.headers[header] = value
+        
+        logger.debug(f"Применены заголовки: {list(custom_headers.keys())}")
+
+    async def _apply_regional_headers_to_page(self):
+        """Применение региональных заголовков к странице Playwright"""
+        if not self.kb or not self.kb.headers:
+            return
+        
+        custom_headers = self.kb.headers.get("custom", {})
+        headers_to_set = {}
+        
+        for header, value in custom_headers.items():
+            if value == "required" and header in ["X-Region", "X-Region-Id"]:
+                headers_to_set[header] = self.region
+            elif value != "required":
+                headers_to_set[header] = value
+        
+        if headers_to_set and self.page:
+            await self.page.set_extra_http_headers(headers_to_set)
+            logger.debug(f"Применены заголовки Playwright: {list(headers_to_set.keys())}")
     
     async def parse_all_categories(self) -> List[ParseResult]:
         """Парсинг всех категорий из Knowledge Base"""

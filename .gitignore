@@ -1,31 +1,13 @@
 ```
 # Python
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# IDE
-.vscode/
-.idea/
+*.pyc
+*.pyo
+*.pyd
 
 # Environment
+.venv/
+venv/
 .env
 .env.local
 *.env.*
@@ -33,14 +15,11 @@ wheels/
 # Logs
 *.log
 
-# Coverage
-.coverage
-coverage/
-htmlcov/
+# Editors
+.vscode/
+.idea/
 
-# Pytest
-.pytest_cache/
-
-# MyPy
-.mypy_cache/
+# System
+.DS_Store
+Thumbs.db
 ```

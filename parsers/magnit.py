@@ -9,7 +9,7 @@ from playwright.async_api import Page, BrowserContext
 from loguru import logger
 
 from .base_parser import BaseParser
-from models.schemas import ProductItem
+from models.schemas import Product as ProductItem
 from strategies.scroll_strategy import ScrollStrategy
 from strategies.lazy_load_strategy import LazyLoadStrategy
 

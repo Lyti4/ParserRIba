@@ -14,8 +14,8 @@ from typing import Optional, List
 from utils.logger import get_logger, setup_logger
 from utils.session_manager import SessionManager
 from utils.kb_loader import KBLoader
-from policies.engine import PolicyEngine
-from models.schemas import ProductBase
+from policies.engine import PoliciesEngine as PolicyEngine
+from models.schemas import Product
 
 # Импорты парсеров
 from parsers.pyaterochka import PyaterochkaParser

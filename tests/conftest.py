@@ -27,10 +27,16 @@ def event_loop_policy():
 @pytest.fixture(scope="session")
 async def browser():
     """Фикстура для запуска браузера Playwright."""
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        yield browser
-        await browser.close()
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            yield browser
+            await browser.close()
+    except Exception as e:
+        if "Executable doesn't exist" in str(e) or "ENOSPC" in str(e):
+            pytest.skip(f"Playwright браузер не установлен или недостаточно места: {e}")
+        else:
+            raise
 
 @pytest.fixture
 async def context(browser):

@@ -15,8 +15,7 @@ from .schemas import (
     ProductPrice,
     ProductDimensions,
     CategoryInfo,
-    ParseResult,
-    ParserConfig
+    ParseResult
 )
 
 # Обратная совместимость
@@ -29,7 +28,6 @@ __all__ = [
     "ProductDimensions",
     "CategoryInfo",
     "ParseResult",
-    "ParserConfig",
     # Старая модель (deprecated)
     "FishProduct"
 ]

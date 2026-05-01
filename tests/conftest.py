@@ -16,6 +16,9 @@ from playwright.async_api import async_playwright
 # Настраиваем asyncio для pytest-asyncio
 pytest_plugins = ('pytest_asyncio',)
 
+# Устанавливаем режим asyncio по умолчанию
+pytestmark = pytest.mark.asyncio(scope="session")
+
 @pytest.fixture(scope="session")
 def event_loop_policy():
     """Используем политику событий Windows для совместимости."""

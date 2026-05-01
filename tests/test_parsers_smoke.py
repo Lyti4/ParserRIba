@@ -2,10 +2,15 @@
 Дымовые тесты для парсеров.
 Проверяют базовую доступность сайтов и наличие товаров на страницах категорий.
 Не выполняют полный парсинг, чтобы минимизировать нагрузку и риск блокировок.
+
+ПРИМЕЧАНИЕ: Эти тесты требуют установленного Playwright и браузера Chromium.
+Запуск: playwright install chromium
+Если браузер не установлен, тесты будут пропущены.
 """
 import pytest
 import asyncio
 from playwright.async_api import Page, TimeoutError
+from playwright._impl._errors import Error as PlaywrightError
 
 # Список магазинов для тестирования
 SHOPS = [
@@ -18,7 +23,6 @@ SHOPS = [
 ]
 
 @pytest.mark.parametrize("shop_name, base_url", SHOPS)
-@pytest.mark.asyncio
 async def test_shop_homepage_accessible(page: Page, shop_name: str, base_url: str):
     """
     Проверка доступности главной страницы магазина.
@@ -34,11 +38,14 @@ async def test_shop_homepage_accessible(page: Page, shop_name: str, base_url: st
         
     except TimeoutError:
         pytest.skip(f"Таймаут при загрузке {base_url}. Возможно, сайт блокирует тестовые IP.")
+    except PlaywrightError as e:
+        if "Executable doesn't exist" in str(e):
+            pytest.skip("Playwright браузер не установлен. Запустите: playwright install chromium")
+        raise
     except Exception as e:
         pytest.fail(f"Ошибка при проверке {shop_name}: {str(e)}")
 
 @pytest.mark.parametrize("shop_name", ["pyaterochka", "magnit"])
-@pytest.mark.asyncio
 async def test_category_page_has_products(page: Page, shop_name: str):
     """
     Проверка наличия товаров на странице категории (на примере Пятерочки и Магнита).
@@ -87,5 +94,9 @@ async def test_category_page_has_products(page: Page, shop_name: str):
                     
     except TimeoutError:
         pytest.skip(f"Таймаут при загрузке категории {test_url}")
+    except PlaywrightError as e:
+        if "Executable doesn't exist" in str(e):
+            pytest.skip("Playwright браузер не установлен. Запустите: playwright install chromium")
+        raise
     except Exception as e:
         pytest.fail(f"Ошибка при тестировании категории {shop_name}: {str(e)}")

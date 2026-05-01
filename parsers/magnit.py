@@ -109,10 +109,18 @@ class MagnitParser(BaseParser):
 
         # 3. Извлечение данных
         selectors = self.kb.selectors
-        card_selector = selectors.product_card
+        
+        # Получаем CSS селектор карточки и разбиваем на список (если есть разделитель |)
+        card_selector_raw = selectors.get('product_card')
+        if not card_selector_raw:
+            logger.error(f"[{self.shop_name}] Не найден селектор карточки товара в KB")
+            return products
+            
+        # Если селектор содержит '|', берем первый как основной
+        card_selector = card_selector_raw.css.split('|')[0].strip() if card_selector_raw.css else None
         
         if not card_selector:
-            logger.error(f"[{self.shop_name}] Не найден селектор карточки товара в KB")
+            logger.error(f"[{self.shop_name}] Не удалось извлечь CSS селектор карточки")
             return products
 
         logger.info(f"[{self.shop_name}] Поиск товаров по селектору: {card_selector}")

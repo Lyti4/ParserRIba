@@ -7,7 +7,7 @@ import re
 import os
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, ConfigDict
 
 
 class SelectorConfig(BaseModel):

@@ -13,12 +13,13 @@ if ROOT_DIR not in sys.path:
 
 from playwright.async_api import async_playwright
 
+# Настраиваем asyncio для pytest-asyncio
+pytest_plugins = ('pytest_asyncio',)
+
 @pytest.fixture(scope="session")
-def event_loop():
-    """Создание экземпляра цикла событий для сессии тестов."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
+def event_loop_policy():
+    """Используем политику событий Windows для совместимости."""
+    return asyncio.WindowsSelectorEventLoopPolicy() if sys.platform == "win32" else None
 
 @pytest.fixture(scope="session")
 async def browser():

@@ -1,77 +1,255 @@
-import os
-import sys
+#!/usr/bin/env python3
+"""
+ParserRiba - Главный скрипт запуска
+Парсер цен на рыбные товары для российских сетей
+"""
+
 import asyncio
-import logging
-from dotenv import load_dotenv
-from utils.logger import setup_logger
-from utils.export import ExportManager
+import argparse
+import yaml
+from pathlib import Path
+from datetime import datetime
+from typing import Optional, List
 
-# Загрузка переменных окружения
-load_dotenv()
+from utils.logger import get_logger, setup_logger
+from utils.session_manager import SessionManager
+from utils.kb_loader import KBLoader
+from policies.engine import PolicyEngine
+from models.schemas import ProductBase
 
-# Настройка логгера
-logger = setup_logger("main")
+# Импорты парсеров
+from parsers.pyaterochka import PyaterochkaParser
+from parsers.magnit import MagnitParser
+from parsers.lenta import LentaParser
+from parsers.auchan import AuchanParser
+from parsers.okey import OkeyParser
+from parsers.perekrestok import PerekrestokParser
 
-async def parse_shop(shop: str, delay: int, visual_mode: bool):
-    """Асинхронный парсинг одного магазина"""
-    module_name = f"parsers.{shop}"
-    module = __import__(module_name, fromlist=[None])
+
+logger = get_logger("main")
+
+
+class ParserFactory:
+    """Фабрика для создания парсеров."""
     
-    # Поиск класса парсера (обычно назван как магазин с суффиксом Parser)
-    class_name = "".join(part.capitalize() for part in shop.split("_")) + "Parser"
-    ParserClass = getattr(module, class_name, None)
+    PARSERS = {
+        "pyaterochka": PyaterochkaParser,
+        "magnit": MagnitParser,
+        "lenta": LentaParser,
+        "auchan": AuchanParser,
+        "okey": OkeyParser,
+        "perekrestok": PerekrestokParser,
+    }
     
-    if not ParserClass:
-        # Попытка найти класс с именем магазина в нижнем регистре + Parser
-        class_name = shop + "Parser"
-        ParserClass = getattr(module, class_name, None)
+    @classmethod
+    def get_parser(cls, store_name: str, config: dict, **kwargs):
+        if store_name not in cls.PARSERS:
+            raise ValueError(f"Неизвестный магазин: {store_name}")
+        
+        parser_class = cls.PARSERS[store_name]
+        return parser_class(config=config, **kwargs)
+    
+    @classmethod
+    def get_available_stores(cls) -> List[str]:
+        return list(cls.PARSERS.keys())
 
-    if ParserClass:
-        logger.info(f"🏪 Начинаем парсинг магазина: {shop}")
-        parser = ParserClass(headless=not visual_mode)
-        products = await parser.parse(delay=delay)
-        logger.info(f"✅ {shop}: найдено {len(products)} товаров")
-        return products
-    else:
-        logger.error(f"❌ Класс парсера для {shop} не найден")
+
+def load_config(config_path: str = "config.yaml") -> dict:
+    """Загрузка конфигурации из YAML файла."""
+    path = Path(config_path)
+    if not path.exists():
+        logger.warning(f"Конфиг {config_path} не найден, используем настройки по умолчанию")
+        return {}
+    
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+async def parse_store(
+    store_name: str,
+    config: dict,
+    categories: Optional[List[str]] = None,
+    output_dir: str = "data"
+):
+    """Парсинг конкретного магазина."""
+    logger.info(f"🚀 Запуск парсинга: {store_name.upper()}")
+    
+    try:
+        # Создание парсера
+        parser = ParserFactory.get_parser(store_name, config)
+        
+        # Получение категорий из конфига или использование всех
+        store_config = config.get("stores", {}).get(store_name, {})
+        if not categories:
+            categories = store_config.get("categories", [])
+        
+        if not categories:
+            logger.warning(f"Категории для {store_name} не указаны, пропускаем")
+            return []
+        
+        all_products = []
+        
+        # Парсинг каждой категории
+        for category in categories:
+            logger.info(f"📦 Категория: {category}")
+            
+            try:
+                products = await parser.parse_category(category)
+                all_products.extend(products)
+                logger.info(f"✅ Найдено товаров: {len(products)}")
+                
+            except Exception as e:
+                logger.error(f"❌ Ошибка при парсинге категории {category}: {e}")
+                continue
+        
+        # Сохранение результатов
+        if all_products:
+            await save_results(store_name, all_products, output_dir)
+        
+        return all_products
+        
+    except Exception as e:
+        logger.error(f"❌ Критическая ошибка при парсинге {store_name}: {e}")
         return []
 
-def main():
-    logger.info("🚀 Запуск парсера цен на рыбные товары")
-    
-    # Получение настроек из переменных окружения (от лаунчера)
-    shops_str = os.getenv("PARSER_SHOPS", "pyaterochka")
-    delay = int(os.getenv("PARSER_DELAY", "10"))
-    visual_mode = os.getenv("VISUAL_MODE", "false").lower() == "true"
-    
-    shops = [s.strip() for s in shops_str.split(",")]
-    logger.info(f"Магазины для парсинга: {', '.join(shops)}")
-    logger.info(f"Задержка: {delay} сек, Визуальный режим: {'ВКЛ' if visual_mode else 'ВЫКЛ'}")
 
-    all_products = []
-
-    # Динамический импорт и запуск парсеров
-    async def run_parsers():
-        for shop in shops:
-            try:
-                products = await parse_shop(shop, delay, visual_mode)
-                all_products.extend(products)
-            except ImportError as e:
-                logger.error(f"❌ Ошибка импорта модуля {shop}: {e}")
-            except Exception as e:
-                logger.error(f"❌ Ошибка при парсинге {shop}: {e}")
+async def save_results(store_name: str, products: list, output_dir: str):
+    """Сохранение результатов в JSON."""
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
     
-    asyncio.run(run_parsers())
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{store_name}_{timestamp}.json"
+    filepath = output_path / filename
+    
+    # Конвертация Pydantic моделей в dict
+    data = []
+    for product in products:
+        if hasattr(product, "model_dump"):
+            data.append(product.model_dump())
+        else:
+            data.append(dict(product))
+    
+    import json
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    
+    logger.info(f"💾 Данные сохранены: {filepath}")
 
-    # Экспорт результатов
-    if all_products:
-        logger.info(f"\n📊 Всего собрано товаров: {len(all_products)}")
-        exporter = ExportManager()
-        report_path = exporter.save_to_excel(all_products)
-        if report_path:
-            logger.info(f"🎉 Готово! Отчет сохранен: {report_path}")
+
+async def main():
+    """Точка входа."""
+    parser = argparse.ArgumentParser(
+        description="ParserRiba - Парсер цен на рыбные товары",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Примеры использования:
+  python main.py                          # Парсинг всех включенных магазинов
+  python main.py --store pyaterochka      # Только Пятерочка
+  python main.py --store magnit lenta     # Магнит и Лента
+  python main.py --list-stores            # Список доступных магазинов
+        """
+    )
+    
+    parser.add_argument(
+        "--store", "-s",
+        nargs="+",
+        help="Магазины для парсинга"
+    )
+    parser.add_argument(
+        "--category", "-c",
+        nargs="+",
+        help="Категории для парсинга"
+    )
+    parser.add_argument(
+        "--config", "-f",
+        default="config.yaml",
+        help="Путь к конфигурационному файлу"
+    )
+    parser.add_argument(
+        "--output", "-o",
+        default="data",
+        help="Директория для сохранения данных"
+    )
+    parser.add_argument(
+        "--log-level", "-l",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Уровень логирования"
+    )
+    parser.add_argument(
+        "--list-stores",
+        action="store_true",
+        help="Вывести список доступных магазинов"
+    )
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        default=True,
+        help="Запуск браузера в headless режиме"
+    )
+    parser.add_argument(
+        "--no-headless",
+        action="store_false",
+        dest="headless",
+        help="Запуск браузера с интерфейсом"
+    )
+    
+    args = parser.parse_args()
+    
+    # Настройка логгера
+    setup_logger(level=args.log_level, log_file="logs/parser_riba.log")
+    
+    # Загрузка конфига
+    config = load_config(args.config)
+    config["browser"]["headless"] = args.headless
+    
+    # Вывод списка магазинов
+    if args.list_stores:
+        print("\n📋 Доступные магазины:")
+        for i, store in enumerate(ParserFactory.get_available_stores(), 1):
+            enabled = config.get("stores", {}).get(store, {}).get("enabled", True)
+            status = "✅" if enabled else "❌"
+            print(f"  {i}. {status} {store}")
+        print()
+        return
+    
+    # Определение магазинов для парсинга
+    stores_to_parse = []
+    if args.store:
+        stores_to_parse = args.store
     else:
-        logger.warning("⚠️ Не удалось получить данные о товарах")
+        # Парсинг всех включенных магазинов из конфига
+        for store_name, store_config in config.get("stores", {}).items():
+            if store_config.get("enabled", True):
+                stores_to_parse.append(store_name)
+    
+    if not stores_to_parse:
+        logger.error("❌ Не указано ни одного магазина для парсинга")
+        return
+    
+    logger.info(f"🎯 Магазины для парсинга: {', '.join(stores_to_parse)}")
+    
+    # Запуск парсинга
+    start_time = datetime.now()
+    
+    try:
+        for store_name in stores_to_parse:
+            await parse_store(
+                store_name=store_name,
+                config=config,
+                categories=args.category,
+                output_dir=args.output
+            )
+    except KeyboardInterrupt:
+        logger.warning("\n⚠️  Парсинг прерван пользователем")
+    except Exception as e:
+        logger.error(f"❌ Фатальная ошибка: {e}")
+        raise
+    finally:
+        elapsed = datetime.now() - start_time
+        logger.info(f"⏱️  Время выполнения: {elapsed}")
+
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

@@ -47,8 +47,7 @@ class ShopKnowledge(BaseModel):
     notes: List[str] = Field(default_factory=list)
     technical_details: Dict[str, Any] = Field(default_factory=dict)
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class KBLoader:

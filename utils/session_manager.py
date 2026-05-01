@@ -3,10 +3,11 @@ Session Manager for handling proxies, cookies, and header rotation.
 Inspired by browser-act session management best practices.
 
 Enhanced with:
-- Pydantic models for validation
+- Pydantic models for validation (V2)
 - Advanced fingerprint generation
 - Adaptive delays based on success rate
 - Session persistence to disk
+- Regional headers support (X-Region, X-Store, etc.)
 """
 
 import asyncio
@@ -15,11 +16,13 @@ import json
 from pathlib import Path
 from typing import Optional, Dict, List, Any
 from datetime import datetime, timedelta
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class ProxyConfig(BaseModel):
     """Proxy configuration."""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
     host: str
     port: int
     username: Optional[str] = None
@@ -34,13 +37,12 @@ class ProxyConfig(BaseModel):
         if self.username and self.password:
             return f"{self.protocol}://{self.username}:{self.password}@{self.host}:{self.port}"
         return f"{self.protocol}://{self.host}:{self.port}"
-    
-    class Config:
-        arbitrary_types_allowed = True
 
 
 class SessionData(BaseModel):
     """Session data including cookies and headers."""
+    model_config = ConfigDict(arbitrary_types_allowed=True, json_encoders={datetime: lambda v: v.isoformat()})
+    
     cookies: List[Dict[str, Any]] = Field(default_factory=list)
     headers: Dict[str, str] = Field(default_factory=dict)
     local_storage: Dict[str, str] = Field(default_factory=dict)
@@ -69,12 +71,6 @@ class SessionData(BaseModel):
         if total == 0:
             return 1.0
         return self.success_count / total
-    
-    class Config:
-        arbitrary_types_allowed = True
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
 
 
 class SessionManager:
@@ -449,3 +445,85 @@ class SessionManager:
             "total_sessions": len(self.sessions),
             "current_proxy_index": self.current_proxy_index,
         }
+
+    async def apply_regional_headers(
+        self,
+        session_id: str,
+        shop_slug: str,
+        kb_data: Optional[Dict[str, Any]] = None,
+        region_id: Optional[str] = None,
+        city_id: Optional[str] = None,
+        store_id: Optional[str] = None,
+    ) -> bool:
+        """
+        Apply regional headers based on shop requirements from Knowledge Base.
+        
+        Args:
+            session_id: Session identifier.
+            shop_slug: Shop slug (e.g., 'lenta', 'auchan', 'okey').
+            kb_data: Optional KB data with header requirements.
+            region_id: Region ID (for Lenta, Auchan).
+            city_id: City ID (for Magnit).
+            store_id: Store ID (for O'Key, Auchan).
+            
+        Returns:
+            bool: True if headers applied successfully.
+        """
+        session = await self.get_session(session_id)
+        if not session:
+            return False
+        
+        regional_headers = {}
+        
+        # Apply headers based on shop requirements
+        if shop_slug == 'lenta':
+            if region_id:
+                regional_headers['X-Region'] = region_id
+            else:
+                # Default region for Lenta (Moscow)
+                regional_headers['X-Region'] = '2'
+                
+        elif shop_slug == 'auchan':
+            if region_id:
+                regional_headers['X-Region'] = region_id
+            if store_id:
+                regional_headers['X-Shop-Id'] = store_id
+            else:
+                # Defaults
+                regional_headers['X-Region'] = '1'
+                regional_headers['X-Shop-Id'] = '1'
+                
+        elif shop_slug == 'magnit':
+            if city_id:
+                regional_headers['X-City-Id'] = city_id
+            else:
+                # Default city (Moscow)
+                regional_headers['X-City-Id'] = '1'
+                
+        elif shop_slug == 'okey':
+            if store_id:
+                regional_headers['X-Store-Id'] = store_id
+            else:
+                # Default store
+                regional_headers['X-Store-Id'] = '1'
+                
+        elif shop_slug == 'pyaterochka':
+            if region_id:
+                regional_headers['X-Region-Id'] = region_id
+            else:
+                # Default region
+                regional_headers['X-Region-Id'] = '1'
+                
+        elif shop_slug == 'perekrestok':
+            if region_id:
+                regional_headers['X-Region'] = region_id
+            if store_id:
+                regional_headers['X-Store-Id'] = store_id
+        
+        # Update session headers
+        if regional_headers:
+            session.headers.update(regional_headers)
+            await self.update_session(session_id, headers=regional_headers)
+            return True
+            
+        return False

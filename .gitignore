@@ -1,4 +1,5 @@
 ```
+# PROJECT_PLAN.md is a source file and should not be ignored
 # Compiled Python files
 *.pyc
 __pycache__/

@@ -16,6 +16,9 @@ from playwright.async_api import async_playwright
 # Настраиваем asyncio для pytest-asyncio
 pytest_plugins = ('pytest_asyncio',)
 
+# Устанавливаем режим asyncio по умолчанию
+pytestmark = pytest.mark.asyncio(scope="session")
+
 @pytest.fixture(scope="session")
 def event_loop_policy():
     """Используем политику событий Windows для совместимости."""
@@ -24,10 +27,16 @@ def event_loop_policy():
 @pytest.fixture(scope="session")
 async def browser():
     """Фикстура для запуска браузера Playwright."""
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        yield browser
-        await browser.close()
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            yield browser
+            await browser.close()
+    except Exception as e:
+        if "Executable doesn't exist" in str(e) or "ENOSPC" in str(e):
+            pytest.skip(f"Playwright браузер не установлен или недостаточно места: {e}")
+        else:
+            raise
 
 @pytest.fixture
 async def context(browser):

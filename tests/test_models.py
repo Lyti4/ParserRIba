@@ -13,22 +13,20 @@ class TestProductModel:
         product = Product(
             name="Лосось атлантический",
             price=599.99,  # Передаем числом, валидатор обернет в ProductPrice
-            product_link="https://example.com/product/123",
-            shop="pyaterochka",
-            category="fish"
+            product_link="https://example.com/product/123"
         )
         assert product.name == "Лосось атлантический"
         assert isinstance(product.price, ProductPrice)
         assert product.price.current == 599.99
-        assert product.shop == "pyaterochka"
+        # Поле shop удалено из модели, проверяем category
+        assert product.category is None  # по умолчанию
 
     def test_create_product_with_dict_price(self):
         """Создание продукта со словарем цены."""
         product = Product(
             name="Лосось атлантический",
             price={"current": 599.99, "old": 799.99},
-            product_link="https://example.com/product/123",
-            shop="pyaterochka"
+            product_link="https://example.com/product/123"
         )
         assert product.price.current == 599.99
         assert product.price.old == 799.99
@@ -38,9 +36,7 @@ class TestProductModel:
         product = Product(
             name="Товар без скидки",
             price=100,
-            product_link="https://example.com",
-            shop="test",
-            category="test"
+            product_link="https://example.com"
         )
         assert product.brand is None
         assert product.dimensions is None
@@ -50,9 +46,7 @@ class TestProductModel:
         product = Product(
             name="Товар",
             price=100,
-            product_link="https://valid-url.com/path?query=1",
-            shop="test",
-            category="test"
+            product_link="https://valid-url.com/path?query=1"
         )
         assert "https://" in str(product.product_link)
 
@@ -68,14 +62,15 @@ class TestShopInfoModel:
         )
         assert shop.name == "pyaterochka"
         assert shop.display_name == "Пятерочка"
-        assert shop.active is True  # default
+        # Поле active удалено из модели, проверяем recommended_tool
+        assert shop.recommended_tool == "curl-cffi"  # default
 
-    def test_shop_info_inactive(self):
-        """Магазин может быть неактивным."""
+    def test_shop_info_with_custom_tool(self):
+        """Магазин может требовать Playwright."""
         shop = ShopInfo(
-            name="closed",
-            display_name="Закрытый магазин",
-            base_url="https://example.com",
-            active=False
+            name="perekrestok",
+            display_name="Перекресток",
+            base_url="https://perekrestok.ru",
+            recommended_tool="playwright"
         )
-        assert shop.active is False
+        assert shop.recommended_tool == "playwright"

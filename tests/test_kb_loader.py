@@ -35,7 +35,10 @@ class TestKnowledgeBase:
         """Проверка загрузки конфигурации для каждого магазина."""
         kb = loader.load_shop(shop_name)
         assert kb is not None, f"Не удалось загрузить конфиг для {shop_name}"
-        assert kb.name.lower() == shop_name, f"Имя магазина не совпадает: {kb.name}"
+        # Проверяем что slug совпадает с именем файла
+        assert kb.slug == shop_name, f"Slug магазина не совпадает: {kb.slug}"
+        # Имя может быть полным (напр. "Пятерочка (5ka.ru)")
+        assert len(kb.name) > 0, f"Имя магазина пустое для {shop_name}"
 
     @pytest.mark.parametrize("shop_name", ["pyaterochka", "magnit", "lenta", "auchan", "okey", "perekrestok"])
     def test_shop_has_categories(self, loader, shop_name):
@@ -47,14 +50,23 @@ class TestKnowledgeBase:
     def test_shop_has_selectors(self, loader, shop_name):
         """Проверка наличия селекторов у каждого магазина."""
         kb = loader.load_shop(shop_name)
-        assert kb.selectors.product_card is not None, f"У магазина {shop_name} нет селектора product_card"
-        assert kb.selectors.product_name is not None, f"У магазина {shop_name} нет селектора product_name"
-        assert kb.selectors.price_current is not None, f"У магазина {shop_name} нет селектора price_current"
+        # selectors - это Dict[str, SelectorConfig], проверяем наличие ключей
+        assert isinstance(kb.selectors, dict), f"Селекторы должны быть словарем для {shop_name}"
+        assert len(kb.selectors) > 0, f"У магазина {shop_name} нет селекторов"
+        # Проверяем наличие хотя бы основных селекторов
+        required_keys = ["product_card", "product_name", "price_current"]
+        for key in required_keys:
+            assert key in kb.selectors, f"У магазина {shop_name} нет селектора {key}"
+            # Проверяем что селектор не пустой
+            sel = kb.selectors[key]
+            assert sel is not None, f"Селектор {key} пустой для {shop_name}"
+            assert hasattr(sel, 'css') or hasattr(sel, 'xpath'), f"Селектор {key} не содержит css или xpath для {shop_name}"
 
     def test_perekrestok_requires_playwright(self, loader):
         """Проверка того, что Перекресток требует Playwright."""
         kb = loader.load_shop("perekrestok")
-        assert kb.recommended_tool == "playwright", "Перекресток должен использовать Playwright"
+        # Проверяем через anti_bot.recommended_tool
+        assert kb.anti_bot.recommended_tool == "playwright", "Перекресток должен использовать Playwright"
 
     def test_lenta_requires_region_header(self, loader):
         """Проверка требования X-Region для Ленты."""

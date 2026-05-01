@@ -19,9 +19,11 @@ def setup_logger(name: str, log_file: str = "parser.log", level=logging.INFO):
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
-    # Обработчик консоли
+    # Обработчик консоли с поддержкой UTF-8 и emoji
+    # Для Windows используем errors='replace' для корректного вывода emoji в cp1251
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
+    console_handler.stream = open(sys.stdout.fileno(), 'w', encoding='utf-8', errors='replace', closefd=False, newline='\n')
     logger.addHandler(console_handler)
 
     return logger

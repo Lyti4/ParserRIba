@@ -1,23 +1,32 @@
 """
 Session Manager for handling proxies, cookies, and header rotation.
 Inspired by browser-act session management best practices.
+
+Enhanced with:
+- Pydantic models for validation
+- Advanced fingerprint generation
+- Adaptive delays based on success rate
+- Session persistence to disk
 """
 
 import asyncio
 import random
+import json
+from pathlib import Path
 from typing import Optional, Dict, List, Any
-from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from pydantic import BaseModel, Field
 
 
-@dataclass
-class ProxyConfig:
+class ProxyConfig(BaseModel):
     """Proxy configuration."""
     host: str
     port: int
     username: Optional[str] = None
     password: Optional[str] = None
     protocol: str = "http"
+    country: Optional[str] = None
+    is_residential: bool = True
     
     @property
     def url(self) -> str:
@@ -25,17 +34,22 @@ class ProxyConfig:
         if self.username and self.password:
             return f"{self.protocol}://{self.username}:{self.password}@{self.host}:{self.port}"
         return f"{self.protocol}://{self.host}:{self.port}"
+    
+    class Config:
+        arbitrary_types_allowed = True
 
 
-@dataclass
-class SessionData:
+class SessionData(BaseModel):
     """Session data including cookies and headers."""
-    cookies: List[Dict[str, Any]] = field(default_factory=list)
-    headers: Dict[str, str] = field(default_factory=dict)
-    local_storage: Dict[str, str] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.now)
-    last_used: datetime = field(default_factory=datetime.now)
+    cookies: List[Dict[str, Any]] = Field(default_factory=list)
+    headers: Dict[str, str] = Field(default_factory=dict)
+    local_storage: Dict[str, str] = Field(default_factory=dict)
+    user_agent: str = ""
+    created_at: datetime = Field(default_factory=datetime.now)
+    last_used: datetime = Field(default_factory=datetime.now)
     request_count: int = 0
+    success_count: int = 0
+    fail_count: int = 0
     is_valid: bool = True
     
     @property
@@ -47,6 +61,20 @@ class SessionData:
     def idle_time(self) -> timedelta:
         """Get time since last use."""
         return datetime.now() - self.last_used
+    
+    @property
+    def success_rate(self) -> float:
+        """Calculate success rate."""
+        total = self.success_count + self.fail_count
+        if total == 0:
+            return 1.0
+        return self.success_count / total
+    
+    class Config:
+        arbitrary_types_allowed = True
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
 
 
 class SessionManager:
@@ -56,9 +84,10 @@ class SessionManager:
     
     Features:
     - Proxy pool management with automatic rotation
-    - Cookie/session persistence
+    - Cookie/session persistence to disk
     - Header randomization to avoid fingerprinting
     - Session health checking
+    - Adaptive delays based on success rate
     - Automatic retry on failure
     """
 
@@ -78,6 +107,15 @@ class SessionManager:
         "de-DE,de;q=0.9,en;q=0.8",
         "fr-FR,fr;q=0.9,en;q=0.8",
     ]
+    
+    # Common viewports
+    VIEWPORTS = [
+        (1920, 1080),
+        (1366, 768),
+        (1536, 864),
+        (1440, 900),
+        (1280, 720),
+    ]
 
     def __init__(
         self,
@@ -85,6 +123,8 @@ class SessionManager:
         max_session_age: timedelta = timedelta(minutes=30),
         max_requests_per_session: int = 100,
         rotate_on_failure: bool = True,
+        session_storage_path: str = "sessions",
+        save_sessions_to_disk: bool = True,
     ):
         self.proxies = proxies or []
         self.current_proxy_index = 0
@@ -92,7 +132,13 @@ class SessionManager:
         self.max_session_age = max_session_age
         self.max_requests_per_session = max_requests_per_session
         self.rotate_on_failure = rotate_on_failure
+        self.session_storage_path = Path(session_storage_path)
+        self.save_sessions_to_disk = save_sessions_to_disk
         self._lock = asyncio.Lock()
+        
+        # Create session storage directory
+        if self.save_sessions_to_disk:
+            self.session_storage_path.mkdir(parents=True, exist_ok=True)
 
     async def get_next_proxy(self) -> Optional[ProxyConfig]:
         """
@@ -242,9 +288,9 @@ class SessionManager:
             
         return True
 
-    def _generate_random_headers(self) -> Dict[str, str]:
+    def _generate_random_headers(self, custom_headers: Optional[Dict[str, str]] = None) -> Dict[str, str]:
         """Generate randomized headers to avoid fingerprinting."""
-        return {
+        headers = {
             "User-Agent": random.choice(self.USER_AGENTS),
             "Accept-Language": random.choice(self.ACCEPT_LANGUAGES),
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -256,6 +302,130 @@ class SessionManager:
             "Sec-Fetch-Site": "none",
             "Cache-Control": "max-age=0",
         }
+        
+        if custom_headers:
+            headers.update(custom_headers)
+        
+        return headers
+    
+    def generate_fingerprint(self) -> Dict[str, Any]:
+        """Generate complete browser fingerprint."""
+        width, height = random.choice(self.VIEWPORTS)
+        
+        return {
+            "user_agent": random.choice(self.USER_AGENTS),
+            "viewport": {"width": width, "height": height},
+            "language": random.choice(self.ACCEPT_LANGUAGES),
+            "platform": random.choice(["Win32", "MacIntel", "Linux x86_64"]),
+            "hardware_concurrency": random.choice([4, 8, 12]),
+            "device_memory": random.choice([4, 8, 16]),
+        }
+    
+    def get_adaptive_delay(self, min_delay: float = 1.0, max_delay: float = 5.0, 
+                          session_id: Optional[str] = None) -> float:
+        """
+        Calculate adaptive delay based on session success rate.
+        Lower success rate = longer delays to avoid detection.
+        """
+        base_delay = random.uniform(min_delay, max_delay)
+        
+        if session_id and session_id in self.sessions:
+            session = self.sessions[session_id]
+            success_rate = session.success_rate
+            
+            # If success rate < 0.7, increase delay significantly
+            if success_rate < 0.7:
+                multiplier = 2.0 + (0.7 - success_rate) * 3
+                return base_delay * multiplier
+            # If success rate < 0.9, increase delay moderately
+            elif success_rate < 0.9:
+                return base_delay * 1.5
+        
+        return base_delay
+    
+    async def save_session_to_disk(self, session_id: str) -> bool:
+        """Save session data to disk."""
+        if not self.save_sessions_to_disk:
+            return False
+        
+        session = self.sessions.get(session_id)
+        if not session:
+            return False
+        
+        session_file = self.session_storage_path / f"{session_id}_session.json"
+        
+        try:
+            with open(session_file, 'w', encoding='utf-8') as f:
+                json.dump(session.model_dump(mode='json'), f, indent=2, default=str)
+            return True
+        except Exception as e:
+            print(f"[SessionManager] Error saving session: {e}")
+            return False
+    
+    async def load_session_from_disk(self, session_id: str) -> Optional[SessionData]:
+        """Load session data from disk."""
+        session_file = self.session_storage_path / f"{session_id}_session.json"
+        
+        if not session_file.exists():
+            return None
+        
+        try:
+            with open(session_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            session = SessionData(**data)
+            
+            # Check if session is still valid
+            if session.age > self.max_session_age:
+                print(f"[SessionManager] Session {session_id} expired, removing")
+                session_file.unlink()
+                return None
+            
+            return session
+        except Exception as e:
+            print(f"[SessionManager] Error loading session: {e}")
+            return None
+    
+    async def create_session(
+        self,
+        session_id: str,
+        cookies: Optional[List[Dict[str, Any]]] = None,
+        headers: Optional[Dict[str, str]] = None,
+        load_from_disk: bool = True,
+    ) -> SessionData:
+        """
+        Create a new session or load from disk.
+        
+        Args:
+            session_id: Unique session identifier.
+            cookies: Initial cookies.
+            headers: Initial headers.
+            load_from_disk: Try to load existing session from disk.
+            
+        Returns:
+            SessionData object.
+        """
+        async with self._lock:
+            # Try to load from disk first
+            if load_from_disk:
+                loaded_session = await self.load_session_from_disk(session_id)
+                if loaded_session:
+                    print(f"[SessionManager] Loaded session {session_id} from disk")
+                    self.sessions[session_id] = loaded_session
+                    return loaded_session
+            
+            # Create new session
+            session = SessionData(
+                cookies=cookies or [],
+                headers=headers or self._generate_random_headers(),
+                user_agent=random.choice(self.USER_AGENTS),
+            )
+            self.sessions[session_id] = session
+            
+            if self.save_sessions_to_disk:
+                await self.save_session_to_disk(session_id)
+            
+            return session
 
     async def rotate_proxy_on_failure(self) -> Optional[ProxyConfig]:
         """

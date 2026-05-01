@@ -12,13 +12,13 @@ from loguru import logger
 from functools import wraps
 from pathlib import Path
 
-from models.schemas import Product, ProductPrice, ProductDimensions, ParseResult, CategoryInfo, ShopName
+from models.schemas import Product, ProductPrice, ProductDimensions, ParseResult, CategoryInfo
 from utils.kb_loader import KBLoader, ShopKnowledge
-from strategies.base_strategy import Strategy
+from strategies.base_strategy import BaseStrategy as Strategy
 from strategies.scroll_strategy import ScrollStrategy
 from strategies.pagination_strategy import PaginationStrategy
 from strategies.lazy_load_strategy import LazyLoadStrategy
-from policies.engine import PolicyEngine, PolicyContext
+from policies.engine import PoliciesEngine as PolicyEngine
 
 
 class BaseParser:
@@ -259,15 +259,15 @@ class BaseParser:
             )
             
             # Обработка ответов через Policy Engine
-            context = PolicyContext(
-                url=url,
-                status_code=response.status_code,
-                response_text=response.text[:500] if response.text else ""
-            )
+            context = {
+                "url": url,
+                "status_code": response.status_code,
+                "response_text": response.text[:500] if response.text else ""
+            }
             
             if response.status_code == 403:
                 logger.warning(f"⚠️ Защита (403) на {url}")
-                action = self.policy_engine.execute(context)
+                action = await self.policy_engine.evaluate(context)
                 if action == "rotate_proxy_and_retry":
                     # TODO: Реализовать ротацию прокси
                     logger.info("🔄 Попытка ротации прокси...")

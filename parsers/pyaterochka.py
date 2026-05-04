@@ -70,8 +70,9 @@ class PyaterochkaParser(BaseParser):
                 "--disable-web-security",
             ]
             
+            # Запускаем браузер в видимом режиме, если не указан флаг headless
             self._browser = await self._playwright.chromium.launch(
-                headless=True,
+                headless=self._headless,
                 args=args
             )
             

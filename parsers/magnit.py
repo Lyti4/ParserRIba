@@ -147,7 +147,7 @@ class MagnitParser(BaseParser):
         """Парсинг отдельной карточки товара"""
         try:
             # Извлечение данных с использованием JS для надежности
-            data = await card.evaluate("""
+            data = await card.evaluate(r"""
                 (el, selectors) => {
                     const getText = (selector) => {
                         if (!selector) return null;

@@ -89,12 +89,25 @@ async def parse_store(
         
         all_products = []
         
+        # Получаем Knowledge Base для магазина чтобы найти URL категорий
+        store_kb = parser.kb
+        
         # Парсинг каждой категории
         for category in categories:
             logger.info(f"📦 Категория: {category}")
             
+            # Если категория - это ключ из KB, используем соответствующий URL
+            category_url = category
+            if store_kb and category in store_kb.categories:
+                category_url = store_kb.categories[category]
+                logger.debug(f"   URL категории: {category_url}")
+            elif store_kb and len(store_kb.categories) == 1:
+                # Если только одна категория в KB, используем её
+                category_url = list(store_kb.categories.values())[0]
+                logger.debug(f"   Используем URL из KB: {category_url}")
+            
             try:
-                products = await parser.parse_category(category)
+                products = await parser.parse_category(category_url)
                 all_products.extend(products)
                 logger.info(f"✅ Найдено товаров: {len(products)}")
                 

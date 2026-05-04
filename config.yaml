@@ -40,10 +40,10 @@ stores:
   pyaterochka:
     enabled: true
     categories:
-      - "fish_fresh"
-      - "fish_frozen"
-      - "fish_smoked"
-      - "fish_canned"
+      - "Рыба и морепродукты"
+      - "Копченая и соленая рыба"
+      - "Икра и рыбные деликатесы"
+      - "Рыбные консервы"
     region_id: "77"  # Москва по умолчанию
     
   magnit:

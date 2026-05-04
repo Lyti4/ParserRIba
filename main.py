@@ -107,9 +107,13 @@ async def parse_store(
                 logger.debug(f"   Используем URL из KB: {category_url}")
             
             try:
-                products = await parser.parse_category(category_url)
-                all_products.extend(products)
-                logger.info(f"✅ Найдено товаров: {len(products)}")
+                parse_result = await parser.parse_category(category_url)
+                # parse_result - это ParseResult, берем products из него
+                if parse_result and hasattr(parse_result, 'products'):
+                    all_products.extend(parse_result.products)
+                    logger.info(f"✅ Найдено товаров: {len(parse_result.products)}")
+                else:
+                    logger.warning(f"⚠️ Пустой результат для категории {category}")
                 
             except Exception as e:
                 logger.error(f"❌ Ошибка при парсинге категории {category}: {e}")

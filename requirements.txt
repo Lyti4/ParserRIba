@@ -20,6 +20,7 @@ pyyaml>=6.0.1
 python-dotenv>=1.0.0
 tenacity>=8.2.0  # Retries
 fake-useragent>=1.4.0
+loguru>=0.7.2  # Логирование
 
 # Экспорт данных
 # (опционально, если нужен CSV/Excel)

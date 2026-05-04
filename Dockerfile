@@ -24,9 +24,10 @@ WORKDIR /app
 
 # Копирование требований и установка зависимостей
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# Установка браузеров Playwright
+# Установка браузеров Playwright (после установки всех Python-зависимостей)
 RUN playwright install chromium
 RUN playwright install-deps chromium
 
@@ -34,7 +35,7 @@ RUN playwright install-deps chromium
 COPY . .
 
 # Создание директорий для вывода и логов
-RUN mkdir -p output logs
+RUN mkdir -p output logs data
 
 # Переменные окружения
 ENV PYTHONUNBUFFERED=1

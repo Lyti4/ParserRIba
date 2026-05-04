@@ -173,3 +173,27 @@ class ShopInfo(BaseModel):
             }
         }
     )
+
+
+class ParserConfig(BaseModel):
+    """Конфигурация парсера для конкретного магазина."""
+    shop_name: str = Field(..., description="Название магазина")
+    base_url: str = Field(..., description="Базовый URL магазина")
+    use_playwright: bool = Field(default=False, description="Использовать Playwright вместо curl-cffi")
+    proxy_required: bool = Field(default=False, description="Требуется ли прокси")
+    delay_between_requests: float = Field(default=1.0, description="Задержка между запросами в секундах")
+    max_retries: int = Field(default=3, description="Максимальное количество попыток")
+    timeout_seconds: int = Field(default=30, description="Таймаут запроса в секундах")
+    headers: dict = Field(default_factory=dict, description="HTTP заголовки")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "shop_name": "pyaterochka",
+                "base_url": "https://5ka.ru",
+                "use_playwright": False,
+                "delay_between_requests": 1.0,
+                "max_retries": 3
+            }
+        }
+    )

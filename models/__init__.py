@@ -15,7 +15,9 @@ from .schemas import (
     ProductPrice,
     ProductDimensions,
     CategoryInfo,
-    ParseResult
+    ParseResult,
+    ParserConfig,
+    ShopInfo
 )
 
 # Обратная совместимость

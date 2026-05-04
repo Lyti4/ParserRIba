@@ -69,7 +69,7 @@ class BaseParser:
         
         logger.info(f"🚀 Парсер {self.shop_name} инициализирован")
         if self.kb:
-            logger.info(f"   📚 Загружено {len(self.kb.category_urls)} категорий, {len(self.kb.selectors)} селекторов")
+            logger.info(f"   📚 Загружено {len(self.kb.categories)} категорий, {len(self.kb.selectors)} селекторов")
     
     def _load_knowledge_base(self):
         """Загрузка конфигурации из Knowledge Base"""
@@ -457,7 +457,7 @@ class BaseParser:
             return []
         
         results = []
-        for category_name, category_url in self.kb.category_urls.items():
+        for category_name, category_url in self.kb.categories.items():
             logger.info(f"📦 Парсинг категории: {category_name}")
             result = await self.parse_category(category_url)
             results.append(result)

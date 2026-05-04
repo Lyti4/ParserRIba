@@ -4,11 +4,14 @@
 """
 
 import asyncio
+from datetime import datetime
 from typing import List, Optional
 from playwright.async_api import Page, BrowserContext
 from pydantic import BaseModel
+from loguru import logger
 
-from .base_parser import BaseParser, ParseResult
+from .base import BaseParser
+from models.schemas import ParseResult, Product, ProductPrice, CategoryInfo
 from strategies.scroll_strategy import ScrollStrategy
 from strategies.lazy_load_strategy import LazyLoadStrategy
 
@@ -36,179 +39,134 @@ class PyaterochkaParser(BaseParser):
     - Региональность через X-Region-Id (настраивается в KB)
     """
 
-    def __init__(self, context: BrowserContext, shop_name: str = "pyaterochka"):
-        super().__init__(context, shop_name)
+    def __init__(self, shop_name: str = "pyaterochka", region: Optional[str] = None):
+        super().__init__(shop_name, region)
         
         # Инициализация стратегий, специфичных для Пятерочки
         self.strategies.append(ScrollStrategy(delay=1.0, steps=5))
         self.strategies.append(LazyLoadStrategy(timeout=5000))
-
-    async def parse_category(self, url: str, limit: int = 100) -> List[ParseResult]:
-        """
-        Парсинг категории товаров.
-        """
-        self.logger.info(f"Начало парсинга категории Пятерочка: {url}")
         
-        try:
-            # 1. Переход на страницу (с обработкой политик)
-            await self.navigate(url)
-            
-            # 2. Применение стратегий (скролл, ожидание JS)
-            await self.apply_strategies()
-            
-            # 3. Извлечение данных
-            products = await self._extract_products(limit)
-            
-            self.logger.info(f"Извлечено {len(products)} товаров из {url}")
-            return products
-            
-        except Exception as e:
-            self.logger.error(f"Ошибка при парсинге категории {url}: {e}")
-            # Политика обработки ошибок сработает автоматически в navigate/execute
-            raise
+        logger.info(f"PyaterochkaParser инициализирован для региона {region or 'default'}")
 
-    async def _extract_products(self, limit: int) -> List[ParseResult]:
+    async def _fetch_page(self, url: str, page: int) -> str:
         """
-        Внутренний метод извлечения товаров со страницы.
+        Получение HTML страницы.
+        Реализация абстрактного метода из BaseParser.
+        """
+        if self.config.use_playwright:
+            html = await self.fetch_page_playwright(url)
+        else:
+            html = await self.fetch_page(url)
+        
+        if not html:
+            raise Exception(f"Не удалось загрузить страницу {url}")
+        
+        return html
+
+    async def _parse_products(self, html: str, category_url: str) -> List[Product]:
+        """
+        Парсинг товаров из HTML.
         Использует селекторы из Knowledge Base.
         """
-        page = self.context.pages[0] if self.context.pages else await self.context.new_page()
+        from bs4 import BeautifulSoup
         
-        # Получаем селекторы из KB (уже загружены в base_parser)
-        selectors = self.kb_config.selectors
+        soup = BeautifulSoup(html, 'lxml')
+        products = []
         
-        # Ждем появления карточек товаров
-        card_selector = selectors.get("product_card", {}).get("css")
+        # Получаем селекторы из KB
+        card_selector = self._extract_selector("product_card")
         if not card_selector:
-            raise ValueError("Селектор product_card не найден в KB для Пятерочки")
-            
-        try:
-            await page.wait_for_selector(card_selector, timeout=10000)
-        except Exception:
-            self.logger.warning("Товары не найдены или страница не прогрузилась")
-            return []
-
-        # Скрипт извлечения данных внутри браузера
-        extraction_script = """
-        (selectors) => {
-            const results = [];
-            const cards = document.querySelectorAll(selectors.product_card);
-            
-            cards.forEach((card, index) => {
-                if (results.length >= selectors.limit) return;
-
-                // Хелпер для безопасного получения текста
-                const getText = (selector) => {
-                    const el = card.querySelector(selector);
-                    return el ? el.innerText.trim() : null;
-                };
-                
-                const getAttr = (selector, attr) => {
-                    const el = card.querySelector(selector);
-                    return el ? el.getAttribute(attr) : null;
-                };
-
-                // Название
-                let name = getText(selectors.product_name);
-                if (!name) name = getText(selectors.product_name_fallback);
-
-                // Цена
-                let priceStr = getText(selectors.price_current);
-                if (!priceStr) priceStr = getText(selectors.price_current_fallback);
-                const price = parseFloat(priceStr?.replace(/[^0-9.]/g, '') || '0');
-
-                // Старая цена
-                let oldPriceStr = getText(selectors.price_old);
-                const old_price = oldPriceStr ? parseFloat(oldPriceStr.replace(/[^0-9.]/g, '')) : null;
-
-                // Вес/Объем
-                let weight = getText(selectors.weight_volume);
-                if (!weight) weight = getText(selectors.weight_volume_fallback);
-
-                // Ссылка
-                let link = getAttr(selectors.product_link, 'href');
-                if (link && !link.startsWith('http')) {
-                    link = window.location.origin + link;
-                }
-
-                // Картинка
-                let image = getAttr(selectors.image_url, 'src') || getAttr(selectors.image_url, 'data-src');
-
-                // Скидка (бейдж)
-                let discountBadge = getText(selectors.discount_badge);
-                const discount = discountBadge ? parseInt(discountBadge.replace(/[^0-9]/g, '')) : null;
-
-                if (name && price > 0) {
-                    results.push({
-                        name: name,
-                        price: price,
-                        old_price: old_price,
-                        weight: weight,
-                        link: link,
-                        image_url: image,
-                        discount: discount,
-                        stock_status: "in_stock" // Упрощенно
-                    });
-                }
-            });
-            return results;
-        }
-        """
+            logger.warning("Селектор product_card не найден в KB")
+            return products
         
-        raw_data = await page.evaluate(extraction_script, {
-            **selectors,
-            "limit": limit
-        })
+        cards = soup.select(card_selector)
+        logger.info(f"Найдено {len(cards)} карточек товаров")
         
-        # Преобразование в Pydantic модели
-        results = []
-        for item in raw_data:
+        for card in cards:
             try:
-                product = PyaterochkaProduct(**item)
-                # Оборачиваем в стандартный ParseResult
-                results.append(ParseResult(
-                    raw_data=product.model_dump(),
-                    parsed_data=product,
-                    source_url=page.url,
-                    timestamp=self.get_timestamp()
-                ))
-            except Exception as e:
-                self.logger.warning(f"Не удалось валидировать товар: {e}, данные: {item}")
+                # Извлечение данных с использованием селекторов из KB
+                name_sel = self._extract_selector("product_name")
+                price_sel = self._extract_selector("price_current")
+                old_price_sel = self._extract_selector("price_old")
+                weight_sel = self._extract_selector("weight_volume")
+                link_sel = self._extract_selector("product_link")
+                image_sel = self._extract_selector("image_url")
                 
-        return results
-
-    async def check_availability(self, product_url: str) -> bool:
-        """Проверка доступности конкретного товара (опционально)"""
-        # Можно реализовать отдельную логику, если нужно заходить на карточку товара
-        return True
-
-
-# Точка входа для тестирования
-if __name__ == "__main__":
-    import asyncio
-    from playwright.async_api import async_playwright
-    
-    async def main():
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=False)
-            context = await browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            )
-            
-            parser = PyaterochkaParser(context)
-            
-            # Тестовая категория (рыба/морепродукты)
-            test_url = "https://5post.ru/catalog/ryba_i_moreprodukty/" 
-            # Примечание: URL может отличаться в зависимости от региона, проверить в KB
-            
-            try:
-                results = await parser.parse_category(test_url, limit=10)
-                print(f"\n✅ Найдено товаров: {len(results)}")
-                for r in results[:3]:
-                    print(f"- {r.parsed_data.name}: {r.parsed_data.price} ₽")
+                name = card.select_one(name_sel).get_text(strip=True) if name_sel and card.select_one(name_sel) else None
+                price_text = card.select_one(price_sel).get_text(strip=True) if price_sel and card.select_one(price_sel) else "0"
+                
+                # Очистка цены
+                price_value = float(''.join(c for c in price_text.replace(',', '.') if c.isdigit() or c == '.')) if price_text else 0.0
+                
+                old_price = None
+                if old_price_sel:
+                    old_price_el = card.select_one(old_price_sel)
+                    if old_price_el:
+                        old_price_text = old_price_el.get_text(strip=True)
+                        old_price = float(''.join(c for c in old_price_text.replace(',', '.') if c.isdigit() or c == '.'))
+                
+                weight = card.select_one(weight_sel).get_text(strip=True) if weight_sel and card.select_one(weight_sel) else None
+                
+                # Ссылка
+                link = None
+                if link_sel:
+                    link_el = card.select_one(link_sel)
+                    if link_el and link_el.has_attr('href'):
+                        link = link_el['href']
+                        if not link.startswith('http'):
+                            link = self.kb.base_url + link
+                
+                # Картинка
+                image_url = None
+                if image_sel:
+                    img_el = card.select_one(image_sel)
+                    if img_el:
+                        image_url = img_el.get('src') or img_el.get('data-src')
+                        if image_url and image_url.startswith('//'):
+                            image_url = 'https:' + image_url
+                
+                if name and price_value > 0:
+                    product = Product(
+                        name=name,
+                        price=ProductPrice(current=price_value, old=old_price),
+                        dimensions=None,
+                        image_url=image_url,
+                        product_link=link or category_url,
+                        category="Рыба и морепродукты",
+                        in_stock=True,
+                        raw_data={"weight": weight}
+                    )
+                    products.append(product)
+                    
             except Exception as e:
-                print(f"❌ Ошибка: {e}")
-            finally:
-                await browser.close()
+                logger.warning(f"Ошибка при парсинге карточки: {e}")
+                continue
+        
+        return products
 
-    asyncio.run(main())
+    async def _has_next_page(self, html: str, page: int) -> bool:
+        """Проверка наличия следующей страницы."""
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, 'lxml')
+        
+        next_selector = self._extract_selector("pagination_next")
+        if next_selector:
+            return soup.select_one(next_selector) is not None
+        
+        return False
+
+    async def _get_next_page_url(self, html: str, category_url: str, page: int) -> Optional[str]:
+        """Получение URL следующей страницы."""
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, 'lxml')
+        
+        next_selector = self._extract_selector("pagination_next")
+        if next_selector:
+            next_el = soup.select_one(next_selector)
+            if next_el and next_el.has_attr('href'):
+                next_url = next_el['href']
+                if not next_url.startswith('http'):
+                    next_url = self.kb.base_url + next_url
+                return next_url
+        
+        return None

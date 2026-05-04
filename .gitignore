@@ -1,1 +1,1 @@
-Nothing should be ignored based on the provided file changes, as they only include source code files (`main.py`, `parsers/pyaterochka.py`) without any build artifacts, dependencies, or temporary files.
+Nothing should be ignored based on the provided file changes. The modification of 'parsers/pyaterochka.py' is a source code file that should not be added to .gitignore.

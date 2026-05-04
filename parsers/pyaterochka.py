@@ -52,48 +52,57 @@ class PyaterochkaParser(BaseParser):
         logger.info(f"PyaterochkaParser инициализирован для региона {region or 'default'}")
 
     async def start_browser(self):
-        """Запуск браузера Playwright"""
+        """Запуск браузера Playwright с постоянным профилем для сохранения сессии"""
         try:
             from playwright.async_api import async_playwright
+            import os
             
             logger.info("🌐 Запуск браузера для Пятерочки...")
             
             self._playwright = await async_playwright().start()
+            
+            # Путь к профилю браузера (сохраняет cookies, localStorage)
+            user_data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'browser_profile_pyaterochka')
+            os.makedirs(user_data_dir, exist_ok=True)
+            logger.info(f"📁 Профиль браузера: {user_data_dir}")
             
             args = [
                 "--disable-blink-features=AutomationControlled",
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
                 "--disable-web-security",
+                "--disable-features=IsolateOrigins,site-per-process",
             ]
             
-            self._browser = await self._playwright.chromium.launch(
-                headless=False,
-                args=args
-            )
-            
-            self._context = await self._browser.new_context(
+            self._browser = await self._playwright.chromium.launch_persistent_context(
+                user_data_dir=user_data_dir,
+                headless=False,  # Видимый браузер для ручного прохождения капчи
+                args=args,
                 viewport={"width": 1920, "height": 1080},
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
                 locale="ru-RU",
-                timezone_id="Europe/Moscow"
+                timezone_id="Europe/Moscow",
+                bypass_csp=True,
+                ignore_https_errors=True,
             )
             
-            self._page = await self._context.new_page()
+            # Создаем новую страницу в контексте
+            self._page = self._browser.pages[0] if self._browser.pages else await self._browser.new_page()
             
-            # Применение stealth с использованием нового API
+            # Применение stealth через eval (альтернативный метод)
             try:
-                from playwright_stealth import Stealth
-                await Stealth(self._page).run()
+                from playwright_stealth import stealth_async
+                await stealth_async(self._page)
+                logger.info("✅ Stealth применен успешно")
             except ImportError:
                 logger.warning("⚠️ playwright_stealth не установлен, применяем базовую маскировку")
             
-            # Маскировка webdriver - расширенная версия
+            # Расширенная маскировка от детекции
             await self._page.add_init_script("""
+                // Маскировка webdriver
                 Object.defineProperty(navigator, 'webdriver', {
                     get: () => undefined
                 });
-                window.chrome = { runtime: {} };
                 
                 // Маскировка плагинов
                 Object.defineProperty(navigator, 'plugins', {
@@ -104,14 +113,40 @@ class PyaterochkaParser(BaseParser):
                 Object.defineProperty(navigator, 'languages', {
                     get: () => ['ru-RU', 'ru', 'en-US', 'en']
                 });
+                
+                // Маскировка hardware concurrency
+                Object.defineProperty(navigator, 'hardwareConcurrency', {
+                    get: () => 8
+                });
+                
+                // Маскировка device memory
+                Object.defineProperty(navigator, 'deviceMemory', {
+                    get: () => 8
+                });
+                
+                // Chrome runtime
+                window.chrome = { 
+                    runtime: {},
+                    loadTimes: function() {},
+                    csi: function() {}
+                };
+                
+                // Permissions
+                const originalQuery = window.navigator.permissions.query;
+                window.navigator.permissions.query = (parameters) => (
+                    parameters.name === 'notifications' ?
+                        Promise.resolve({ state: Notification.permission }) :
+                        originalQuery(parameters)
+                );
             """)
             
-            # Установка дополнительных заголовков
-            await self._context.set_extra_http_headers({
+            # Установка заголовков
+            await self._page.set_extra_http_headers({
                 "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
             })
             
-            logger.info("✅ Браузер запущен успешно")
+            logger.info("✅ Браузер запущен успешно с постоянным профилем")
             
         except ImportError as e:
             logger.warning(f"⚠️ Playwright не установлен: {e}")
@@ -126,17 +161,16 @@ class PyaterochkaParser(BaseParser):
             raise
 
     async def close_browser(self):
-        """Закрытие браузера"""
+        """Закрытие браузера с сохранением профиля"""
         try:
             if self._page:
                 await self._page.close()
-            if self._context:
-                await self._context.close()
+            # Для persistent context - закрываем только контекст, профиль сохраняется
             if self._browser:
                 await self._browser.close()
             if self._playwright:
                 await self._playwright.stop()
-            logger.info("🛑 Браузер закрыт")
+            logger.info("🛑 Браузер закрыт (профиль сохранен)")
         except Exception as e:
             logger.error(f"Ошибка при закрытии браузера: {e}")
 

@@ -12,14 +12,14 @@
 
 ## 🔗 URLs категорий
 
-### Основные категории (рыба и морепродукты)
+### Основные категории (рыба и морепродукты) - обновлено 2026-05-04
 
 | Категория | URL | Примечание |
 |-----------|-----|------------|
-| Рыба и морепродукты | `https://5ka.ru/cat/ryba_i_moreprodukty` | Основная категория |
-| Копченая и соленая рыба | `https://5ka.ru/cat/ryba_kopchenaya_i_solenaya` | Подкатегория |
-| Икра и рыбные деликатесы | `https://5ka.ru/cat/ikra_i_rybnye_delikatesy` | Премиум сегмент |
-| Рыбные консервы | `https://5ka.ru/cat/konservy_rybnye` | Консервированная продукция |
+| Рыба | `https://5ka.ru/catalog/ryba--251C13077/` | Основная категория |
+| Морепродукты | `https://5ka.ru/catalog/moreprodukty--251C13078/` | Подкатегория |
+| Котлеты и фарш | `https://5ka.ru/catalog/kotlety-farsh--251C13079/` | Полуфабрикаты |
+| Икра и закуски | `https://5ka.ru/catalog/ikra-zakuski--251C13080/` | Деликатесы |
 
 ### Дополнительные URL
 
@@ -47,7 +47,7 @@ div[data-testid="product-name"]
 ### Цена (Price) - текущая цена
 
 ```css
-span[data-testid="price-current"]
+span[data-testid="price-current"], span[class*="price-current"], [data-price]
 ```
 
 ### Старая цена (Old Price) - опционально

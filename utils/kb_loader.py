@@ -113,8 +113,8 @@ class KBLoader:
             field_mapping = {
                 "карточк": "product_card",
                 "названи": "product_name", 
+                "старая цена": "price_old",  # Проверяем ДО "цена"
                 "цена": "price_current",
-                "старая цена": "price_old",
                 "ссылк": "product_link",
                 "вес": "weight_volume",
                 "бренд": "brand",
@@ -158,7 +158,14 @@ class KBLoader:
                             # Убираем inline комментарии
                             selector = sel_line.split('/*')[0].strip()
                             if selector:
-                                current_selectors.append(selector)
+                                # Если селектор содержит запятую (несколько CSS селекторов), разделяем их
+                                if ',' in selector:
+                                    # Разделяем по запятой и добавляем каждый отдельно
+                                    for sub_sel in [s.strip() for s in selector.split(',')]:
+                                        if sub_sel:
+                                            current_selectors.append(sub_sel)
+                                else:
+                                    current_selectors.append(selector)
                         i += 1
                 
                 i += 1

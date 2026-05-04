@@ -10,6 +10,7 @@ import asyncio
 
 class ErrorType(Enum):
     """Types of errors that can occur during parsing."""
+    SUCCESS = "success"  # Добавлено для успешных операций
     HTTP_403 = "http_403"
     HTTP_404 = "http_404"
     HTTP_429 = "http_429"  # Rate limited

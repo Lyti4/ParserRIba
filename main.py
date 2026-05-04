@@ -78,10 +78,18 @@ async def parse_store(
         # Создание парсера
         parser = ParserFactory.get_parser(store_name, config, shop_name=store_name)
         
-        # Получение категорий из конфига или использование всех
+        # Получение категорий из конфига или использование всех из KB
         store_config = config.get("stores", {}).get(store_name, {})
+        
+        # Получаем Knowledge Base для магазина чтобы найти URL категорий
+        store_kb = parser.kb
+        
         if not categories:
-            categories = store_config.get("categories", [])
+            # Если категории не указаны, берем все из KB
+            if store_kb and store_kb.categories:
+                categories = list(store_kb.categories.keys())
+            else:
+                categories = store_config.get("categories", [])
         
         if not categories:
             logger.warning(f"Категории для {store_name} не указаны, пропускаем")
@@ -89,22 +97,32 @@ async def parse_store(
         
         all_products = []
         
-        # Получаем Knowledge Base для магазина чтобы найти URL категорий
-        store_kb = parser.kb
-        
         # Парсинг каждой категории
         for category in categories:
             logger.info(f"📦 Категория: {category}")
             
+            # Определяем URL категории
+            category_url = None
+            
             # Если категория - это ключ из KB, используем соответствующий URL
-            category_url = category
             if store_kb and category in store_kb.categories:
                 category_url = store_kb.categories[category]
-                logger.debug(f"   URL категории: {category_url}")
-            elif store_kb and len(store_kb.categories) == 1:
-                # Если только одна категория в KB, используем её
-                category_url = list(store_kb.categories.values())[0]
-                logger.debug(f"   Используем URL из KB: {category_url}")
+                logger.debug(f"   URL категории из KB: {category_url}")
+            # Если категория уже выглядит как URL (начинается с http)
+            elif category.startswith('http'):
+                category_url = category
+                logger.debug(f"   Используем URL напрямую: {category_url}")
+            # Пытаемся найти категорию по частичному совпадению
+            elif store_kb:
+                for kb_cat_name, kb_cat_url in store_kb.categories.items():
+                    if category.lower() in kb_cat_name.lower() or kb_cat_name.lower() in category.lower():
+                        category_url = kb_cat_url
+                        logger.debug(f"   Найдено совпадение в KB: {kb_cat_name} -> {category_url}")
+                        break
+            
+            if not category_url:
+                logger.error(f"❌ Не удалось определить URL для категории: {category}")
+                continue
             
             try:
                 parse_result = await parser.parse_category(category_url)

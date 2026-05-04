@@ -182,6 +182,8 @@ class BaseParser(ABC):
                 products=[],
                 total_products=0,
                 page=page,
+                has_next_page=False,
+                next_page_url=None,
                 errors=errors,
                 warnings=warnings,
                 parsed_at=datetime.now()

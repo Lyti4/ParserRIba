@@ -57,7 +57,7 @@ class PyaterochkaParser(BaseParser):
         """Запуск браузера Playwright"""
         try:
             from playwright.async_api import async_playwright
-            from playwright_stealth import stealth
+            from playwright_stealth import stealth_async
             
             logger.info("🌐 Запуск браузера для Пятерочки...")
             
@@ -83,7 +83,7 @@ class PyaterochkaParser(BaseParser):
             self._page = await self._context.new_page()
             
             # Применение stealth
-            await stealth(self._page)
+            await stealth_async(self._page)
             
             # Маскировка webdriver
             await self._page.add_init_script("""

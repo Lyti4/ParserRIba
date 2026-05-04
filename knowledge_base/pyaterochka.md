@@ -35,80 +35,49 @@
 ### Карточка товара (Product Card)
 
 ```css
-/* Приоритет по порядку */
 div[data-testid="product-card"]
-div.catalog-item
-article.product-card
-[class*="product"]
-[class*="card"]
 ```
 
 ### Название товара (Name)
 
 ```css
-h3
-[class*="name"]
-[class*="title"]
-a[href*="/prod/"]
-[data-testid*="name"]
+div[data-testid="product-name"]
 ```
 
-### Цена (Price)
+### Цена (Price) - текущая цена
 
 ```css
-[class*="price"]
-[class*="cost"]
-span[data-testid*="price"]
-[data-price]
-.current-price
-.price-value
+span[data-testid="price-current"]
 ```
 
 ### Старая цена (Old Price) - опционально
 
 ```css
-[class*="old-price"]
-[class*="discount"]
-.was-price
-[class*="strikethrough"]
+span[data-testid="price-old"]
 ```
 
 ### Ссылка на товар (Product Link)
 
 ```css
-a[href*="/prod/"]
-a[href*="/product/"]
-.card-link
-[data-testid="product-link"]
+div[data-testid="product-card"] a
 ```
 
 ### Вес/Объем (Weight)
 
 ```css
-[class*="weight"]
-[class*="volume"]
-[data-weight]
-.product-weight
-.unit
+span[data-testid="product-weight"]
 ```
 
 ### Бренд (Brand)
 
 ```css
-[class*="brand"]
-[class*="manufacturer"]
-[data-brand]
-.product-brand
-.maker-name
+span[data-testid="product-brand"]
 ```
 
 ### Изображение (Image)
 
 ```css
-img.product-image
-[data-src]
-.picture img
-[class*="image"] img
+img[data-testid="product-image"]
 ```
 
 ---

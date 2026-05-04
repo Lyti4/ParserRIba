@@ -254,7 +254,13 @@ class BaseParser(ABC):
         selector = self.kb.selectors.get(selector_type)
         if selector:
             # Приоритет: CSS > XPath > Regex
-            return selector.css or selector.xpath or selector.regex
+            css_value = selector.css or selector.xpath or selector.regex
+            if css_value:
+                # Если селектор содержит разделители '|', берем первый валидный
+                if '|' in css_value:
+                    selectors = [s.strip() for s in css_value.split('|')]
+                    return selectors[0] if selectors else None
+                return css_value
         return None
     
     async def parse_all_categories(self) -> List[ParseResult]:

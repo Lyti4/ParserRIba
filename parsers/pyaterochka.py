@@ -12,8 +12,6 @@ from loguru import logger
 
 from .base import BaseParser
 from models.schemas import ParseResult, Product, ProductPrice, CategoryInfo
-from strategies.scroll_strategy import ScrollStrategy
-from strategies.lazy_load_strategy import LazyLoadStrategy
 
 
 class PyaterochkaProduct(BaseModel):
@@ -57,7 +55,6 @@ class PyaterochkaParser(BaseParser):
         """Запуск браузера Playwright"""
         try:
             from playwright.async_api import async_playwright
-            from playwright_stealth import Stealth
             
             logger.info("🌐 Запуск браузера для Пятерочки...")
             
@@ -77,22 +74,42 @@ class PyaterochkaParser(BaseParser):
             
             self._context = await self._browser.new_context(
                 viewport={"width": 1920, "height": 1080},
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                locale="ru-RU",
+                timezone_id="Europe/Moscow"
             )
             
             self._page = await self._context.new_page()
             
             # Применение stealth с использованием нового API
-            stealth = Stealth()
-            await stealth.apply_stealth_async(self._page)
+            try:
+                from playwright_stealth import stealth_async
+                await stealth_async(self._page)
+            except ImportError:
+                logger.warning("⚠️ playwright_stealth не установлен, применяем базовую маскировку")
             
-            # Маскировка webdriver
+            # Маскировка webdriver - расширенная версия
             await self._page.add_init_script("""
                 Object.defineProperty(navigator, 'webdriver', {
                     get: () => undefined
                 });
                 window.chrome = { runtime: {} };
+                
+                // Маскировка плагинов
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [1, 2, 3, 4, 5]
+                });
+                
+                // Маскировка языков
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['ru-RU', 'ru', 'en-US', 'en']
+                });
             """)
+            
+            # Установка дополнительных заголовков
+            await self._context.set_extra_http_headers({
+                "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+            })
             
             logger.info("✅ Браузер запущен успешно")
             
@@ -136,33 +153,25 @@ class PyaterochkaParser(BaseParser):
             # Случайная задержка перед запросом
             await asyncio.sleep(random.uniform(1.0, 2.5))
             
-            await self._page.goto(url, wait_until="networkidle", timeout=timeout)
+            await self._page.goto(url, wait_until="domcontentloaded", timeout=timeout)
+            
+            # Ждем появления карточек товаров перед продолжением
+            try:
+                await self._page.wait_for_selector('div[data-testid="product-card"]', timeout=10000)
+            except:
+                pass  # Игнорируем если не найдено, продолжаем
+            
+            # Дополнительная задержка для полной загрузки контента
+            await asyncio.sleep(3)
             
             if wait_selector:
                 await self._page.wait_for_selector(wait_selector, timeout=timeout)
             
-            # Применение стратегий (если они есть)
-            if self.strategies:
-                for strategy in self.strategies:
-                    try:
-                        await strategy.apply(self._page)
-                    except Exception as strat_err:
-                        logger.warning(f"⚠️ Стратегия не применилась: {strat_err}")
-            else:
-                # Если стратегии не инициализированы, просто делаем скролл
-                await self._page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                await asyncio.sleep(1.5)
-                await self._page.evaluate("window.scrollTo(0, 0)")
-                await asyncio.sleep(0.5)
-            
-            # Дополнительная задержка после загрузки для стабилизации страницы
-            await asyncio.sleep(random.uniform(2.0, 3.0))
-            
-            # Ждем пока страница перестанет меняться
-            try:
-                await self._page.wait_for_load_state("networkidle", timeout=5000)
-            except:
-                pass  # Игнорируем таймаут, продолжаем
+            # Скроллинг для загрузки lazy-load контента
+            await self._page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            await asyncio.sleep(2)
+            await self._page.evaluate("window.scrollTo(0, 0)")
+            await asyncio.sleep(1)
             
             content = await self._page.content()
             logger.info(f"✅ Страница загружена успешно")
@@ -179,12 +188,8 @@ class PyaterochkaParser(BaseParser):
 
     async def _init_strategies(self):
         """Инициализация стратегий после создания страницы"""
-        if not self._page:
-            return
-        scroll_config = {"scroll_delay": 1.0, "max_scrolls": 5}
-        lazy_config = {"scroll_delay": 0.5, "check_interval": 1.0}
-        self.strategies.append(ScrollStrategy(page=self._page, config=scroll_config))
-        self.strategies.append(LazyLoadStrategy(page=self._page, config=lazy_config))
+        # Стратегии больше не используются, скроллинг выполняется в fetch_page_playwright
+        pass
 
     async def _fetch_page(self, url: str, page: int) -> str:
         """

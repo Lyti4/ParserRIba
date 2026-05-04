@@ -4,6 +4,7 @@
 """
 
 import asyncio
+import re
 import time
 from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
@@ -251,16 +252,59 @@ class BaseParser(ABC):
         Returns:
             CSS/XPath селектор или None
         """
+        import re as regex_module
         selector = self.kb.selectors.get(selector_type)
         if selector:
             # Приоритет: CSS > XPath > Regex
             css_value = selector.css or selector.xpath or selector.regex
             if css_value:
-                # Если селектор содержит разделители '|', берем первый валидный
-                if '|' in css_value:
-                    selectors = [s.strip() for s in css_value.split('|')]
-                    return selectors[0] if selectors else None
-                return css_value
+                # Поддерживаем несколько форматов разделения селекторов:
+                # 1. " | " - разделитель с пробелами (наш формат fallback)
+                # 2. "," - запятая (CSS формат для множественных селекторов)
+                # Проверяем наличие разделителей
+                
+                # Проверка на pipe разделитель (с пробелами или множественные |)
+                has_pipe = ' | ' in css_value or (css_value.count('|') > 2)
+                
+                # Проверка на запятую как разделитель CSS селекторов
+                # Запятая должна быть не внутри квадратных скобок []
+                has_comma = ',' in css_value
+                
+                if has_pipe:
+                    # Разделяем по '|' с любыми пробелами и очищаем каждый селектор
+                    separators = regex_module.split(r'\s*\|\s*', css_value)
+                    selectors = [s.strip() for s in separators]
+                elif has_comma:
+                    # Разделяем по запятой (CSS multiple selectors)
+                    # Но только если запятая не внутри атрибутов [...]
+                    selectors = []
+                    current = ""
+                    bracket_depth = 0
+                    for char in css_value:
+                        if char == '[':
+                            bracket_depth += 1
+                            current += char
+                        elif char == ']':
+                            bracket_depth -= 1
+                            current += char
+                        elif char == ',' and bracket_depth == 0:
+                            selectors.append(current.strip())
+                            current = ""
+                        else:
+                            current += char
+                    if current.strip():
+                        selectors.append(current.strip())
+                else:
+                    return css_value
+                
+                # Возвращаем первый непустой селектор который не является regex паттерном
+                for sel in selectors:
+                    if sel and not sel.startswith('^') and not sel.startswith('('):
+                        return sel
+                
+                # Если все селекторы отфильтрованы, возвращаем первый
+                return selectors[0] if selectors else None
+        
         return None
     
     async def parse_all_categories(self) -> List[ParseResult]:

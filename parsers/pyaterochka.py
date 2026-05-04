@@ -135,17 +135,33 @@ class PyaterochkaParser(BaseParser):
             # Случайная задержка перед запросом
             await asyncio.sleep(random.uniform(1.0, 2.5))
             
-            await self._page.goto(url, wait_until="domcontentloaded", timeout=timeout)
+            await self._page.goto(url, wait_until="networkidle", timeout=timeout)
             
             if wait_selector:
                 await self._page.wait_for_selector(wait_selector, timeout=timeout)
             
-            # Применение стратегий
-            for strategy in self.strategies:
-                await strategy.apply(self._page)
+            # Применение стратегий (если они есть)
+            if self.strategies:
+                for strategy in self.strategies:
+                    try:
+                        await strategy.apply(self._page)
+                    except Exception as strat_err:
+                        logger.warning(f"⚠️ Стратегия не применилась: {strat_err}")
+            else:
+                # Если стратегии не инициализированы, просто делаем скролл
+                await self._page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                await asyncio.sleep(1.5)
+                await self._page.evaluate("window.scrollTo(0, 0)")
+                await asyncio.sleep(0.5)
             
-            # Дополнительная задержка после загрузки
-            await asyncio.sleep(random.uniform(1.0, 2.0))
+            # Дополнительная задержка после загрузки для стабилизации страницы
+            await asyncio.sleep(random.uniform(2.0, 3.0))
+            
+            # Ждем пока страница перестанет меняться
+            try:
+                await self._page.wait_for_load_state("networkidle", timeout=5000)
+            except:
+                pass  # Игнорируем таймаут, продолжаем
             
             content = await self._page.content()
             logger.info(f"✅ Страница загружена успешно")
@@ -162,17 +178,21 @@ class PyaterochkaParser(BaseParser):
 
     async def _init_strategies(self):
         """Инициализация стратегий после создания страницы"""
+        if not self._page:
+            return
         scroll_config = {"scroll_delay": 1.0, "max_scrolls": 5}
         lazy_config = {"scroll_delay": 0.5, "check_interval": 1.0}
-        self.strategies.append(ScrollStrategy(page=self.page, config=scroll_config))
-        self.strategies.append(LazyLoadStrategy(page=self.page, config=lazy_config))
+        self.strategies.append(ScrollStrategy(page=self._page, config=scroll_config))
+        self.strategies.append(LazyLoadStrategy(page=self._page, config=lazy_config))
 
     async def _fetch_page(self, url: str, page: int) -> str:
         """
         Получение HTML страницы.
         Реализация абстрактного метода из BaseParser.
         """
-        if self.config.use_playwright:
+        if not hasattr(self, 'config') or not self.config:
+            html = await self.fetch_page_playwright(url)
+        elif getattr(self.config, 'use_playwright', True):
             html = await self.fetch_page_playwright(url)
         else:
             html = await self.fetch_page(url)

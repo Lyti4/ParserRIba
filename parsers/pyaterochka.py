@@ -189,11 +189,29 @@ class PyaterochkaParser(BaseParser):
             
             await self._page.goto(url, wait_until="domcontentloaded", timeout=timeout)
             
+            logger.info("⏳ Ожидание прохождения капчи вручную (30 секунд)...")
+            logger.info("💡 Решите капчу в открывшемся окне браузера, если она появилась")
+            await asyncio.sleep(30)  # Даем время пользователю пройти капчу
+            
+            # Проверяем, не появилась ли снова капча после ожидания
+            captcha_indicators = [
+                'iframe[src*="captcha"]',
+                '[class*="captcha"]',
+                '[id*="captcha"]',
+                'div[style*="captcha"]'
+            ]
+            for indicator in captcha_indicators:
+                if await self._page.query_selector(indicator):
+                    logger.warning("⚠️ Обнаружена капча на странице. Продолжаем ожидание...")
+                    await asyncio.sleep(15)  # Дополнительное ожидание
+                    break
+            
             # Ждем появления карточек товаров перед продолжением
             try:
                 await self._page.wait_for_selector('div[data-testid="product-card"]', timeout=10000)
+                logger.info("✅ Карточки товаров найдены")
             except:
-                pass  # Игнорируем если не найдено, продолжаем
+                logger.warning("⚠️ Карточки товаров не найдены, продолжаем без ожидания")
             
             # Дополнительная задержка для полной загрузки контента
             await asyncio.sleep(3)

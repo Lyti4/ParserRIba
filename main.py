@@ -76,7 +76,7 @@ async def parse_store(
     
     try:
         # Создание парсера
-        parser = ParserFactory.get_parser(store_name, config)
+        parser = ParserFactory.get_parser(store_name, config, shop_name=store_name)
         
         # Получение категорий из конфига или использование всех
         store_config = config.get("stores", {}).get(store_name, {})

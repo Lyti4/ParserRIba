@@ -253,7 +253,8 @@ class BaseParser(ABC):
         """
         selector = self.kb.selectors.get(selector_type)
         if selector:
-            return selector.value
+            # Приоритет: CSS > XPath > Regex
+            return selector.css or selector.xpath or selector.regex
         return None
     
     async def parse_all_categories(self) -> List[ParseResult]:

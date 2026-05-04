@@ -83,8 +83,8 @@ class PyaterochkaParser(BaseParser):
             
             # Применение stealth с использованием нового API
             try:
-                from playwright_stealth import stealth
-                await stealth(self._page)
+                from playwright_stealth import Stealth
+                await Stealth(self._page).run()
             except ImportError:
                 logger.warning("⚠️ playwright_stealth не установлен, применяем базовую маскировку")
             

@@ -39,13 +39,126 @@ class PyaterochkaParser(BaseParser):
     - Региональность через X-Region-Id (настраивается в KB)
     """
 
-    def __init__(self, shop_name: str = "pyaterochka", region: Optional[str] = None, config: Optional[dict] = None):
+    def __init__(self, config: Optional[dict] = None, shop_name: str = "pyaterochka", region: Optional[str] = None, **kwargs):
         super().__init__(shop_name, region)
         
         # Сохраняем конфиг для дальнейшего использования
         self.config_dict = config or {}
         
+        # Playwright атрибуты
+        self._playwright = None
+        self._browser = None
+        self._context = None
+        self._page = None
+        
         logger.info(f"PyaterochkaParser инициализирован для региона {region or 'default'}")
+
+    async def start_browser(self):
+        """Запуск браузера Playwright"""
+        try:
+            from playwright.async_api import async_playwright
+            from playwright_stealth import stealth
+            
+            logger.info("🌐 Запуск браузера для Пятерочки...")
+            
+            self._playwright = await async_playwright().start()
+            
+            args = [
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-web-security",
+            ]
+            
+            self._browser = await self._playwright.chromium.launch(
+                headless=True,
+                args=args
+            )
+            
+            self._context = await self._browser.new_context(
+                viewport={"width": 1920, "height": 1080},
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+            
+            self._page = await self._context.new_page()
+            
+            # Применение stealth
+            await stealth(self._page)
+            
+            # Маскировка webdriver
+            await self._page.add_init_script("""
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+                window.chrome = { runtime: {} };
+            """)
+            
+            logger.info("✅ Браузер запущен успешно")
+            
+        except ImportError as e:
+            logger.warning(f"⚠️ Playwright не установлен: {e}")
+            raise
+        except Exception as e:
+            error_msg = str(e)
+            if "Executable doesn't exist" in error_msg or "ENOSPC" in error_msg:
+                logger.error("❌ Не удалось запустить браузер: недостаточно места на диске или браузер не установлен.")
+                logger.error("💡 Попробуйте освободить место или используйте curl-cffi вместо Playwright.")
+            else:
+                logger.error(f"❌ Ошибка запуска браузера: {e}")
+            raise
+
+    async def close_browser(self):
+        """Закрытие браузера"""
+        try:
+            if self._page:
+                await self._page.close()
+            if self._context:
+                await self._context.close()
+            if self._browser:
+                await self._browser.close()
+            if self._playwright:
+                await self._playwright.stop()
+            logger.info("🛑 Браузер закрыт")
+        except Exception as e:
+            logger.error(f"Ошибка при закрытии браузера: {e}")
+
+    async def fetch_page_playwright(self, url: str, wait_selector: Optional[str] = None, timeout: int = 30000) -> str:
+        """Загрузка через Playwright (для JS сайтов)"""
+        import random
+        
+        try:
+            if not self._page:
+                await self.start_browser()
+            
+            logger.info(f"🔗 Запрос к {url} через Playwright...")
+            
+            # Случайная задержка перед запросом
+            await asyncio.sleep(random.uniform(1.0, 2.5))
+            
+            await self._page.goto(url, wait_until="domcontentloaded", timeout=timeout)
+            
+            if wait_selector:
+                await self._page.wait_for_selector(wait_selector, timeout=timeout)
+            
+            # Применение стратегий
+            for strategy in self.strategies:
+                await strategy.apply(self._page)
+            
+            # Дополнительная задержка после загрузки
+            await asyncio.sleep(random.uniform(1.0, 2.0))
+            
+            content = await self._page.content()
+            logger.info(f"✅ Страница загружена успешно")
+            return content
+            
+        except Exception as e:
+            error_msg = str(e)
+            if "Executable doesn't exist" in error_msg or "ENOSPC" in error_msg:
+                logger.error("❌ Ошибка Playwright: недостаточно места на диске или браузер не установлен.")
+                logger.error("💡 Попробуйте освободить место или использовать curl-cffi вместо Playwright.")
+            else:
+                logger.error(f"❌ Ошибка Playwright запроса: {e}")
+            raise
 
     async def _init_strategies(self):
         """Инициализация стратегий после создания страницы"""

@@ -1,83 +1,14 @@
 ```
-# Python compiled files
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# Dependencies
-.venv/
-venv/
-env/
-pip-log.txt
-pip-selfcheck.json
-
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-*.swo
-
-# Environment variables
-.env
-.env.local
-.env.*
-.env~*
-
-# Editors
-.vscode/
-.idea/
-*.sublime-project
-*.sublime-workspace
-nbproject/
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Testing
-.coverage
-htmlcov/
-.tox/
-.nox/
-coverage.xml
-*.cover
-.hypothesis/
-
-# Build and distribution artifacts
-build/
-dist/
-*.egg
-*.egg-info/
+# Compiled Python files
+*.pyc
+*.pyo
+*.pyd
 *.so
-.libs/
-.deps/
-
-# Documentation
-docs/_build/
-
-# Virtual environments
-.venv/
-venv/
-ENV/
-env/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# MyPy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pytest
-.pytest_cache/
-
-# Coverage
-.coverage*
+*.egg-info/
 ```

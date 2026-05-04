@@ -39,14 +39,20 @@ class PyaterochkaParser(BaseParser):
     - Региональность через X-Region-Id (настраивается в KB)
     """
 
-    def __init__(self, shop_name: str = "pyaterochka", region: Optional[str] = None):
+    def __init__(self, shop_name: str = "pyaterochka", region: Optional[str] = None, config: Optional[dict] = None):
         super().__init__(shop_name, region)
         
-        # Инициализация стратегий, специфичных для Пятерочки
-        self.strategies.append(ScrollStrategy(delay=1.0, steps=5))
-        self.strategies.append(LazyLoadStrategy(timeout=5000))
+        # Сохраняем конфиг для дальнейшего использования
+        self.config_dict = config or {}
         
         logger.info(f"PyaterochkaParser инициализирован для региона {region or 'default'}")
+
+    async def _init_strategies(self):
+        """Инициализация стратегий после создания страницы"""
+        scroll_config = {"scroll_delay": 1.0, "max_scrolls": 5}
+        lazy_config = {"scroll_delay": 0.5, "check_interval": 1.0}
+        self.strategies.append(ScrollStrategy(page=self.page, config=scroll_config))
+        self.strategies.append(LazyLoadStrategy(page=self.page, config=lazy_config))
 
     async def _fetch_page(self, url: str, page: int) -> str:
         """

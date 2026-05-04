@@ -115,7 +115,10 @@ class BaseParser(ABC):
             # Проверка политик после успешного парсинга
             context.response_status = 200
             context.products_count = len(products)
-            self.policy_engine.evaluate(context)
+            if not context.request_id:
+                import uuid
+                context.request_id = str(uuid.uuid4())
+            await self.policy_engine.evaluate(ErrorType.SUCCESS, context.request_id, {"products_count": len(products)})
             
             # Применение стратегий пост-обработки
             await self._apply_post_strategies(products)
@@ -150,11 +153,23 @@ class BaseParser(ABC):
             # Обработка ошибок через политики
             context.error = str(e)
             context.response_status = getattr(e, 'status_code', 500)
+            if not context.request_id:
+                import uuid
+                context.request_id = str(uuid.uuid4())
             
-            action = self.policy_engine.evaluate(context)
+            # Определение типа ошибки
+            error_type = ErrorType.UNKNOWN
+            if "403" in str(e):
+                error_type = ErrorType.FORBIDDEN
+            elif "timeout" in str(e).lower():
+                error_type = ErrorType.TIMEOUT
+            elif "captcha" in str(e).lower():
+                error_type = ErrorType.CAPTCHA
             
-            if action.retry:
-                print(f"⚠️  Policy triggered retry: {action.reason}")
+            action = await self.policy_engine.evaluate(error_type, context.request_id, {"error": str(e)})
+            
+            if action.should_retry:
+                print(f"⚠️  Policy triggered retry: {action.message}")
                 return await self.parse_category(category_url, page)
             
             errors.append(f"Parse error: {str(e)}")

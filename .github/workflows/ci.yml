@@ -50,3 +50,27 @@ jobs:
       
     - name: Test Docker container
       run: docker run --rm parserriba:latest echo "Docker build successful"
+
+    - name: Run Parser Demo (1 store, limited)
+      run: |
+        # Запускаем парсер в демо-режиме: только Пятерочка, 1 категория, headless
+        # Таймаут 5 минут для демонстрации
+        timeout 300 docker run --rm \
+          -e PYTHONUNBUFFERED=1 \
+          parserriba:latest \
+          python main.py \
+            --store pyaterochka \
+            --category fish_fresh \
+            --log-level INFO \
+            --headless \
+            --config config.yaml
+      continue-on-error: true
+      
+    - name: Show demo results
+      run: |
+        echo "=== Демо-запуск завершен ==="
+        echo "Проверка созданных файлов:"
+        ls -la data/ 2>/dev/null || echo "Директория data не создана (парсинг мог не завершиться)"
+        echo ""
+        echo "Последние строки логов:"
+        tail -n 20 logs/parser_riba.log 2>/dev/null || echo "Логфайл не найден"

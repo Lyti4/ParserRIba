@@ -217,7 +217,7 @@ class BaseParser(ABC):
     def _get_category_name(self, url: str) -> str:
         """Извлечение названия категории из URL или KB."""
         # Поиск в KB
-        for name, cat_url in self.kb.category_urls.items():
+        for name, cat_url in self.kb.categories.items():
             if cat_url in url or url in cat_url:
                 return name
         

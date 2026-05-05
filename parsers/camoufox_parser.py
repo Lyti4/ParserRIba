@@ -190,12 +190,52 @@ class CamoufoxParser(BaseParser):
             await asyncio.sleep(random.uniform(1.0, 2.5))
             
             # Переход на страницу с ожиданием networkidle
-            await self._page.goto(url, wait_until="networkidle", timeout=timeout)
+            await self._page.goto(url, wait_until="domcontentloaded", timeout=timeout)
             
-            # Ждём появления нужного элемента если указан
-            if wait_for_selector:
+            # Проверка на капчу или страницу защиты
+            await asyncio.sleep(2.0)  # Небольшая пауза для загрузки страницы проверки
+            
+            captcha_selectors = [
+                'iframe[src*="captcha"]',
+                'div[class*="captcha"]',
+                'div[class*="challenge"]',
+                '#challenge-form',
+                '.cf-browser-verification',
+                'h1:has-text("Checking")',
+                'h1:has-text("Проверка")'
+            ]
+            
+            captcha_detected = False
+            for selector in captcha_selectors:
+                try:
+                    captcha_element = await self._page.query_selector(selector)
+                    if captcha_element:
+                        captcha_detected = True
+                        break
+                except:
+                    continue
+            
+            if captcha_detected:
+                logger.warning("⚠️ Обнаружена капча или страница проверки!")
+                if not headless:
+                    logger.info("⏳ Ожидание ручного прохождения капчи (90 секунд)...")
+                    logger.info("💡 Решите капчу в открывшемся окне браузера")
+                    try:
+                        # Ждем появления товаров или таймаут 90 секунд
+                        await self._page.wait_for_selector(wait_for_selector, timeout=90000)
+                        logger.info("✅ Капча пройдена!")
+                    except Exception as e:
+                        logger.error(f"❌ Таймаут ожидания капчи: {e}")
+                        raise
+                else:
+                    logger.error("❌ Капча обнаружена, но браузер в фоновом режиме. Запустите с --no-headless")
+                    raise TimeoutError("Капча не может быть пройдена в фоновом режиме")
+            elif wait_for_selector:
                 logger.debug(f"⏳ Ожидание селектора: {wait_for_selector}")
-                await self._page.wait_for_selector(wait_for_selector, timeout=timeout)
+                try:
+                    await self._page.wait_for_selector(wait_for_selector, timeout=timeout)
+                except Exception as e:
+                    logger.warning(f"⚠️ Селектор не найден за {timeout}мс, продолжаем...")
             
             # Дополнительная задержка для полного рендеринга
             await asyncio.sleep(random.uniform(1.5, 2.5))

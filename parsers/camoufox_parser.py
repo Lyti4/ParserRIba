@@ -73,8 +73,7 @@ class CamoufoxParser(BaseParser):
             # Настройки для максимальной маскировки
             self._camoufox = AsyncCamoufox(
                 headless=headless,
-                # Геолокация - Москва
-                geolocation={"latitude": 55.7558, "longitude": 37.6173},
+                # Геолокация - Москва (передается в new_context, не в launch)
                 locale="ru-RU",
                 timezone="Europe/Moscow",
                 # Случайный viewport

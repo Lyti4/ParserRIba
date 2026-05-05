@@ -1,6 +1,6 @@
 """
 Парсер для магазина "Пятерочка" (5post.ru / x5.ru)
-Использует Camoufox для максимальной маскировки под реального пользователя.
+Использует Playwright с улучшенной маскировкой.
 """
 
 import asyncio
@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from loguru import logger
 
 from models.schemas import ParseResult, Product, ProductPrice, CategoryInfo
-from parsers.camoufox_parser import CamoufoxParser as BaseCamoufoxParser
+from parsers.base_parser import BaseParser
 
 
 class PyaterochkaProduct(BaseModel):
@@ -26,39 +26,30 @@ class PyaterochkaProduct(BaseModel):
     stock_status: str = "in_stock"  # in_stock, out_of_stock, low_stock
 
 
-class PyaterochkaParser(BaseCamoufoxParser):
+class PyaterochkaParser(BaseParser):
     """
-    Специфичный парсер для Пятерочки на базе Camoufox.
-    
-    Преимущества Camoufox перед Playwright:
-    - Лучшая маскировка navigator.webdriver
-    - Реальные отпечатки браузера (fingerprints)
-    - Встроенные аддоны для обхода детекции
-    - Меньше ресурсов чем Chromium
-    - Автоматическая эмуляция реального пользователя из России
+    Специфичный парсер для Пятерочки на базе Playwright.
     
     Особенности Пятерочки:
     - Использует data-атрибуты (data-naive-props и др.)
     - Требует скроллинга для подгрузки товаров
     - Региональность через X-Region-Id (настраивается в KB)
+    - Часто показывает капчу при автоматическом парсинге
     """
 
     def __init__(self, config: Optional[dict] = None, shop_name: str = "pyaterochka", region: Optional[str] = None, **kwargs):
-        # Инициализируем базовый Camoufox парсер
+        # Инициализируем базовый парсер
         super().__init__(
             store_name=shop_name,
             base_url="https://5ka.ru",
-            headless=kwargs.get('headless', False),  # По умолчанию видимый браузер для капчи
+            headless=kwargs.get('headless', True),
             region=region or "77"  # Москва по умолчанию
         )
         
         # Сохраняем конфиг для дальнейшего использования
         self.config_dict = config or {}
         
-        logger.info(f"PyaterochkaParser (Camoufox) инициализирован для региона {region or 'default'}")
-
-    # Методы start_browser, close_browser, fetch_page теперь наследуются от BaseCamoufoxParser
-    # Переопределяем только специфичные для Пятерочки методы парсинга
+        logger.info(f"PyaterochkaParser (Playwright) инициализирован для региона {region or 'default'}")
 
     async def parse_products_from_page(self, html: Optional[str] = None) -> List[Product]:
         """
@@ -93,8 +84,8 @@ class PyaterochkaParser(BaseCamoufoxParser):
         """
         logger.info(f"🛒 Парсинг категории: {url}")
         
-        # Загружаем страницу через Camoufox
-        html = await self.fetch_page_camoufox(
+        # Загружаем страницу через Playwright (наследуется от BaseParser)
+        html = await self.fetch_page(
             url=url,
             wait_for_selector='div[data-testid="product-card"]',
             scroll_down=True

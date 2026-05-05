@@ -1,13 +1,18 @@
 ```
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
 # Logs and temp files
 *.log
 *.tmp
-*.swp
 
 # Environment
 .env
 .env.local
-.env.*
+*.env.*
 
 # Editors
 .vscode/
@@ -16,29 +21,10 @@
 # Dependencies
 .venv/
 venv/
-__pycache__/
-.mypy_cache/
-.pytest_cache/
+node_modules/
 
 # Build artifacts
 dist/
 build/
 target/
-
-# Python
-*.pyc
-*.pyo
-*.pyd
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Coverage
-coverage/
-htmlcov/
-.coverage
-
-# Original rules preserved
-*.log
 ```

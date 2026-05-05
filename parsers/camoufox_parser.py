@@ -71,11 +71,15 @@ class CamoufoxParser(BaseParser):
             logger.info(f"🦊 Запуск Camoufox (headless={headless})...")
             
             # Настройки для максимальной маскировки
-            # Важно: viewport, timezone и geolocation передаются ТОЛЬКО в new_context, не в конструктор!
+            # OS_NAME может быть 'win', 'mac', 'linux'
+            # humanize добавляет случайные задержки и движения мыши
+            # i_know_what_im_doing отключает предупреждения для продакшена
             self._camoufox = AsyncCamoufox(
                 headless=headless,
                 locale="ru-RU",
-                exclude_addons=["ublock-origin"],
+                os_random=True,  # Случайная ОС из Windows/Mac/Linux
+                humanize=True,   # Эмуляция поведения человека
+                i_know_what_im_doing=True,  # Для стабильности
             )
             
             # Запускаем браузер через контекстный менеджер
@@ -86,6 +90,7 @@ class CamoufoxParser(BaseParser):
                 "viewport": {"width": 1920, "height": 1080},
                 "locale": "ru-RU",
                 "timezone_id": "Europe/Moscow",
+                "user_agent": await self._camoufox.get_ua(),  # Реальный UA от Camoufox
             }
             
             # Добавляем геолокацию только если она не None
@@ -96,7 +101,7 @@ class CamoufoxParser(BaseParser):
             
             # Добавляем заголовки региона из Knowledge Base
             if self.kb and self.kb.headers:
-                custom_headers = self.kb.headers.custom  # Исправлено: было .get("custom", {})
+                custom_headers = self.kb.headers.custom
                 headers_to_set = {}
                 for header, value in custom_headers.items():
                     if value == "required" and "Region" in header:
@@ -110,8 +115,16 @@ class CamoufoxParser(BaseParser):
             
             self._page = await self._context.new_page()
             
+            # Блокируем ресурсы для ускорения и скрытности
+            await self._page.route("**/*.{png,jpg,jpeg,gif,webp,svg,ico,woff,woff2,ttf,eot}", lambda route: route.abort())
+            await self._page.route("**/*.mp4", lambda route: route.abort())
+            await self._page.route("**/analytics/*", lambda route: route.abort())
+            await self._page.route("**/track/*", lambda route: route.abort())
+            await self._page.route("**/telemetry/*", lambda route: route.abort())
+            
             logger.info("✅ Camoufox запущен успешно")
-            logger.info("   🛡️ Маскировка: webdriver скрыт, fingerprint реалистичный")
+            logger.info("   🛡️ Маскировка: webdriver скрыт, fingerprint реалистичный, OS рандомизирован")
+            logger.info("   🚫 Блокировка: изображения, видео, трекеры, аналитика")
             
         except ImportError:
             logger.error("❌ Camoufox не установлен. Установите: pip install camoufox")

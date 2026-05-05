@@ -73,12 +73,9 @@ class CamoufoxParser(BaseParser):
             # Настройки для максимальной маскировки
             self._camoufox = AsyncCamoufox(
                 headless=headless,
-                # Геолокация - Москва (передается в new_context, не в launch)
                 locale="ru-RU",
                 timezone="Europe/Moscow",
-                # Случайный viewport
                 viewport={"width": 1920, "height": 1080},
-                # Исключаем тяжелые аддоны если мало памяти
                 exclude_addons=["ublock-origin"],
             )
             
@@ -86,12 +83,17 @@ class CamoufoxParser(BaseParser):
             self._browser = await self._camoufox.__aenter__()
             
             # Создаём контекст с настройками региона
-            self._context = await self._browser.new_context(
-                viewport={"width": 1920, "height": 1080},
-                locale="ru-RU",
-                timezone_id="Europe/Moscow",
-                geolocation={"latitude": 55.7558, "longitude": 37.6173},
-            )
+            context_args = {
+                "viewport": {"width": 1920, "height": 1080},
+                "locale": "ru-RU",
+                "timezone_id": "Europe/Moscow",
+            }
+            
+            # Добавляем геолокацию только если она не None
+            if self.region and self.region != "default":
+                context_args["geolocation"] = {"latitude": 55.7558, "longitude": 37.6173}
+            
+            self._context = await self._browser.new_context(**context_args)
             
             # Добавляем заголовки региона из Knowledge Base
             if self.kb and self.kb.headers:

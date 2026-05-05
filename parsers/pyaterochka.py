@@ -1,6 +1,6 @@
 """
-Парсер для магазина "Пятерочка" (5post.ru / x5.ru)
-Использует Playwright с улучшенной маскировкой.
+Парсер для магазина "Пятерочка" (5ka.ru)
+Использует Camoufox (Firefox с улучшенной маскировкой) для обхода антибот-систем.
 """
 
 import asyncio
@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from loguru import logger
 
 from models.schemas import ParseResult, Product, ProductPrice, CategoryInfo
-from parsers.base_parser import BaseParser
+from parsers.camoufox_parser import CamoufoxParser
 
 
 class PyaterochkaProduct(BaseModel):
@@ -26,9 +26,9 @@ class PyaterochkaProduct(BaseModel):
     stock_status: str = "in_stock"  # in_stock, out_of_stock, low_stock
 
 
-class PyaterochkaParser(BaseParser):
+class PyaterochkaParser(CamoufoxParser):
     """
-    Специфичный парсер для Пятерочки на базе Playwright.
+    Специфичный парсер для Пятерочки на базе Camoufox.
     
     Особенности Пятерочки:
     - Использует data-атрибуты (data-naive-props и др.)
@@ -38,7 +38,7 @@ class PyaterochkaParser(BaseParser):
     """
 
     def __init__(self, config: Optional[dict] = None, shop_name: str = "pyaterochka", region: Optional[str] = None, **kwargs):
-        # Инициализируем базовый парсер
+        # Инициализируем базовый парсер Camoufox
         super().__init__(
             store_name=shop_name,
             base_url="https://5ka.ru",
@@ -49,7 +49,7 @@ class PyaterochkaParser(BaseParser):
         # Сохраняем конфиг для дальнейшего использования
         self.config_dict = config or {}
         
-        logger.info(f"PyaterochkaParser (Playwright) инициализирован для региона {region or 'default'}")
+        logger.info(f"PyaterochkaParser (Camoufox) инициализирован для региона {region or 'default'}")
 
     async def parse_products_from_page(self, html: Optional[str] = None) -> List[Product]:
         """
@@ -84,8 +84,8 @@ class PyaterochkaParser(BaseParser):
         """
         logger.info(f"🛒 Парсинг категории: {url}")
         
-        # Загружаем страницу через Playwright (наследуется от BaseParser)
-        html = await self.fetch_page(
+        # Загружаем страницу через Camoufox (наследуется от CamoufoxParser)
+        html = await self.fetch_page_camoufox(
             url=url,
             wait_for_selector='div[data-testid="product-card"]',
             scroll_down=True

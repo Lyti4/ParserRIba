@@ -43,8 +43,9 @@ class CamoufoxParser(BaseParser):
             headless: Запуск в фоновом режиме
             region: Регион для X-Region header
         """
-        super().__init__(store_name, base_url, headless=headless)
+        super().__init__(shop_name=store_name, region=region, headless=headless)
         self.region = region
+        self.base_url = base_url
         
         # Camoufox атрибуты
         self._camoufox = None
@@ -143,6 +144,24 @@ class CamoufoxParser(BaseParser):
             logger.error(f"Ошибка при закрытии Camoufox: {e}")
     
     async def fetch_page_camoufox(
+        self, 
+        url: str, 
+        wait_for_selector: Optional[str] = None,
+        timeout: int = 30000,
+        scroll_down: bool = True
+    ) -> Optional[str]:
+        """
+        Загрузка страницы через Camoufox с полным рендерингом JavaScript.
+        Алиас для совместимости.
+        """
+        return await self.fetch_page(
+            url=url,
+            wait_for_selector=wait_for_selector,
+            timeout=timeout,
+            scroll_down=scroll_down
+        )
+
+    async def fetch_page(
         self, 
         url: str, 
         wait_for_selector: Optional[str] = None,

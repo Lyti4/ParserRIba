@@ -1,17 +1,16 @@
 """
 Парсер для магазина "Пятерочка" (5post.ru / x5.ru)
-Использует BaseParser, Knowledge Base и Strategies.
+Использует Camoufox для максимальной маскировки под реального пользователя.
 """
 
 import asyncio
 from datetime import datetime
 from typing import List, Optional
-from playwright.async_api import Page, BrowserContext
 from pydantic import BaseModel
 from loguru import logger
 
-from .base import BaseParser
 from models.schemas import ParseResult, Product, ProductPrice, CategoryInfo
+from parsers.camoufox_parser import CamoufoxParser as BaseCamoufoxParser
 
 
 class PyaterochkaProduct(BaseModel):
@@ -27,238 +26,91 @@ class PyaterochkaProduct(BaseModel):
     stock_status: str = "in_stock"  # in_stock, out_of_stock, low_stock
 
 
-class PyaterochkaParser(BaseParser):
+class PyaterochkaParser(BaseCamoufoxParser):
     """
-    Специфичный парсер для Пятерочки.
+    Специфичный парсер для Пятерочки на базе Camoufox.
     
-    Особенности:
+    Преимущества Camoufox перед Playwright:
+    - Лучшая маскировка navigator.webdriver
+    - Реальные отпечатки браузера (fingerprints)
+    - Встроенные аддоны для обхода детекции
+    - Меньше ресурсов чем Chromium
+    - Автоматическая эмуляция реального пользователя из России
+    
+    Особенности Пятерочки:
     - Использует data-атрибуты (data-naive-props и др.)
     - Требует скроллинга для подгрузки товаров
     - Региональность через X-Region-Id (настраивается в KB)
     """
 
     def __init__(self, config: Optional[dict] = None, shop_name: str = "pyaterochka", region: Optional[str] = None, **kwargs):
-        super().__init__(shop_name, region)
+        # Инициализируем базовый Camoufox парсер
+        super().__init__(
+            store_name=shop_name,
+            base_url="https://5ka.ru",
+            headless=kwargs.get('headless', False),  # По умолчанию видимый браузер для капчи
+            region=region or "77"  # Москва по умолчанию
+        )
         
         # Сохраняем конфиг для дальнейшего использования
         self.config_dict = config or {}
         
-        # Playwright атрибуты
-        self._playwright = None
-        self._browser = None
-        self._context = None
-        self._page = None
-        
-        logger.info(f"PyaterochkaParser инициализирован для региона {region or 'default'}")
+        logger.info(f"PyaterochkaParser (Camoufox) инициализирован для региона {region or 'default'}")
 
-    async def start_browser(self):
-        """Запуск браузера Playwright с постоянным профилем для сохранения сессии"""
-        try:
-            from playwright.async_api import async_playwright
-            import os
-            
-            logger.info("🌐 Запуск браузера для Пятерочки...")
-            
-            self._playwright = await async_playwright().start()
-            
-            # Путь к профилю браузера (сохраняет cookies, localStorage)
-            user_data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'browser_profile_pyaterochka')
-            os.makedirs(user_data_dir, exist_ok=True)
-            logger.info(f"📁 Профиль браузера: {user_data_dir}")
-            
-            args = [
-                "--disable-blink-features=AutomationControlled",
-                "--no-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-web-security",
-                "--disable-features=IsolateOrigins,site-per-process",
-            ]
-            
-            self._browser = await self._playwright.chromium.launch_persistent_context(
-                user_data_dir=user_data_dir,
-                headless=False,  # Видимый браузер для ручного прохождения капчи
-                args=args,
-                viewport={"width": 1920, "height": 1080},
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-                locale="ru-RU",
-                timezone_id="Europe/Moscow",
-                bypass_csp=True,
-                ignore_https_errors=True,
-            )
-            
-            # Создаем новую страницу в контексте
-            self._page = self._browser.pages[0] if self._browser.pages else await self._browser.new_page()
-            
-            # Применение stealth через eval (альтернативный метод)
-            try:
-                from playwright_stealth import stealth_async
-                await stealth_async(self._page)
-                logger.info("✅ Stealth применен успешно")
-            except ImportError:
-                logger.warning("⚠️ playwright_stealth не установлен, применяем базовую маскировку")
-            
-            # Расширенная маскировка от детекции
-            await self._page.add_init_script("""
-                // Маскировка webdriver
-                Object.defineProperty(navigator, 'webdriver', {
-                    get: () => undefined
-                });
-                
-                // Маскировка плагинов
-                Object.defineProperty(navigator, 'plugins', {
-                    get: () => [1, 2, 3, 4, 5]
-                });
-                
-                // Маскировка языков
-                Object.defineProperty(navigator, 'languages', {
-                    get: () => ['ru-RU', 'ru', 'en-US', 'en']
-                });
-                
-                // Маскировка hardware concurrency
-                Object.defineProperty(navigator, 'hardwareConcurrency', {
-                    get: () => 8
-                });
-                
-                // Маскировка device memory
-                Object.defineProperty(navigator, 'deviceMemory', {
-                    get: () => 8
-                });
-                
-                // Chrome runtime
-                window.chrome = { 
-                    runtime: {},
-                    loadTimes: function() {},
-                    csi: function() {}
-                };
-                
-                // Permissions
-                const originalQuery = window.navigator.permissions.query;
-                window.navigator.permissions.query = (parameters) => (
-                    parameters.name === 'notifications' ?
-                        Promise.resolve({ state: Notification.permission }) :
-                        originalQuery(parameters)
-                );
-            """)
-            
-            # Установка заголовков
-            await self._page.set_extra_http_headers({
-                "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            })
-            
-            logger.info("✅ Браузер запущен успешно с постоянным профилем")
-            
-        except ImportError as e:
-            logger.warning(f"⚠️ Playwright не установлен: {e}")
-            raise
-        except Exception as e:
-            error_msg = str(e)
-            if "Executable doesn't exist" in error_msg or "ENOSPC" in error_msg:
-                logger.error("❌ Не удалось запустить браузер: недостаточно места на диске или браузер не установлен.")
-                logger.error("💡 Попробуйте освободить место или используйте curl-cffi вместо Playwright.")
-            else:
-                logger.error(f"❌ Ошибка запуска браузера: {e}")
-            raise
+    # Методы start_browser, close_browser, fetch_page теперь наследуются от BaseCamoufoxParser
+    # Переопределяем только специфичные для Пятерочки методы парсинга
 
-    async def close_browser(self):
-        """Закрытие браузера с сохранением профиля"""
-        try:
-            if self._page:
-                await self._page.close()
-            # Для persistent context - закрываем только контекст, профиль сохраняется
-            if self._browser:
-                await self._browser.close()
-            if self._playwright:
-                await self._playwright.stop()
-            logger.info("🛑 Браузер закрыт (профиль сохранен)")
-        except Exception as e:
-            logger.error(f"Ошибка при закрытии браузера: {e}")
-
-    async def fetch_page_playwright(self, url: str, wait_selector: Optional[str] = None, timeout: int = 30000) -> str:
-        """Загрузка через Playwright (для JS сайтов)"""
-        import random
-        
-        try:
-            if not self._page:
-                await self.start_browser()
-            
-            logger.info(f"🔗 Запрос к {url} через Playwright...")
-            
-            # Случайная задержка перед запросом
-            await asyncio.sleep(random.uniform(1.0, 2.5))
-            
-            await self._page.goto(url, wait_until="domcontentloaded", timeout=timeout)
-            
-            logger.info("⏳ Ожидание прохождения капчи вручную (30 секунд)...")
-            logger.info("💡 Решите капчу в открывшемся окне браузера, если она появилась")
-            await asyncio.sleep(30)  # Даем время пользователю пройти капчу
-            
-            # Проверяем, не появилась ли снова капча после ожидания
-            captcha_indicators = [
-                'iframe[src*="captcha"]',
-                '[class*="captcha"]',
-                '[id*="captcha"]',
-                'div[style*="captcha"]'
-            ]
-            for indicator in captcha_indicators:
-                if await self._page.query_selector(indicator):
-                    logger.warning("⚠️ Обнаружена капча на странице. Продолжаем ожидание...")
-                    await asyncio.sleep(15)  # Дополнительное ожидание
-                    break
-            
-            # Ждем появления карточек товаров перед продолжением
-            try:
-                await self._page.wait_for_selector('div[data-testid="product-card"]', timeout=10000)
-                logger.info("✅ Карточки товаров найдены")
-            except:
-                logger.warning("⚠️ Карточки товаров не найдены, продолжаем без ожидания")
-            
-            # Дополнительная задержка для полной загрузки контента
-            await asyncio.sleep(3)
-            
-            if wait_selector:
-                await self._page.wait_for_selector(wait_selector, timeout=timeout)
-            
-            # Скроллинг для загрузки lazy-load контента
-            await self._page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await asyncio.sleep(2)
-            await self._page.evaluate("window.scrollTo(0, 0)")
-            await asyncio.sleep(1)
-            
-            content = await self._page.content()
-            logger.info(f"✅ Страница загружена успешно")
-            return content
-            
-        except Exception as e:
-            error_msg = str(e)
-            if "Executable doesn't exist" in error_msg or "ENOSPC" in error_msg:
-                logger.error("❌ Ошибка Playwright: недостаточно места на диске или браузер не установлен.")
-                logger.error("💡 Попробуйте освободить место или использовать curl-cffi вместо Playwright.")
-            else:
-                logger.error(f"❌ Ошибка Playwright запроса: {e}")
-            raise
-
-    async def _init_strategies(self):
-        """Инициализация стратегий после создания страницы"""
-        # Стратегии больше не используются, скроллинг выполняется в fetch_page_playwright
-        pass
-
-    async def _fetch_page(self, url: str, page: int) -> str:
+    async def parse_products_from_page(self, html: Optional[str] = None) -> List[Product]:
         """
-        Получение HTML страницы.
-        Реализация абстрактного метода из BaseParser.
+        Парсинг товаров со страницы Пятерочки.
+        Использует селекторы из Knowledge Base.
         """
-        if not hasattr(self, 'config') or not self.config:
-            html = await self.fetch_page_playwright(url)
-        elif getattr(self.config, 'use_playwright', True):
-            html = await self.fetch_page_playwright(url)
-        else:
-            html = await self.fetch_page(url)
+        if not html and self._page:
+            html = await self._page.content()
         
         if not html:
-            raise Exception(f"Не удалось загрузить страницу {url}")
+            logger.warning("❌ Нет HTML для парсинга")
+            return []
         
-        return html
+        products = []
+        
+        # Используем селекторы из KB или дефолтные
+        selectors = self.kb.selectors if self.kb else {}
+        product_card_selector = selectors.get('product_card', 'div[data-testid="product-card"]')
+        
+        # Парсим карточки товаров (упрощенная логика для примера)
+        # В реальной реализации нужно использовать BeautifulSoup или lxml
+        logger.info(f"🔍 Парсинг товаров с селектором: {product_card_selector}")
+        
+        # Здесь должна быть логика парсинга HTML
+        # Для демонстрации возвращаем пустой список
+        
+        return products
+
+    async def parse_category(self, url: str) -> ParseResult:
+        """
+        Парсинг категории Пятерочки.
+        """
+        logger.info(f"🛒 Парсинг категории: {url}")
+        
+        # Загружаем страницу через Camoufox
+        html = await self.fetch_page_camoufox(
+            url=url,
+            wait_for_selector='div[data-testid="product-card"]',
+            scroll_down=True
+        )
+        
+        if not html:
+            return ParseResult(products=[], category=url, success=False)
+        
+        # Парсим товары
+        products = await self.parse_products_from_page(html)
+        
+        return ParseResult(
+            products=products,
+            category=url,
+            success=len(products) > 0
+        )
 
     async def _parse_products(self, html: str, category_url: str) -> List[Product]:
         """

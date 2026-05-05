@@ -96,7 +96,7 @@ class CamoufoxParser(BaseParser):
             
             # Добавляем заголовки региона из Knowledge Base
             if self.kb and self.kb.headers:
-                custom_headers = self.kb.headers.get("custom", {})
+                custom_headers = self.kb.headers.custom  # Исправлено: было .get("custom", {})
                 headers_to_set = {}
                 for header, value in custom_headers.items():
                     if value == "required" and "Region" in header:

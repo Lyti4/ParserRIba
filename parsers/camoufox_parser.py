@@ -217,7 +217,7 @@ class CamoufoxParser(BaseParser):
             
             if captcha_detected:
                 logger.warning("⚠️ Обнаружена капча или страница проверки!")
-                if not headless:
+                if not self.headless:
                     logger.info("⏳ Ожидание ручного прохождения капчи (90 секунд)...")
                     logger.info("💡 Решите капчу в открывшемся окне браузера")
                     try:

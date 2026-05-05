@@ -69,14 +69,20 @@ async def parse_store(
     store_name: str,
     config: dict,
     categories: Optional[List[str]] = None,
-    output_dir: str = "data"
+    output_dir: str = "data",
+    headless: bool = True
 ):
     """Парсинг конкретного магазина."""
     logger.info(f"🚀 Запуск парсинга: {store_name.upper()}")
     
     try:
-        # Создание парсера
-        parser = ParserFactory.get_parser(store_name, config, shop_name=store_name)
+        # Создание парсера с передачей headless режима
+        parser = ParserFactory.get_parser(
+            store_name, 
+            config, 
+            shop_name=store_name,
+            headless=headless
+        )
         
         # Получение категорий из конфига или использование всех из KB
         store_config = config.get("stores", {}).get(store_name, {})
@@ -274,7 +280,8 @@ async def main():
                 store_name=store_name,
                 config=config,
                 categories=args.category,
-                output_dir=args.output
+                output_dir=args.output,
+                headless=args.headless
             )
     except KeyboardInterrupt:
         logger.warning("\n⚠️  Парсинг прерван пользователем")

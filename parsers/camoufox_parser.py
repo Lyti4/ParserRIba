@@ -71,11 +71,10 @@ class CamoufoxParser(BaseParser):
             logger.info(f"🦊 Запуск Camoufox (headless={headless})...")
             
             # Настройки для максимальной маскировки
-            # Важно: timezone и geolocation передаются ТОЛЬКО в new_context, не в конструктор!
+            # Важно: viewport, timezone и geolocation передаются ТОЛЬКО в new_context, не в конструктор!
             self._camoufox = AsyncCamoufox(
                 headless=headless,
                 locale="ru-RU",
-                viewport={"width": 1920, "height": 1080},
                 exclude_addons=["ublock-origin"],
             )
             

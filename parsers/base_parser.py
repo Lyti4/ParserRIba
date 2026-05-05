@@ -82,45 +82,39 @@ class BaseParser:
     
     def _init_strategies(self):
         """Инициализация стратегий на основе KB"""
+        # Стратегии инициализируются позже, когда есть страница
+        self.strategies: List[Strategy] = []
+        self._strategies_config = {}  # Сохраняем конфигурацию для последующего применения
+        
         if not self.kb:
             return
         
-        # Добавляем стратегии в зависимости от типа защиты
-        if self.kb.anti_bot.get("requires_scrolling"):
-            self.strategies.append(ScrollStrategy())
-            logger.debug("➕ Добавлена стратегия скроллинга")
-        
-        if self.kb.anti_bot.get("has_pagination"):
-            self.strategies.append(PaginationStrategy())
-            logger.debug("➕ Добавлена стратегия пагинации")
-        
-        if self.kb.anti_bot.get("has_lazy_load"):
-            self.strategies.append(LazyLoadStrategy())
-            logger.debug("➕ Добавлена стратегия lazy load")
+        # Сохраняем конфигурацию стратегий из KB
+        strategies = getattr(self.kb.anti_bot, 'strategies', []) or []
+        self._strategies_config = {
+            'scrolling': 'scrolling' in strategies,
+            'pagination': 'pagination' in strategies,
+            'lazy_load': 'lazy_load' in strategies
+        }
+        logger.debug(f"Конфигурация стратегий: {self._strategies_config}")
     
     def _init_policies(self):
         """Инициализация политик обработки ошибок"""
-        # Политика для 403 ошибки
-        self.policy_engine.add_policy(
-            status_code=403,
-            action="rotate_proxy_and_retry",
-            max_retries=3
-        )
+        # Политика для 403 ошибки уже есть в DEFAULT_POLICIES
         
         # Политика для CAPTCHA
-        if self.kb and self.kb.anti_bot.get("captcha_type"):
-            self.policy_engine.add_policy(
-                trigger="captcha_detected",
-                action="switch_to_playwright",
-                max_retries=1
-            )
+        captcha_types = getattr(self.kb.anti_bot, 'captcha_types', []) if self.kb else []
+        if captcha_types:
+            from policies.engine import PolicyRule, ErrorType, ActionType
+            self.policy_engine.add_policy(PolicyRule(
+                error_types=[ErrorType.CAPTCHA],
+                actions=[ActionType.SWITCH_TO_PLAYWRIGHT, ActionType.WAIT_AND_RETRY],
+                max_retries=1,
+                delay_between_retries=5.0,
+                priority=15
+            ))
         
-        # Политика для таймаута
-        self.policy_engine.add_policy(
-            trigger="timeout",
-            action="increase_delay_and_retry",
-            max_retries=2
-        )
+        # Политика для таймаута уже есть в DEFAULT_POLICIES
     
     def _get_headers(self) -> dict:
         """Получение headers из Knowledge Base"""
@@ -246,8 +240,8 @@ class BaseParser:
             headers = self._get_headers()
             
             # Динамический выбор профиля на основе KB
-            if self.kb and self.kb.recommended_tool == "curl_cffi":
-                use_impersonate = self.kb.anti_bot.get("recommended_impersonate", "chrome124")
+            if self.kb and getattr(self.kb, 'recommended_tool', None) == "curl_cffi":
+                use_impersonate = getattr(self.kb.anti_bot, 'recommended_impersonate', 'chrome124') or 'chrome124'
             
             response = self.session.get(
                 url, 
@@ -367,10 +361,10 @@ class BaseParser:
         # Определение инструмента для парсинга
         use_playwright = (
             self.kb and 
-            self.kb.recommended_tool == "playwright"
+            getattr(self.kb, 'recommended_tool', None) == "playwright"
         ) or (
             self.kb and 
-            self.kb.anti_bot.get("requires_js", False)
+            getattr(self.kb.anti_bot, 'requires_js', False)
         )
         
         # Загрузка страницы с применением региональных заголовков
@@ -463,8 +457,8 @@ class BaseParser:
             results.append(result)
             
             # Задержка между запросами
-            if self.kb.anti_bot.get("delay_between_requests"):
-                delay = self.kb.anti_bot["delay_between_requests"]
+            delay = getattr(self.kb.anti_bot, 'delay_between_requests', None)
+            if delay:
                 await asyncio.sleep(delay)
         
         return results

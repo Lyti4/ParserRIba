@@ -30,8 +30,8 @@ from utils.session_manager import SessionManager
 
 class CamoufoxParser(BaseParser):
     def __init__(self, store_name: str, config: Dict[str, Any] = None, **kwargs):
-        # Передаем store_name явно по имени, чтобы избежать конфликтов
-        super().__init__(store_name=store_name, config=config, **kwargs)
+        # Передаем store_name как shop_name, т.к. BaseParser ожидает shop_name
+        super().__init__(shop_name=store_name, region=kwargs.get('region', '77'), headless=kwargs.get('headless', True))
         self._camoufox_browser = None
         self._session_manager = SessionManager(
             block_images=True,

@@ -6,9 +6,9 @@ from parsers.camoufox_parser import CamoufoxParser
 logger = logging.getLogger(__name__)
 
 class PyaterochkaParser(CamoufoxParser):
-    def __init__(self, region: str = "default", **kwargs):
+    def __init__(self, store_name: str = "pyaterochka", region: str = "default", **kwargs):
         # Передаем store_name явно по имени, чтобы избежать дублирования
-        super().__init__(store_name="pyaterochka", **kwargs)
+        super().__init__(store_name=store_name, region=region, **kwargs)
         self.region = region
         self.base_url = "https://5ka.ru"
         logger.info(f"PyaterochkaParser initialized for region {region}")

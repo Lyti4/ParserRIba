@@ -33,11 +33,21 @@ class CamoufoxParser(BaseParser):
         # Передаем store_name как shop_name, т.к. BaseParser ожидает shop_name
         super().__init__(shop_name=store_name, region=kwargs.get('region', '77'), headless=kwargs.get('headless', True))
         self._camoufox_browser = None
+        # На Windows virtual display не поддерживается
+        is_windows = os.name == 'nt'
+        headless_mode = kwargs.get('headless', True)
+        if headless_mode and is_windows:
+            session_headless = True
+        elif headless_mode:
+            session_headless = "virtual"
+        else:
+            session_headless = None
+            
         self._session_manager = SessionManager(
             block_images=True,
             block_webgl=False,
             humanize=True,
-            headless="virtual" if kwargs.get('headless', True) else None
+            headless=session_headless
         )
         logger.info(f"CamoufoxParser initialized for {store_name}")
 
@@ -56,7 +66,11 @@ class CamoufoxParser(BaseParser):
         
         # Обработка headless режима
         if headless:
-            browser_args["headless"] = "virtual"
+            # На Windows virtual display не поддерживается, используем обычный headless
+            if os.name == 'nt':
+                browser_args["headless"] = True
+            else:
+                browser_args["headless"] = "virtual"
         else:
             browser_args["headless"] = False
 

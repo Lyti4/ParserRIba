@@ -1,13 +1,15 @@
 """
 Модуль логирования для ParserRiba.
 Настройка цветного консольного вывода и записи в файл.
+Поддержка JSON-логов для LogStreamer в лаунчере.
 """
 
 import logging
 import sys
+import json
 from pathlib import Path
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict, Any
 
 # Цвета для консоли
 class Colors:
@@ -40,12 +42,39 @@ class ColoredFormatter(logging.Formatter):
         return super().format(record)
 
 
+class JSONFormatter(logging.Formatter):
+    """JSON форматтер для структурированных логов (LogStreamer)."""
+    
+    def format(self, record: logging.LogRecord) -> str:
+        log_data: Dict[str, Any] = {
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+            "module": record.module,
+            "function": record.funcName,
+            "line": record.lineno,
+        }
+        
+        # Добавляем extra поля если есть
+        if hasattr(record, 'extra'):
+            log_data["extra"] = record.extra
+        
+        # Добавляем exception если есть
+        if record.exc_info:
+            log_data["exception"] = self.formatException(record.exc_info)
+        
+        return json.dumps(log_data, ensure_ascii=False, default=str)
+
+
 def setup_logger(
     name: str = "parser_riba",
     level: str = "INFO",
     log_file: Optional[str] = None,
     console_output: bool = True,
-    colors: bool = True
+    colors: bool = True,
+    json_logs: bool = False,
+    json_log_file: Optional[str] = None
 ) -> logging.Logger:
     """
     Настройка логгера с выводом в консоль и файл.
@@ -56,6 +85,8 @@ def setup_logger(
         log_file: Путь к файлу лога (если None, файл не создается)
         console_output: Выводить ли в консоль
         colors: Использовать ли цвета в консоли
+        json_logs: Включить JSON-логи для LogStreamer
+        json_log_file: Путь к JSON лог файлу
 
     Returns:
         Настроенный logger
@@ -87,6 +118,18 @@ def setup_logger(
         file_handler.setLevel(logging.DEBUG)  # В файл пишем всё
         file_handler.setFormatter(file_format)
         logger.addHandler(file_handler)
+
+    # JSON хендлер для LogStreamer
+    if json_logs:
+        json_file = json_log_file or (log_file.replace('.log', '.json') if log_file else 'logs/parser_riba.json')
+        json_path = Path(json_file)
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        json_handler = logging.FileHandler(json_file, encoding="utf-8")
+        json_handler.setLevel(logging.DEBUG)
+        json_handler.setFormatter(JSONFormatter())
+        logger.addHandler(json_handler)
+        logger.info(f"JSON логи включены: {json_file}")
 
     # Консольный хендлер
     if console_output:

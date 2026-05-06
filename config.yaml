@@ -1,4 +1,4 @@
-# Конфигурация ParserRiba
+# config.yaml - Конфигурация ParserRiba
 # Основные настройки проекта
 
 project:
@@ -9,9 +9,32 @@ project:
 # Настройки браузеров и запросов
 browser:
   headless: true
+  headless_mode: "auto"  # auto, true, false, "virtual" (для Linux-серверов)
   timeout: 30000  # мс
   user_agent_rotation: true
-  fingerprinting: true  # Включить цифровые отпечатки
+  fingerprinting: true  # Включить цифровые отпечатки через BrowserForge
+  
+  # Camoufox настройки
+  camoufox:
+    humanize: true  # Human-like курсор (C++ реализация надёжнее)
+    geoip: false  # Автоматическое согласование geoip + прокси
+    block_images: true  # Блокировка изображений
+    block_webgl: true  # Блокировка WebGL
+    block_resources: true  # Блокировка трекеров и аналитики
+    addons: []  # Пути к аддонам (например, ["addons/ublock"])
+    
+  # Fingerprint настройки
+  fingerprint:
+    auto_generate: true  # Автоматическая генерация отпечатков через BrowserForge
+    canvas_mode: "noise"  # noise, block, allow
+    webrtc_mode: "spoof"  # spoof, block, allow
+    webgl:
+      enabled: true
+      vendor: "auto"  # auto или конкретный vendor
+      renderer: "auto"  # auto или конкретный renderer
+    fonts:
+      mode: "os_match"  # os_match, custom
+      custom_list: []  # Список шрифтов если mode=custom
 
 # Сетевые настройки
 network:
@@ -19,6 +42,11 @@ network:
   retry_delay: 5  # секунды
   proxy_rotation: true
   request_timeout: 15  # секунд
+  
+  # Proxy с geoip согласованием
+  proxy:
+    geoip_enabled: false  # Включить согласование региона прокси
+    default_region: "RU"  # Регион по умолчанию
 
 # Стратегии обхода защит
 anti_bot:
@@ -26,6 +54,7 @@ anti_bot:
   min_delay: 1.0  # секунды
   max_delay: 3.0  # секунды
   scroll_enabled: true
+  scroll_human_like: true  # Human-like скроллинг
   captcha_solver: "manual"  # manual, 2captcha, anticaptcha
 
 # Логирование
@@ -34,6 +63,8 @@ logging:
   file: "logs/parser_riba.log"
   console: true
   colors: true
+  json_logs: false  # Включить JSON-логи для LogStreamer
+  json_file: "logs/parser_riba.json"
 
 # Магазины и их настройки
 stores:
@@ -45,14 +76,14 @@ stores:
       - "Икра и рыбные деликатесы"
       - "Рыбные консервы"
     region_id: "77"  # Москва по умолчанию
-    
+
   magnit:
     enabled: true
     categories:
       - "fish_fresh"
       - "fish_frozen"
     city_id: "77"
-    
+
   lenta:
     enabled: true
     categories:
@@ -61,7 +92,7 @@ stores:
       - "fish_red"
     region: "msk"
     shop_id: "1001"
-    
+
   auchan:
     enabled: true
     categories:
@@ -69,14 +100,14 @@ stores:
       - "fish_frozen"
     region: "msk"
     shop_id: "1"
-    
+
   okey:
     enabled: true
     categories:
       - "fish_fresh"
       - "fish_frozen"
     store_id: "101"
-    
+
   perekrestok:
     enabled: false  # Требует авторизации/cookies
     categories:
@@ -89,6 +120,9 @@ output:
   directory: "data"
   filename_pattern: "{store}_{category}_{date}.json"
   pretty_print: true
+  
+  # Метрики
+  export_metrics: true  # Экспорт метрик (время, блокировки)
 
 # База знаний
 knowledge_base:

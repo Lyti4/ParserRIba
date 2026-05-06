@@ -35,49 +35,49 @@
 ### Карточка товара (Product Card)
 
 ```css
-div[data-testid="product-card"]
+article[class*="Card"], div[class*="product-card"], [data-testid="product-card"], .catalog-item
 ```
 
 ### Название товара (Name)
 
 ```css
-div[data-testid="product-name"]
+h2[class*="name"], [data-testid="product-name"], .product-title, a[class*="link"]
 ```
 
 ### Цена (Price) - текущая цена
 
 ```css
-span[data-testid="price-current"], span[class*="price-current"], [data-price]
+span[class*="price"], [data-testid="price-current"], .current-price, .price-value
 ```
 
 ### Старая цена (Old Price) - опционально
 
 ```css
-span[data-testid="price-old"]
+span[class*="old-price"], [data-testid="price-old"], .old-price, .price-old
 ```
 
 ### Ссылка на товар (Product Link)
 
 ```css
-div[data-testid="product-card"] a
+article[class*="Card"] a, div[class*="product-card"] a, [data-testid="product-card"] a, .catalog-item a
 ```
 
 ### Вес/Объем (Weight)
 
 ```css
-span[data-testid="product-weight"]
+span[class*="weight"], [data-testid="product-weight"], .product-weight, .unit
 ```
 
 ### Бренд (Brand)
 
 ```css
-span[data-testid="product-brand"]
+span[class*="brand"], [data-testid="product-brand"], .product-brand, .manufacturer
 ```
 
 ### Изображение (Image)
 
 ```css
-img[data-testid="product-image"]
+img[class*="image"], [data-testid="product-image"], .product-image img, picture img
 ```
 
 ---

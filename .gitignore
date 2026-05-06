@@ -15,7 +15,7 @@ __pycache__/
 *.tmp
 *.swp
 
-# Editors
+# Editors/IDE
 .vscode/
 .idea/
 
@@ -29,17 +29,16 @@ dist/
 build/
 target/
 
-# OS specific
-.DS_Store
-Thumbs.db
-
-# Coverage
-.coverage
+# Coverage reports
 coverage/
 htmlcov/
+.coverage
 
-# Cache directories
+# Python cache
 .mypy_cache/
 .pytest_cache/
-.gradle/
+
+# System files
+.DS_Store
+Thumbs.db
 ```

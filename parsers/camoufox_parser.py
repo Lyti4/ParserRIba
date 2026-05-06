@@ -91,9 +91,10 @@ class CamoufoxParser(BaseParser):
             
             # Генерация конфигурации спуфинга через BrowserForge (Пункты 4, 8, 9)
             fp_config = get_camoufox_config(
-                os_match=fonts_os_match,
-                spoof_webgl=webgl_spoof,
-                locale="ru-RU"
+                block_images=block_images,
+                block_webgl=block_webgl,
+                humanize=humanize,
+                headless=headless_mode if isinstance(headless_mode, str) else "virtual" if headless else False,
             )
             
             # Подготовка аддонов (Пункт 10)

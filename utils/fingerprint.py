@@ -221,6 +221,26 @@ class FingerprintGenerator:
         return config
 
 
+def get_camoufox_config(fingerprint: Optional[Dict[str, Any]] = None, **kwargs) -> Dict[str, Any]:
+    """
+    Convert fingerprint to Camoufox-compatible configuration.
+    
+    Args:
+        fingerprint: Pre-generated fingerprint or None to generate new
+        **kwargs: Additional Camoufox settings (block_images, block_webgl, humanize, headless)
+        
+    Returns:
+        Configuration dictionary for Camoufox
+    """
+    gen = FingerprintGenerator(os_type=None, browser="firefox")
+    
+    # Update generator attributes with kwargs
+    for key, value in kwargs.items():
+        setattr(gen, key, value)
+    
+    return gen.get_camoufox_config(fingerprint)
+
+
 def create_fingerprint_for_region(region: str = "RU", timezone: str = "Europe/Moscow") -> Dict[str, Any]:
     """
     Create a fingerprint optimized for a specific region.

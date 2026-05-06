@@ -71,13 +71,11 @@ class CamoufoxParser(BaseParser):
             logger.info(f"🦊 Запуск Camoufox (headless={headless})...")
             
             # Настройки для максимальной маскировки
-            # OS_NAME может быть 'win', 'mac', 'linux'
             # humanize добавляет случайные задержки и движения мыши
             # i_know_what_im_doing отключает предупреждения для продакшена
             self._camoufox = AsyncCamoufox(
                 headless=headless,
                 locale="ru-RU",
-                os_random=True,  # Случайная ОС из Windows/Mac/Linux
                 humanize=True,   # Эмуляция поведения человека
                 i_know_what_im_doing=True,  # Для стабильности
             )

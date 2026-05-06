@@ -35,19 +35,28 @@
 ### Карточка товара (Product Card)
 
 ```css
-article[class*="Card"], div[class*="product-card"], [data-testid="product-card"], .catalog-item
+article[class*="Card"]
+div[class*="product-card"]
+[data-testid="product-card"]
+.catalog-item
 ```
 
 ### Название товара (Name)
 
 ```css
-h2[class*="name"], [data-testid="product-name"], .product-title, a[class*="link"]
+h2[class*="name"]
+[data-testid="product-name"]
+.product-title
+a[class*="link"]
 ```
 
 ### Цена (Price) - текущая цена
 
 ```css
-span[class*="price"], [data-testid="price-current"], .current-price, .price-value
+span[class*="price"]
+[data-testid="price-current"]
+.current-price
+.price-value
 ```
 
 ### Старая цена (Old Price) - опционально

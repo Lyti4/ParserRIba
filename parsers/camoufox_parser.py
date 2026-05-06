@@ -54,6 +54,7 @@ class CamoufoxParser(BaseParser):
         logger.info(f"CamoufoxParser initialized for {store_name} (Windows={is_windows}, headless={session_headless})")
 
     async def start_browser(self, headless: bool = True, geoip: bool = False, **kwargs):
+        """Запускает браузер и возвращает страницу (page)."""
         if not CAMOUFOX_AVAILABLE:
             raise ImportError("Camoufox not installed.")
         
@@ -90,18 +91,18 @@ class CamoufoxParser(BaseParser):
             browser_args["geoip"] = False
 
         try:
-            # Создаем и запускаем браузер через контекстный менеджер
+            # Запускаем браузер через контекстный менеджер
             self._camoufox_context = AsyncCamoufox(**browser_args)
             self._camoufox_browser = await self._camoufox_context.__aenter__()
             
-            logger.info(f"Camoufox started successfully (type: {type(self._camoufox_browser).__name__})")
+            # Сразу создаем страницу и возвращаем её
+            page = await self._camoufox_browser.new_page()
+            await page.set_viewport_size({"width": 1920, "height": 1080})
             
-            # Проверяем, что браузер имеет метод new_page
-            if not hasattr(self._camoufox_browser, 'new_page'):
-                logger.error(f"Browser object doesn't have new_page method! Available: {[m for m in dir(self._camoufox_browser) if not m.startswith('_')][:10]}")
-                raise RuntimeError("Invalid browser object returned from Camoufox")
+            logger.info(f"Camoufox started successfully, page created (type: {type(page).__name__})")
             
-            return self._camoufox_browser
+            return page
+            
         except OSError as e:
             if "No space left on device" in str(e) or e.errno == 28:
                 logger.error("❌ Недостаточно места на диске для загрузки Camoufox (~713MB требуется)")

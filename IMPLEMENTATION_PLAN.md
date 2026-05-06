@@ -1,9 +1,9 @@
 # План реализации интеграции Camoufox в ParserRIba
 
-**Статус обновления:** 2026-05-06 (Windows → Исправление headless режима для Windows)  
+**Статус обновления:** 2026-05-06 (Windows → Pyaterochka переведен на Camoufox)  
 **Цель:** Реализовать 12 функций Camoufox для улучшения обхода анти-бот защиты  
 **Текущий статус:** ✅ **15/15 функций реализовано**  
-**Последнее исправление:** Улучшена обработка headless режима для Windows (обычный headless вместо virtual)
+**Последнее исправление:** PyaterochkaParser переведен с curl-cffi на Camoufox
 
 ---
 
@@ -18,7 +18,8 @@
 | Этап 4: GeoIP настройка | 3 | ✅ Завершено (3/3) |
 | Этап 5: Исправление API | 1 | ✅ Завершено (1/1) |
 | Этап 6: Windows совместимость | 1 | ✅ Завершено (1/1) |
-| **Итого** | **17** | **✅ 17/17 выполнено** |
+| Этап 7: Миграция парсеров | 1 | ✅ Завершено (1/1) |
+| **Итого** | **18** | **✅ 18/18 выполнено** |
 
 ---
 
@@ -390,4 +391,36 @@ python download_geoip.py
 python main.py --store pyaterochka --no-headless --log-level INFO
 
 # 4. Если путь отличается, отредактировать main.py (строки 15-24)
+```
+
+---
+
+## 🎯 Этап 7: Миграция парсеров на Camoufox ✅
+
+### ✅ Задача 7.1: Перевод PyaterochkaParser на Camoufox ⭐⭐⭐
+- **Описание:** Мигрировать PyaterochkaParser с curl-cffi на Camoufox для обхода защиты 5ka.ru
+- **Файлы:** `parsers/pyaterochka.py`
+- **Статус:** ✅ Завершено
+- **Изменения:**
+  - PyaterochkaParser теперь наследуется от `CamoufoxParser` вместо `BaseParser`
+  - Использует `start_browser()` для запуска Camoufox
+  - Переход на страницу через `page.goto()` с `wait_until="domcontentloaded"`
+  - Получение HTML через `page.content()`
+  - Корректное закрытие браузера в `finally` блоке
+
+**Преимущества миграции:**
+- ✅ Обход JavaScript защиты 5ka.ru
+- ✅ Поддержка динамического контента
+- ✅ Human-like поведение через `humanize=True`
+- ✅ Анти-детект отпечатки через BrowserForge
+- ✅ Блокировка ресурсов для скорости (`block_images=True`)
+
+**Пример использования:**
+```python
+parser = PyaterochkaParser(store_name="pyaterochka", region="77")
+products = await parser.parse_category(
+    category_url="https://5ka.ru/catalog/ryba/",
+    category_name="Рыба",
+    headless=False  # Оконный режим для отладки
+)
 ```

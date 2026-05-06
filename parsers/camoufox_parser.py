@@ -77,6 +77,20 @@ class CamoufoxParser(BaseParser):
         try:
             from camoufox.async_api import AsyncCamoufox
             from utils.fingerprint import get_camoufox_config
+            from pathlib import Path
+            
+            # Проверяем наличие локальной GeoIP базы в корне проекта
+            base_dir = Path(__file__).parent.parent
+            local_geoip_path = base_dir / "GeoLite2-City.mmdb"
+            
+            # Если файл есть, используем его (избегаем проблем с путями Windows)
+            use_local_geoip = local_geoip_path.exists()
+            geoip_path = str(local_geoip_path) if use_local_geoip else None
+            
+            if use_local_geoip:
+                logger.info(f"🌍 Найдена локальная GeoIP база: {local_geoip_path}")
+            elif geoip:
+                logger.warning("⚠️ GeoIP включен, но локальная база не найдена. Скачайте: python download_geoip.py")
             
             logger.info(f"🦊 Запуск Camoufox (headless={headless}, geoip={geoip}, humanize={humanize})...")
             
@@ -112,6 +126,10 @@ class CamoufoxParser(BaseParser):
                 "geoip": geoip,         # Пункт 5: Согласование IP и Locale
                 "block_images": block_images,  # Пункт 6
             }
+            
+            # Передаем путь к локальной GeoIP базе если она есть (решает проблему с кириллицей в путях)
+            if geoip_path:
+                browser_args["geoip_path"] = geoip_path
             
             # WebGL: либо блокируем, либо спуфим (лучше спуфить)
             if block_webgl:

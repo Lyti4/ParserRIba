@@ -1,5 +1,1 @@
-```
-# Logs
-*.log
-logs/
-```
+(download_geoip.py and parsers/camoufox_parser.py are both source code files, and there are no build artifacts, dependencies, or temporary files in the changes)

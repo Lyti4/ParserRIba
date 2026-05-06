@@ -33,15 +33,17 @@ class CamoufoxParser(BaseParser):
         # Передаем store_name как shop_name, т.к. BaseParser ожидает shop_name
         super().__init__(shop_name=store_name, region=kwargs.get('region', '77'), headless=kwargs.get('headless', True))
         self._camoufox_browser = None
-        # На Windows virtual display не поддерживается
+        self._camoufox_context = None
+        # На Windows virtual display не поддерживается - используем обычный headless или оконный режим
         is_windows = os.name == 'nt'
         headless_mode = kwargs.get('headless', True)
-        if headless_mode and is_windows:
-            session_headless = True
-        elif headless_mode:
-            session_headless = "virtual"
+        
+        # Для Windows: True = обычный headless, False/None = оконный режим
+        # Для Linux: True = virtual display, False/None = оконный режим
+        if is_windows:
+            session_headless = True if headless_mode else False
         else:
-            session_headless = None
+            session_headless = "virtual" if headless_mode else False
             
         self._session_manager = SessionManager(
             block_images=True,
@@ -49,7 +51,7 @@ class CamoufoxParser(BaseParser):
             humanize=True,
             headless=session_headless
         )
-        logger.info(f"CamoufoxParser initialized for {store_name}")
+        logger.info(f"CamoufoxParser initialized for {store_name} (Windows={is_windows}, headless={session_headless})")
 
     async def start_browser(self, headless: bool = True, geoip: bool = False, **kwargs):
         if not CAMOUFOX_AVAILABLE:
@@ -64,15 +66,15 @@ class CamoufoxParser(BaseParser):
             "block_webgl": False,
         }
         
-        # Обработка headless режима
+        # Обработка headless режима - Windows не поддерживает virtual display
+        is_windows = os.name == 'nt'
         if headless:
-            # На Windows virtual display не поддерживается, используем обычный headless
-            if os.name == 'nt':
-                browser_args["headless"] = True
+            if is_windows:
+                browser_args["headless"] = True  # Обычный headless для Windows
             else:
-                browser_args["headless"] = "virtual"
+                browser_args["headless"] = "virtual"  # Virtual display для Linux
         else:
-            browser_args["headless"] = False
+            browser_args["headless"] = False  # Оконный режим
 
         if geoip:
             geoip_file = Path(__file__).parent.parent / "GeoLite2-City.mmdb"
@@ -82,16 +84,23 @@ class CamoufoxParser(BaseParser):
                 logger.info(f"GeoIP DB found: {short_path}")
                 browser_args["geoip"] = True
             else:
+                logger.warning("GeoIP requested but file not found, disabling geoip")
                 browser_args["geoip"] = False
         else:
             browser_args["geoip"] = False
 
         try:
-            # Используем контекстный менеджер для правильного запуска браузера
-            # AsyncCamoufox принимает параметры в __init__, а браузер запускается в __aenter__
+            # Создаем и запускаем браузер через контекстный менеджер
             self._camoufox_context = AsyncCamoufox(**browser_args)
             self._camoufox_browser = await self._camoufox_context.__aenter__()
-            logger.info("Camoufox started successfully")
+            
+            logger.info(f"Camoufox started successfully (type: {type(self._camoufox_browser).__name__})")
+            
+            # Проверяем, что браузер имеет метод new_page
+            if not hasattr(self._camoufox_browser, 'new_page'):
+                logger.error(f"Browser object doesn't have new_page method! Available: {[m for m in dir(self._camoufox_browser) if not m.startswith('_')][:10]}")
+                raise RuntimeError("Invalid browser object returned from Camoufox")
+            
             return self._camoufox_browser
         except OSError as e:
             if "No space left on device" in str(e) or e.errno == 28:
@@ -101,25 +110,34 @@ class CamoufoxParser(BaseParser):
             raise
         except Exception as e:
             logger.error(f"Error starting Camoufox: {e}")
+            # Очищаем контекст при ошибке
+            await self.close_browser()
             raise
 
     async def close_browser(self):
         if self._camoufox_browser:
-            await self._camoufox_browser.close()
+            try:
+                await self._camoufox_browser.close()
+            except Exception as e:
+                logger.warning(f"Error closing browser: {e}")
             self._camoufox_browser = None
-        # Также закрываем контекст, если он существует
+            
+        # Закрываем контекст, если он существует
         if hasattr(self, '_camoufox_context') and self._camoufox_context:
             try:
                 await self._camoufox_context.__aexit__(None, None, None)
-            except Exception:
-                pass  # Игнорируем ошибки при закрытии контекста
+            except Exception as e:
+                logger.warning(f"Error closing context: {e}")
             self._camoufox_context = None
 
     async def parse_category(self, category_url: str, category_name: str, **kwargs) -> List[Dict]:
-        page = await self.start_browser(headless=kwargs.get('headless', True), geoip=True)
+        # Отключаем geoip по умолчанию для избежания ошибок с путями к файлам
+        # headless берется из kwargs или используется True по умолчанию
+        page = await self.start_browser(headless=kwargs.get('headless', True), geoip=False)
         try:
+            logger.info(f"Parsing category: {category_name} at {category_url}")
             await page.goto(category_url, wait_until="domcontentloaded")
-            logger.info(f"Parsing category: {category_name}")
+            # Здесь будет логика парсинга
             return []
         finally:
             await self.close_browser()

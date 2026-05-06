@@ -3,14 +3,16 @@ Base Strategy class for all automation strategies.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
-from playwright.async_api import Page
+from typing import Any, Dict, Optional, TypeVar
+
+# Используем TypeVar вместо прямого импорта Page для избежания зависимости от playwright
+Page = TypeVar('Page')
 
 
 class BaseStrategy(ABC):
     """Abstract base class for browser automation strategies."""
 
-    def __init__(self, page: Page, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, page: Optional[Any] = None, config: Optional[Dict[str, Any]] = None):
         self.page = page
         self.config = config or {}
         self.name = self.__class__.__name__

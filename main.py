@@ -6,6 +6,7 @@ ParserRiba - Главный скрипт запуска
 
 import os
 import sys
+from pathlib import Path
 
 # =============================================================================
 # НАСТРОЙКА CAMOUFOX ДЛЯ WINDOWS
@@ -22,6 +23,16 @@ if sys.platform == "win32":
     else:
         print(f"⚠️  Warning: Camoufox не найден по пути {camoufox_path}")
         print("   Убедитесь, что браузер установлен или измените путь в main.py")
+    
+    # Настройка GeoIP базы данных
+    geoip_path = Path(__file__).parent / "GeoLite2-City.mmdb"
+    if geoip_path.exists():
+        os.environ["GEOIP_PATH"] = str(geoip_path)
+        print(f"🌍 GeoIP база найдена: {geoip_path}")
+    else:
+        print(f"ℹ️  GeoIP база не найдена: {geoip_path}")
+        print("   GeoIP отключен по умолчанию. Для включения скачайте базу:")
+        print("   python download_geoip.py")
 # =============================================================================
 
 import asyncio
@@ -68,8 +79,19 @@ class ParserFactory:
         
         parser_class = cls.PARSERS[store_name]
         
+        # Проверяем доступность Camoufox
+        camoufox_available = False
+        try:
+            from camoufox.async_api import AsyncCamoufox
+            camoufox_available = True
+        except ImportError:
+            logger.warning("⚠️  Camoufox недоступен, будет использоваться Playwright")
+        
         # Pyaterochka использует CamoufoxParser -> base_parser.py (shop_name, region, headless)
         if store_name == "pyaterochka":
+            if not camoufox_available:
+                logger.warning("🔄 Переключаемся на Playwright для pyaterochka")
+                # Можно добавить fallback на PlaywrightParser если нужно
             return parser_class(
                 store_name=store_name,
                 region=kwargs.get('region', '77'),

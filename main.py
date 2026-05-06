@@ -67,7 +67,29 @@ class ParserFactory:
             raise ValueError(f"Неизвестный магазин: {store_name}")
         
         parser_class = cls.PARSERS[store_name]
-        return parser_class(config=config, **kwargs)
+        
+        # Pyaterochka использует CamoufoxParser -> base_parser.py (shop_name, region, headless)
+        if store_name == "pyaterochka":
+            return parser_class(
+                store_name=store_name,
+                region=kwargs.get('region', '77'),
+                headless=kwargs.get('headless', True)
+            )
+        # Magnit использует base_parser.py (shop_name, region, headless)
+        elif store_name == "magnit":
+            return parser_class(
+                shop_name=store_name,
+                region=kwargs.get('region', '77'),
+                headless=kwargs.get('headless', True)
+            )
+        # Lenta, Auchan, Okey, Perekrestok используют base.py (context, kb_path)
+        else:
+            # Для этих парсеров нужен BrowserContext - пока передаем заглушку
+            # Требуется доработка main.py для инициализации Playwright
+            raise NotImplementedError(
+                f"Парсер {store_name} требует BrowserContext. "
+                f"Необходимо инициализировать Playwright в main.py"
+            )
     
     @classmethod
     def get_available_stores(cls) -> List[str]:
@@ -151,7 +173,7 @@ async def parse_store(
                 continue
             
             try:
-                parse_result = await parser.parse_category(category_url)
+                parse_result = await parser.parse_category(category_url, category)
                 # parse_result - это ParseResult, берем products из него
                 if parse_result and hasattr(parse_result, 'products'):
                     all_products.extend(parse_result.products)

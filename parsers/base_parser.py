@@ -59,6 +59,9 @@ class BaseParser:
         self._context = None
         self._page = None
         
+        # Camoufox атрибуты
+        self._camoufox_browser = None
+        
         # Стратегии
         self.strategies: List[Strategy] = []
         self._init_strategies()
@@ -166,13 +169,80 @@ class BaseParser:
         selectors = self.kb.selectors
         return selectors.get(selector_type, {}).get("css") or selectors.get(selector_type, {}).get("xpath")
     
-    async def start_browser(self):
-        """Запуск браузера Playwright"""
+    async def start_browser(self, use_camoufox: bool = True, geoip: bool = False, 
+                           block_images: bool = True, block_webgl: bool = False,
+                           addons: Optional[List[str]] = None, headless: str = "virtual"):
+        """
+        Запуск браузера Camoufox (основной) или Playwright (резерв).
+        
+        Args:
+            use_camoufox: Использовать Camoufox вместо Playwright
+            geoip: Согласовать регион с прокси (GeoIP)
+            block_images: Блокировать загрузку изображений
+            block_webgl: Блокировать WebGL
+            addons: Список аддонов для установки (например, uBlock)
+            headless: Режим запуска ("virtual", True, False)
+        """
+        if use_camoufox:
+            return await self._start_camoufox(
+                geoip=geoip,
+                block_images=block_images,
+                block_webgl=block_webgl,
+                addons=addons,
+                headless=headless
+            )
+        else:
+            return await self._start_playwright()
+    
+    async def _start_camoufox(self, geoip: bool = False, block_images: bool = True,
+                              block_webgl: bool = False, addons: Optional[List[str]] = None,
+                              headless: str = "virtual"):
+        """Запуск Camoufox с расширенными настройками stealth."""
+        try:
+            from camoufox import AsyncBrowserForge
+            from browserforge import FingerprintGenerator
+            
+            logger.info(f"🦊 Запуск Camoufox (headless={headless}, geoip={geoip})...")
+            
+            # Инициализация генератора отпечатков
+            fp_generator = FingerprintGenerator(
+                os_type=None,  # Автоматический выбор
+                browser="firefox"
+            )
+            
+            # Конфигурация Camoufox
+            config = {
+                "geoip": geoip,
+                "block_images": block_images,
+                "block_webgl": block_webgl,
+                "humanize": True,  # Human-like движения курсора
+                "headless": headless,
+            }
+            
+            # Добавляем аддоны если указаны
+            if addons:
+                config["addons"] = addons
+            
+            # Создаём браузер с конфигурацией
+            self._camoufox_browser = AsyncBrowserForge(config=config)
+            self._page = await self._camoufox_browser.new_page()
+            
+            logger.info("✅ Camoufox запущен успешно с humanize=True")
+            
+        except ImportError as e:
+            logger.warning(f"⚠️ Camoufox не установлен, пробуем Playwright: {e}")
+            return await self._start_playwright()
+        except Exception as e:
+            logger.error(f"❌ Ошибка запуска Camoufox: {e}")
+            raise
+    
+    async def _start_playwright(self):
+        """Запуск браузера Playwright (резервный режим)."""
         try:
             from playwright.async_api import async_playwright
             from playwright_stealth import stealth_async
             
-            logger.info(f"🌐 Запуск браузера ({'невидимый' if self.headless else 'видимый'})...")
+            logger.info(f"🌐 Запуск браузера Playwright ({'невидимый' if self.headless else 'видимый'})...")
             
             self._playwright = await async_playwright().start()
             
@@ -207,7 +277,7 @@ class BaseParser:
                 window.chrome = { runtime: {} };
             """)
             
-            logger.info("✅ Браузер запущен успешно")
+            logger.info("✅ Браузер Playwright запущен успешно")
             
         except ImportError:
             logger.warning("⚠️ Playwright не установлен, используем curl-cffi")
@@ -226,6 +296,8 @@ class BaseParser:
                 await self._browser.close()
             if self._playwright:
                 await self._playwright.stop()
+            if self._camoufox_browser:
+                await self._camoufox_browser.close()
             logger.info("🛑 Браузер закрыт")
         except Exception as e:
             logger.error(f"Ошибка при закрытии браузера: {e}")

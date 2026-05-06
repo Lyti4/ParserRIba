@@ -85,6 +85,7 @@ class SessionManager:
     - Session health checking
     - Adaptive delays based on success rate
     - Automatic retry on failure
+    - Camoufox integration with block_images, block_webgl
     """
 
     # Common user agents for rotation
@@ -121,6 +122,11 @@ class SessionManager:
         rotate_on_failure: bool = True,
         session_storage_path: str = "sessions",
         save_sessions_to_disk: bool = True,
+        # Camoufox settings
+        block_images: bool = True,
+        block_webgl: bool = False,
+        humanize: bool = True,
+        headless: str = "virtual",
     ):
         self.proxies = proxies or []
         self.current_proxy_index = 0
@@ -131,6 +137,12 @@ class SessionManager:
         self.session_storage_path = Path(session_storage_path)
         self.save_sessions_to_disk = save_sessions_to_disk
         self._lock = asyncio.Lock()
+        
+        # Camoufox configuration
+        self.block_images = block_images
+        self.block_webgl = block_webgl
+        self.humanize = humanize
+        self.headless = headless
         
         # Create session storage directory
         if self.save_sessions_to_disk:

@@ -13,7 +13,8 @@ from camoufox.async_api import AsyncCamoufox
 from loguru import logger
 from pydantic import ValidationError
 
-from utils.kb_loader import SelectorConfig, HeadersConfig, AntiBotConfig, ShopKnowledgefrom models.product import Product
+from utils.kb_loader import SelectorConfig, HeadersConfig, AntiBotConfig, ShopKnowledge
+from models.product import Product
 from parsers.strategies.scroll_strategy import ScrollStrategy
 from utils.geoip import GeoIPService
 from utils.knowledge_base import KnowledgeBase

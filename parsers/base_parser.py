@@ -221,8 +221,19 @@ class BaseParser:
         """
         try:
             from camoufox import AsyncCamoufox
+            import platform
             
-            logger.info(f"🦊 Запуск Camoufox (headless={headless}, geoip={geoip}, humanize={humanize})...")
+            # Определение ОС для корректной настройки headless
+            system = platform.system()
+            
+            # На Windows "virtual" headless не поддерживается, используем обычный булевый флаг
+            if system == "Windows" and headless == "virtual":
+                effective_headless = False  # Окно браузера для Windows (чтобы видеть процесс)
+                logger.info(f"🪟 Обнаружена Windows: virtual display заменен на headless={effective_headless} (видимый режим)")
+            else:
+                effective_headless = headless
+            
+            logger.info(f"🦊 Запуск Camoufox (OS={system}, headless={effective_headless}, geoip={geoip}, humanize={humanize})...")
             
             # Подготовка параметров для Camoufox launch_options()
             launch_kwargs = {
@@ -230,15 +241,8 @@ class BaseParser:
                 "block_webgl": block_webgl,
                 "humanize": humanize,
                 "disable_coop": disable_coop,
+                "headless": effective_headless,
             }
-            
-            # Обработка headless режима
-            if headless == "virtual":
-                launch_kwargs["headless"] = "virtual"  # Camoufox поддерживает 'virtual'
-            elif isinstance(headless, bool):
-                launch_kwargs["headless"] = headless
-            else:
-                launch_kwargs["headless"] = bool(headless)
             
             # GeoIP если включён
             if geoip:
@@ -255,7 +259,7 @@ class BaseParser:
                 if os_type:
                     launch_kwargs["os"] = os_type
             
-            # Тип ОС для fingerprint
+            # Тип ОС для fingerprint (если не задан явно, можно определить автоматически)
             if os_type:
                 launch_kwargs["os"] = os_type
             

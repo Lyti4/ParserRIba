@@ -18,8 +18,10 @@ class PyaterochkaParser(BaseParser):
         self.base_url = "https://5ka.ru"
         logger.info(f"PyaterochkaParser initialized for region {region}")
 
-    async def parse_category(self, category_url: str, category_name: str, **kwargs) -> List[Dict]:
+    async def parse_category(self, category_url: str, category_name: str, **kwargs):
         """Парсинг категории товаров через curl-cffi"""
+        from models.schemas import ParseResult, CategoryInfo
+        
         logger.info(f"Parsing category: {category_url}")
         
         try:
@@ -33,7 +35,15 @@ class PyaterochkaParser(BaseParser):
             
             # Добавляем headers из KB если есть
             if self.kb and hasattr(self.kb, 'headers'):
-                headers.update(self.kb.headers)
+                kb_headers = self.kb.headers
+                if isinstance(kb_headers, dict):
+                    custom_headers = kb_headers.get('custom', {})
+                    if isinstance(custom_headers, dict):
+                        for key, value in custom_headers.items():
+                            if value == 'required' and 'Region' in key:
+                                headers[key] = self.region
+                            elif value != 'required':
+                                headers[key] = str(value)
             
             response = curl_requests.get(
                 category_url,
@@ -46,12 +56,25 @@ class PyaterochkaParser(BaseParser):
                 html = response.text
                 logger.info(f"✅ Category {category_name} loaded ({len(html)} bytes)")
                 
-                # Здесь будет логика парсинга HTML и извлечения товаров
-                # Пока возвращаем пустой список
-                return []
+                # Возвращаем ParseResult с пустым списком товаров (пока нет реализации парсинга HTML)
+                return ParseResult(
+                    shop=self.shop_name,
+                    category=CategoryInfo(name=category_name, url=category_url),
+                    products=[],
+                    total_products=0,
+                    errors=[],
+                    warnings=[]
+                )
             else:
                 logger.error(f"❌ Failed to load category: {response.status_code}")
-                return []
+                return ParseResult(
+                    shop=self.shop_name,
+                    category=CategoryInfo(name=category_name, url=category_url),
+                    products=[],
+                    total_products=0,
+                    errors=[f"HTTP {response.status_code}"],
+                    warnings=[]
+                )
                 
         except Exception as e:
             logger.error(f"Error parsing category: {e}")

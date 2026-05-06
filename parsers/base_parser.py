@@ -171,7 +171,8 @@ class BaseParser:
     
     async def start_browser(self, use_camoufox: bool = True, geoip: bool = False, 
                            block_images: bool = True, block_webgl: bool = False,
-                           addons: Optional[List[str]] = None, headless: str = "virtual"):
+                           addons: Optional[List[str]] = None, headless: str = "virtual",
+                           humanize: bool = True):
         """
         Запуск браузера Camoufox (основной) или Playwright (резерв).
         
@@ -182,6 +183,7 @@ class BaseParser:
             block_webgl: Блокировать WebGL
             addons: Список аддонов для установки (например, uBlock)
             headless: Режим запуска ("virtual", True, False)
+            humanize: Гуманизировать движения курсора (только Camoufox)
         """
         if use_camoufox:
             return await self._start_camoufox(
@@ -189,45 +191,69 @@ class BaseParser:
                 block_images=block_images,
                 block_webgl=block_webgl,
                 addons=addons,
-                headless=headless
+                headless=headless,
+                humanize=humanize
             )
         else:
             return await self._start_playwright()
     
     async def _start_camoufox(self, geoip: bool = False, block_images: bool = True,
                               block_webgl: bool = False, addons: Optional[List[str]] = None,
-                              headless: str = "virtual"):
-        """Запуск Camoufox с расширенными настройками stealth."""
+                              headless: str = "virtual", humanize: bool = True,
+                              webgl_config: Optional[tuple] = None):
+        """Запуск Camoufox с расширенными настройками stealth.
+        
+        Args:
+            geoip: Использовать GeoIP для определения локации
+            block_images: Блокировать изображения
+            block_webgl: Блокировать WebGL
+            addons: Список аддонов (пути к XPI файлам)
+            headless: Режим запуска ("virtual", True, False)
+                     - "virtual": использовать виртуальный дисплей (Xvfb) на Linux
+                     - True: headless режим без GUI
+                     - False: обычный режим с окном
+            humanize: Гуманизировать движения курсора
+            webgl_config: Кортеж (vendor, renderer) для WebGL spoofing
+        """
         try:
-            from camoufox import AsyncBrowserForge
-            from browserforge import FingerprintGenerator
+            from camoufox import AsyncCamoufox
             
-            logger.info(f"🦊 Запуск Camoufox (headless={headless}, geoip={geoip})...")
+            logger.info(f"🦊 Запуск Camoufox (headless={headless}, geoip={geoip}, humanize={humanize})...")
             
-            # Инициализация генератора отпечатков
-            fp_generator = FingerprintGenerator(
-                os_type=None,  # Автоматический выбор
-                browser="firefox"
-            )
-            
-            # Конфигурация Camoufox
-            config = {
-                "geoip": geoip,
+            # Подготовка параметров для Camoufox
+            launch_kwargs = {
+                "geoip": geoip if geoip else None,
                 "block_images": block_images,
                 "block_webgl": block_webgl,
-                "humanize": True,  # Human-like движения курсора
-                "headless": headless,
+                "humanize": humanize,
+                "block_webrtc": False,  # Не блокируем по умолчанию
+                "disable_coop": True,   # Разрешаем cross-origin iframe
             }
             
-            # Добавляем аддоны если указаны
-            if addons:
-                config["addons"] = addons
+            # Обработка headless режима
+            # Camoufox принимает headless=True/False, а virtual_display отдельно
+            if headless == "virtual":
+                launch_kwargs["headless"] = False  # Не headless, но с virtual_display
+                launch_kwargs["virtual_display"] = ":99"  # Camoufox сам обработает если None
+            elif isinstance(headless, bool):
+                launch_kwargs["headless"] = headless
+            else:
+                launch_kwargs["headless"] = bool(headless)
             
-            # Создаём браузер с конфигурацией
-            self._camoufox_browser = AsyncBrowserForge(config=config)
+            # Добавляем аддоны если указаны
+            # Поддерживаем как пути к файлам, так и DefaultAddons
+            if addons:
+                launch_kwargs["addons"] = addons
+            
+            # WebGL конфигурация если передана (vendor, renderer)
+            if webgl_config and isinstance(webgl_config, tuple) and len(webgl_config) == 2:
+                launch_kwargs["webgl_config"] = webgl_config
+            
+            # Создаём браузер с параметрами
+            self._camoufox_browser = AsyncCamoufox(**launch_kwargs)
             self._page = await self._camoufox_browser.new_page()
             
-            logger.info("✅ Camoufox запущен успешно с humanize=True")
+            logger.info("✅ Camoufox запущен успешно")
             
         except ImportError as e:
             logger.warning(f"⚠️ Camoufox не установлен, пробуем Playwright: {e}")

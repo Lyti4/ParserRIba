@@ -1,8 +1,39 @@
 ```
-# Compiled Python files
-*.pyc
+# Python
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Dependencies
+.venv/
+venv/
+env/
+.env
+.env.local
+.env.*
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
 
 # Logs
-logs/
+*.log
+
+# Coverage
+.coverage
+coverage/
+htmlcov/
+
+# Temp files
+*.tmp
+.DS_Store
+Thumbs.db
 ```

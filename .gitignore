@@ -1,4 +1,4 @@
-```
+```gitignore
 # Python
 __pycache__/
 *.pyc
@@ -13,27 +13,36 @@ env/
 .env.local
 .env.*
 
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
 # Build artifacts
 dist/
 build/
-*.egg-info/
+target/
+*.o
+*.obj
+*.out
+*.exe
+*.dll
+*.so
+*.a
+
+# Testing and coverage
+.coverage
+htmlcov/
+coverage/
+.pytest_cache/
+.mypy_cache/
 
 # Editors
 .vscode/
 .idea/
-*.swp
-*.swo
-
-# Logs
-*.log
-
-# Coverage
-.coverage
-coverage/
-htmlcov/
-
-# Temp files
-*.tmp
-.DS_Store
-Thumbs.db
 ```

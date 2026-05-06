@@ -1,17 +1,12 @@
 """
-Парсер с использованием Camoufox для максимального обхода антибот-систем.
-Camoufox - это модифицированный Firefox с улучшенной маскировкой под реального пользователя.
-
-Использование:
-    async with CamoufoxParser("pyaterochka", "https://example.com") as parser:
-        html = await parser.fetch_page("https://example.com/catalog")
-        products = await parser.parse_products(html)
-
-Преимущества Camoufox перед Playwright:
-    - Лучшая маскировка navigator.webdriver
-    - Реальные отпечатки браузера (fingerprints)
-    - Встроенные аддоны для обхода детекции
-    - Меньше ресурсов чем Chromium
+Camoufox Parser - Продвинутый парсер с анти-детект функциями
+Реализует:
+- Встроенную генерацию отпечатков (BrowserForge)
+- Согласование geoip + прокси
+- Блокировку ресурсов (изображения, WebGL)
+- Human-like курсор/клавиатура
+- WebRTC / Canvas / WebGL spoofing
+- Анти-фингерпринтинг шрифтов
 """
 import asyncio
 import random
@@ -26,11 +21,15 @@ class CamoufoxParser(BaseParser):
     """
     Парсер на базе Camoufox - максимальная маскировка под реального пользователя.
     
-    Camoufox автоматически:
-    - Генерирует реалистичные user-agent и fingerprint
-    - Маскирует webdriver признаки
-    - Добавляет случайные задержки и движения мыши
-    - Эмулирует реального пользователя из России
+    Реализованные функции Camoufox:
+    1. ✅ Playwright-совместимый API
+    2. ✅ Автоматическая генерация отпечатков через BrowserForge (config={})
+    3. ✅ Согласование geoip + прокси + локаль (geoip=True)
+    4. ✅ Блокировка ресурсов (block_images, block_webgl)
+    5. ✅ Human-like курсор/клавиатура (humanize=True, C++ реализация)
+    6. ✅ WebRTC / Canvas / WebGL spoofing (через config)
+    7. ✅ Анти-фингерпринтинг шрифтов (Fonts by OS)
+    8. ⏳ Пер-контекстная ротация (alpha, требует cloverlabs-camoufox)
     """
     
     def __init__(self, store_name: str, base_url: str, headless: bool = True, region: str = "77"):
@@ -55,69 +54,73 @@ class CamoufoxParser(BaseParser):
         
         logger.info(f"🦊 CamoufoxParser инициализирован для {store_name}")
     
-    async def start_browser(self, headless: bool = None, geoip: bool = False, 
-                           block_images: bool = True, block_webgl: bool = True,
-                           addons: Optional[List[str]] = None):
+    async def start_browser(self, headless: bool = None, geoip: bool = True, 
+                           block_images: bool = True, block_webgl: bool = False,
+                           humanize: bool = True, addons: Optional[List[str]] = None,
+                           webgl_spoof: bool = True, fonts_os_match: bool = True):
         """
-        Запуск браузера Camoufox (Firefox с улучшенной маскировкой).
+        Запуск браузера Camoufox с полной конфигурацией анти-детекта.
         
         Args:
             headless: Запускать ли в фоновом режиме. Если None, используется значение из конструктора.
-            geoip: Автоматически согласовать геолокацию с прокси
-            block_images: Блокировать загрузку изображений
-            block_webgl: Блокировать WebGL
-            addons: Список путей к аддонам (например, uBlock Origin)
+            geoip: Автоматически согласовать геолокацию с прокси (Пункт 5)
+            block_images: Блокировать загрузку изображений (Пункт 6)
+            block_webgl: Блокировать WebGL (Пункт 6, лучше False + webgl_spoof=True)
+            humanize: Эмуляция человеческого поведения (Пункт 7)
+            addons: Список путей к аддонам (Пункт 10)
+            webgl_spoof: Спуфинг WebGL вместо блокировки (Пункт 8)
+            fonts_os_match: Подбор шрифтов под ОС (Пункт 9)
         """
         if headless is None:
             headless = self.headless
         
         try:
             from camoufox.async_api import AsyncCamoufox
+            from utils.fingerprint import get_camoufox_config
             
-            logger.info(f"🦊 Запуск Camoufox (headless={headless})...")
+            logger.info(f"🦊 Запуск Camoufox (headless={headless}, geoip={geoip}, humanize={humanize})...")
             
             # Определяем режим headless
-            # Для Linux-серверов используем виртуальный дисплей
             import sys
             if sys.platform.startswith('linux') and not headless:
-                headless_mode = "virtual"  # Виртуальный дисплей для серверов
+                headless_mode = "virtual"  # Виртуальный дисплей для серверов (Пункт 9)
             elif headless:
                 headless_mode = True
             else:
                 headless_mode = False
             
-            # Генерация отпечатка через BrowserForge
-            from utils.fingerprint import FingerprintGenerator
-            fp_gen = FingerprintGenerator()
-            fingerprint = fp_gen.generate_fingerprint()
-            camoufox_config = fp_gen.get_camoufox_config(fingerprint)
+            # Генерация конфигурации спуфинга через BrowserForge (Пункты 4, 8, 9)
+            fp_config = get_camoufox_config(
+                os_match=fonts_os_match,
+                spoof_webgl=webgl_spoof,
+                locale="ru-RU"
+            )
+            
+            # Подготовка аддонов (Пункт 10)
+            browser_addons = []
+            if addons:
+                browser_addons.extend(addons)
             
             # Настройки для максимальной маскировки
-            # humanize добавляет случайные задержки и движения мыши
-            # i_know_what_im_doing отключает предупреждения для продакшена
             browser_args = {
                 "headless": headless_mode,
                 "locale": "ru-RU",
-                "humanize": True,   # Эмуляция поведения человека (C++ реализация надёжнее)
-                "i_know_what_im_doing": True,  # Для стабильности
-                "config": camoufox_config,  # Конфигурация отпечатка из BrowserForge
+                "humanize": humanize,   # Пункт 7: Human-like курсор (C++ реализация)
+                "i_know_what_im_doing": True,
+                "config": fp_config,    # Пункт 4: Автоматическая генерация отпечатка
+                "geoip": geoip,         # Пункт 5: Согласование IP и Locale
+                "block_images": block_images,  # Пункт 6
             }
             
-            # Добавляем geoip если требуется
-            if geoip:
-                browser_args["geoip"] = True
-                logger.info("   🌍 GeoIP включен: автоматическое согласование региона с прокси")
-            
-            # Добавляем блокировку ресурсов
-            if block_images:
-                browser_args["block_images"] = True
+            # WebGL: либо блокируем, либо спуфим (лучше спуфить)
             if block_webgl:
                 browser_args["block_webgl"] = True
+            # webgl_spoof уже учтен в fp_config через get_camoufox_config
             
-            # Добавляем аддоны
-            if addons:
-                browser_args["addons"] = addons
-                logger.info(f"   🧩 Аддоны: {addons}")
+            # Добавляем аддоны если есть
+            if browser_addons:
+                browser_args["addons"] = browser_addons
+                logger.info(f"   🧩 Аддоны: {browser_addons}")
             
             self._camoufox = AsyncCamoufox(**browser_args)
             
@@ -129,7 +132,7 @@ class CamoufoxParser(BaseParser):
                 "viewport": {"width": 1920, "height": 1080},
                 "locale": "ru-RU",
                 "timezone_id": "Europe/Moscow",
-                "user_agent": await self._camoufox.get_ua(),  # Реальный UA от Camoufox
+                "user_agent": await self._camoufox.get_ua(),
             }
             
             # Добавляем геолокацию только если она не None
@@ -154,7 +157,7 @@ class CamoufoxParser(BaseParser):
             
             self._page = await self._context.new_page()
             
-            # Блокируем ресурсы для ускорения и скрытности
+            # Блокируем ресурсы для ускорения и скрытности (Пункт 6)
             await self._page.route("**/*.{png,jpg,jpeg,gif,webp,svg,ico,woff,woff2,ttf,eot}", lambda route: route.abort())
             await self._page.route("**/*.mp4", lambda route: route.abort())
             await self._page.route("**/analytics/*", lambda route: route.abort())
@@ -163,7 +166,10 @@ class CamoufoxParser(BaseParser):
             
             logger.info("✅ Camoufox запущен успешно")
             logger.info("   🛡️ Маскировка: webdriver скрыт, fingerprint реалистичный, OS рандомизирован")
+            logger.info("   🌍 GeoIP: " + ("включен" if geoip else "выключен"))
+            logger.info("   🎭 Humanize: " + ("включен (C++)" if humanize else "выключен"))
             logger.info("   🚫 Блокировка: изображения, видео, трекеры, аналитика")
+            logger.info("   🎨 WebGL: " + ("спуфинг" if webgl_spoof and not block_webgl else "заблокирован" if block_webgl else "стандарт"))
             
         except ImportError:
             logger.error("❌ Camoufox не установлен. Установите: pip install camoufox")

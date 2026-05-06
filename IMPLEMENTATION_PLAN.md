@@ -1,8 +1,9 @@
 # План реализации интеграции Camoufox в ParserRIba
 
-**Статус обновления:** 2026-05-06  
+**Статус обновления:** 2026-05-06 (Windows)  
 **Цель:** Реализовать 12 функций Camoufox для улучшения обхода анти-бот защиты  
-**Текущий статус:** ✅ **12/12 функций реализовано и протестировано на синтаксис**
+**Текущий статус:** ✅ **12/12 функций реализовано и протестировано на синтаксис**  
+**Последнее исправление:** Функция `get_camoufox_config()` добавлена в `utils/fingerprint.py` для исправления ошибки импорта
 
 ---
 
@@ -231,6 +232,22 @@
 ---
 
 ## 🚀 Статус развёртывания на Windows
+
+### ✅ Исправление ошибки импорта (2026-05-06)
+**Проблема:** `cannot import name 'get_camoufox_config' from 'utils.fingerprint'`  
+**Решение:** Добавлена функция `get_camoufox_config()` как модульная функция в `utils/fingerprint.py`
+
+**Изменения:**
+```python
+# utils/fingerprint.py - добавлена функция:
+def get_camoufox_config(fingerprint=None, **kwargs):
+    gen = FingerprintGenerator(os_type=None, browser="firefox")
+    for key, value in kwargs.items():
+        setattr(gen, key, value)
+    return gen.get_camoufox_config(fingerprint)
+```
+
+**Проверка:** ✅ `from utils.fingerprint import get_camoufox_config` работает успешно
 
 ### ⚠️ Известная проблема: Rate Limit GitHub API
 При выполнении `camoufox fetch` может возникать ошибка `403 rate limit exceeded`.

@@ -465,12 +465,13 @@ class BaseParser:
             logger.error(f"Ошибка парсинга карточки товара: {e}")
             return None
     
-    async def parse_category(self, category_url: str) -> ParseResult:
+    async def parse_category(self, category_url: str, category_name: str = "Unknown") -> ParseResult:
         """
         Парсинг категории товаров.
         
         Args:
             category_url: URL категории
+            category_name: Имя категории для логирования
         
         Returns:
             ParseResult с списком товаров
@@ -488,10 +489,42 @@ class BaseParser:
             getattr(self.kb.anti_bot, 'requires_js', False)
         )
         
+        # Если браузер еще не запущен и нужен Playwright/Camoufox - запускаем
+        if use_playwright and not self._page:
+            logger.info("🌐 Браузер не был запущен, запускаем сейчас...")
+            await self.start_browser(use_camoufox=True, headless=False)
+            await asyncio.sleep(2)
+        
         # Загрузка страницы с применением региональных заголовков
         if use_playwright:
             await self._apply_regional_headers_to_page()
-            html = await self.fetch_page_playwright(category_url)
+            
+            # Переход на страницу
+            logger.info(f"🔗 Переход на страницу категории: {category_url}")
+            try:
+                response = await self._page.goto(category_url, wait_until="domcontentloaded", timeout=45000)
+                
+                # Дополнительное ожидание загрузки контента
+                await asyncio.sleep(3)
+                
+                # Применяем стратегию скроллинга если включена
+                if self._strategies_config.get('scrolling'):
+                    logger.info("📜 Выполняем скроллинг страницы для загрузки контента...")
+                    await self._execute_scrolling()
+                
+                html = await self._page.content()
+                
+            except Exception as e:
+                logger.error(f"❌ Ошибка загрузки страницы: {e}")
+                errors.append(f"Не удалось загрузить страницу {category_url}: {e}")
+                return ParseResult(
+                    shop=self.shop_name,
+                    category=CategoryInfo(name=category_name, url=category_url),
+                    products=[],
+                    total_products=0,
+                    errors=errors,
+                    warnings=warnings
+                )
         else:
             self._apply_regional_headers_to_session()
             html = await self.fetch_page(category_url)
@@ -500,38 +533,179 @@ class BaseParser:
             errors.append(f"Не удалось загрузить страницу {category_url}")
             return ParseResult(
                 shop=self.shop_name,
-                category=CategoryInfo(name="Unknown", url=category_url),
+                category=CategoryInfo(name=category_name, url=category_url),
                 products=[],
                 total_products=0,
                 errors=errors,
                 warnings=warnings
             )
         
-        # Применение стратегий (скролл, lazy load)
-        if use_playwright and self.strategies:
-            for strategy in self.strategies:
-                logger.debug(f"Применение стратегии: {strategy.__class__.__name__}")
-                await strategy.execute(self.page, self.kb.selectors if self.kb else {})
-        
         # Парсинг товаров
         products = []
         if use_playwright:
-            products = await self._parse_products_from_page()
+            products = await self._parse_products_from_page(category_name)
         else:
             # TODO: Реализовать парсинг для curl-cffi
             logger.warning("Парсинг через curl-cffi пока не реализован")
         
         duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
         
+        logger.info(f"✅ Категория {category_name}: найдено {len(products)} товаров за {duration_ms}мс")
+        
         return ParseResult(
             shop=self.shop_name,
-            category=CategoryInfo(name="Fish", url=category_url),
+            category=CategoryInfo(name=category_name, url=category_url),
             products=products,
             total_products=len(products),
             errors=errors,
             warnings=warnings,
             parse_duration_ms=duration_ms
         )
+    
+    async def _execute_scrolling(self):
+        """Выполнение скроллинга страницы для подгрузки контента"""
+        try:
+            # Получаем высоту страницы
+            scroll_height = await self._page.evaluate("document.body.scrollHeight")
+            
+            # Скроллим несколько раз с паузами
+            for i in range(3):
+                # Скроллим на 1/3 высоты
+                scroll_position = int(scroll_height * (i + 1) / 3)
+                await self._page.evaluate(f"window.scrollTo(0, {scroll_position})")
+                await asyncio.sleep(1.5)  # Ждем подгрузки контента
+            
+            # Возвращаемся вверх
+            await self._page.evaluate("window.scrollTo(0, 0)")
+            await asyncio.sleep(1)
+            
+            logger.debug("✅ Скроллинг завершен")
+        except Exception as e:
+            logger.warning(f"⚠️ Ошибка при скроллинге: {e}")
+    
+    async def _parse_products_from_page(self, category_name: str) -> List[Product]:
+        """Парсинг товаров со страницы"""
+        if not self._page or not self.kb:
+            return []
+        
+        products = []
+        
+        try:
+            # Получаем селектор карточки товара
+            card_selector = self.get_selector("product_card")
+            if not card_selector:
+                logger.warning("⚠️ Селектор product_card не найден в KB")
+                return []
+            
+            # Находим все карточки товаров
+            product_cards = await self._page.query_selector_all(card_selector)
+            logger.info(f"🛒 Найдено {len(product_cards)} карточек товаров")
+            
+            # Парсим каждую карточку
+            for idx, card in enumerate(product_cards):
+                try:
+                    product = await self._parse_product_card(card, category_name, idx)
+                    if product:
+                        products.append(product)
+                except Exception as e:
+                    logger.debug(f"⚠️ Ошибка парсинга карточки #{idx}: {e}")
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при парсинге товаров: {e}")
+        
+        return products
+    
+    async def _parse_product_card(self, card_element, category_name: str, index: int) -> Optional[Product]:
+        """Парсинг отдельной карточки товара"""
+        try:
+            # Извлекаем данные с использованием селекторов из KB
+            name_selector = self.get_selector("product_name")
+            price_selector = self.get_selector("price_current")
+            old_price_selector = self.get_selector("price_old")
+            discount_selector = self.get_selector("discount")
+            image_selector = self.get_selector("product_image")
+            link_selector = self.get_selector("product_link")
+            
+            # Извлечение имени
+            name = None
+            if name_selector:
+                name_elem = await card_element.query_selector(name_selector)
+                if name_elem:
+                    name = await name_elem.inner_text()
+                    name = name.strip() if name else None
+            
+            # Извлечение цены
+            current_price = 0.0
+            if price_selector:
+                price_elem = await card_element.query_selector(price_selector)
+                if price_elem:
+                    price_text = await price_elem.inner_text()
+                    # Очищаем от символов валюты и пробелов
+                    price_text = ''.join(c for c in price_text if c.isdigit() or c == '.')
+                    if price_text:
+                        current_price = float(price_text)
+            
+            # Извлечение старой цены
+            old_price = None
+            if old_price_selector:
+                old_price_elem = await card_element.query_selector(old_price_selector)
+                if old_price_elem:
+                    old_price_text = await old_price_elem.inner_text()
+                    old_price_text = ''.join(c for c in old_price_text if c.isdigit() or c == '.')
+                    if old_price_text:
+                        old_price = float(old_price_text)
+            
+            # Извлечение скидки
+            discount = None
+            if discount_selector:
+                discount_elem = await card_element.query_selector(discount_selector)
+                if discount_elem:
+                    discount_text = await discount_elem.inner_text()
+                    discount_text = ''.join(c for c in discount_text if c.isdigit())
+                    if discount_text:
+                        discount = int(discount_text)
+            
+            # Извлечение ссылки
+            product_url = None
+            if link_selector:
+                link_elem = await card_element.query_selector(link_selector)
+                if link_elem:
+                    product_url = await link_elem.get_attribute('href')
+                    # Если относительный URL, делаем абсолютным
+                    if product_url and not product_url.startswith('http'):
+                        base_url = self.kb.base_url if self.kb else ""
+                        product_url = base_url.rstrip('/') + '/' + product_url.lstrip('/')
+            
+            # Извлечение изображения
+            image_url = None
+            if image_selector:
+                img_elem = await card_element.query_selector(image_selector)
+                if img_elem:
+                    image_url = await img_elem.get_attribute('src')
+                    # Если относительный URL, делаем абсолютным
+                    if image_url and not image_url.startswith('http'):
+                        base_url = self.kb.base_url if self.kb else ""
+                        image_url = base_url.rstrip('/') + '/' + image_url.lstrip('/')
+            
+            # Генерируем ID если нет
+            product_id = f"{self.shop_name}_{category_name}_{index}"
+            
+            if not name:
+                name = f"Товар #{index}"
+            
+            return Product(
+                id=product_id,
+                name=name,
+                price=ProductPrice(current=current_price, old=old_price, discount=discount),
+                category=category_name,
+                product_url=product_url or "",
+                shop=self.shop_name,
+                image_url=image_url
+            )
+            
+        except Exception as e:
+            logger.debug(f"⚠️ Ошибка парсинга карточки товара: {e}")
+            return None
     
     def _apply_regional_headers_to_session(self):
         """Применение региональных заголовков к сессии curl-cffi"""

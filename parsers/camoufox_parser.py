@@ -12,7 +12,6 @@ def get_short_path_windows(path: str) -> str:
     """
     Converts long path to short 8.3 format on Windows.
     Solves encoding issues with Cyrillic characters in paths.
-    Example: C:/Users/Name -> C:/Users/NAME~1
     """
     if os.name != 'nt':
         return path
@@ -28,7 +27,7 @@ try:
     CAMOUFOX_AVAILABLE = True
 except ImportError:
     CAMOUFOX_AVAILABLE = False
-    logger.warning("Camoufox not installed. Install: pip install camoufox[geoip]")
+    logger.warning("Camoufox not installed.")
 
 from parsers.base_parser import BaseParser
 from utils.session_manager import SessionManager
@@ -38,7 +37,6 @@ class CamoufoxParser(BaseParser):
     def __init__(self, store_name: str, config: Dict[str, Any] = None, **kwargs):
         super().__init__(store_name, config, **kwargs)
         self._camoufox_browser = None
-        
         self._session_manager = SessionManager(
             block_images=True,
             block_webgl=False,
@@ -49,10 +47,10 @@ class CamoufoxParser(BaseParser):
 
     async def start_browser(self, headless: bool = True, geoip: bool = False, **kwargs):
         if not CAMOUFOX_AVAILABLE:
-            raise ImportError("Camoufox not installed. Install: pip install camoufox[geoip]")
-
-        logger.info(f"Starting Camoufox (headless={not headless}, geoip={geoip}, humanize=True)...")
-
+            raise ImportError("Camoufox not installed.")
+        
+        logger.info(f"Starting Camoufox (geoip={geoip})...")
+        
         browser_args = {
             "headless": "virtual" if headless else False,
             "humanize": True,
@@ -65,18 +63,17 @@ class CamoufoxParser(BaseParser):
             if geoip_file.exists():
                 short_path = get_short_path_windows(str(geoip_file))
                 os.environ["GEOIP_PATH"] = short_path
-                logger.info(f"Local GeoIP DB found: {geoip_file}")
-                logger.info(f"Using short path: {short_path}")
+                logger.info(f"GeoIP DB found: {short_path}")
                 browser_args["geoip"] = True
             else:
-                logger.warning(f"GeoIP DB not found at {geoip_file}. Disabling geoip.")
+                logger.warning("GeoIP DB not found. Disabling geoip.")
                 browser_args["geoip"] = False
         else:
             browser_args["geoip"] = False
 
         try:
             self._camoufox_browser = await AsyncCamoufox().new_page(**browser_args)
-            logger.info("Camoufox browser started successfully")
+            logger.info("Camoufox started successfully")
             return self._camoufox_browser
         except Exception as e:
             logger.error(f"Error starting Camoufox: {e}")
@@ -86,7 +83,6 @@ class CamoufoxParser(BaseParser):
         if self._camoufox_browser:
             await self._camoufox_browser.close()
             self._camoufox_browser = None
-            logger.info("Camoufox browser closed")
 
     async def parse_category(self, category_url: str, category_name: str, **kwargs) -> List[Dict]:
         page = await self.start_browser(headless=kwargs.get('headless', True), geoip=True)

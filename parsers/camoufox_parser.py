@@ -2,17 +2,13 @@ import asyncio
 import os
 import subprocess
 from pathlib import Path
-from typing import Optional, List, Dict, Any
-from playwright.async_api import Page, BrowserContext
+from typing import List, Dict, Any
 import logging
 
 logger = logging.getLogger(__name__)
 
 def get_short_path_windows(path: str) -> str:
-    """
-    Converts long path to short 8.3 format on Windows.
-    Solves encoding issues with Cyrillic characters in paths.
-    """
+    """Converts long path to short 8.3 format on Windows."""
     if os.name != 'nt':
         return path
     try:
@@ -31,11 +27,11 @@ except ImportError:
 
 from parsers.base_parser import BaseParser
 from utils.session_manager import SessionManager
-from utils.fingerprint import get_camoufox_config
 
 class CamoufoxParser(BaseParser):
     def __init__(self, store_name: str, config: Dict[str, Any] = None, **kwargs):
-        super().__init__(store_name, config, **kwargs)
+        # Передаем store_name явно по имени, чтобы избежать конфликтов
+        super().__init__(store_name=store_name, config=config, **kwargs)
         self._camoufox_browser = None
         self._session_manager = SessionManager(
             block_images=True,
@@ -66,7 +62,6 @@ class CamoufoxParser(BaseParser):
                 logger.info(f"GeoIP DB found: {short_path}")
                 browser_args["geoip"] = True
             else:
-                logger.warning("GeoIP DB not found. Disabling geoip.")
                 browser_args["geoip"] = False
         else:
             browser_args["geoip"] = False

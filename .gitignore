@@ -1,21 +1,13 @@
-```gitignore
+```
 # Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# Dependencies
-.venv/
-venv/
-env/
-requirements.txt.bak
-
 # Logs and temp files
 *.log
 *.tmp
-*.swp
-*.swo
 
 # Environment
 .env
@@ -25,14 +17,4 @@ requirements.txt.bak
 # Editors
 .vscode/
 .idea/
-
-# Coverage
-.coverage
-coverage/
-htmlcov/
-
-# Build directories
-dist/
-build/
-*.egg-info/
 ```

@@ -591,15 +591,44 @@ class BaseParser:
         products = []
         
         try:
-            # Получаем селектор карточки товара
-            card_selector = self.get_selector("product_card")
-            if not card_selector:
+            # Получаем селектор карточки товара из KB (список селекторов)
+            card_selectors = self.kb.selectors.get("product_card") if self.kb and self.kb.selectors else []
+            
+            if not card_selectors:
                 logger.warning("⚠️ Селектор product_card не найден в KB")
                 return []
             
-            # Находим все карточки товаров
-            product_cards = await self._page.query_selector_all(card_selector)
-            logger.info(f"🛒 Найдено {len(product_cards)} карточек товаров")
+            # Преобразуем в список CSS селекторов
+            selectors_list = []
+            if hasattr(card_selectors, '__iter__') and not isinstance(card_selectors, str):
+                # Это список объектов SelectorConfig
+                for sel in card_selectors:
+                    if hasattr(sel, 'css') and sel.css:
+                        selectors_list.append(sel.css)
+            elif isinstance(card_selectors, str):
+                # Это строка (один селектор)
+                selectors_list.append(card_selectors)
+            
+            if not selectors_list:
+                logger.warning("⚠️ Нет валидных CSS селекторов для product_card")
+                return []
+            
+            # Пробуем каждый селектор по очереди
+            product_cards = []
+            for card_selector in selectors_list:
+                try:
+                    product_cards = await self._page.query_selector_all(card_selector)
+                    if product_cards:
+                        logger.info(f"🛒 Найдено {len(product_cards)} карточек товаров по селектору: {card_selector}")
+                        break
+                except Exception as e:
+                    logger.debug(f"⚠️ Селектор '{card_selector}' не сработал: {e}")
+                    continue
+            
+            if not product_cards:
+                logger.warning("⚠️ Не найдено товаров ни по одному из селекторов")
+                return []
+            
             
             # Парсим каждую карточку
             for idx, card in enumerate(product_cards):

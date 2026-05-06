@@ -45,14 +45,20 @@ class CamoufoxParser(BaseParser):
         if not CAMOUFOX_AVAILABLE:
             raise ImportError("Camoufox not installed.")
         
-        logger.info(f"Starting Camoufox (geoip={geoip})...")
+        logger.info(f"Starting Camoufox (geoip={geoip}, headless={headless})...")
         
+        # Формируем аргументы для запуска браузера
         browser_args = {
-            "headless": "virtual" if headless else False,
             "humanize": True,
             "block_images": True,
             "block_webgl": False,
         }
+        
+        # Обработка headless режима
+        if headless:
+            browser_args["headless"] = "virtual"
+        else:
+            browser_args["headless"] = False
 
         if geoip:
             geoip_file = Path(__file__).parent.parent / "GeoLite2-City.mmdb"
@@ -67,9 +73,18 @@ class CamoufoxParser(BaseParser):
             browser_args["geoip"] = False
 
         try:
-            self._camoufox_browser = await AsyncCamoufox().new_page(**browser_args)
+            # Используем контекстный менеджер для правильного запуска браузера
+            # AsyncCamoufox принимает параметры в __init__, а браузер запускается в __aenter__
+            self._camoufox_context = AsyncCamoufox(**browser_args)
+            self._camoufox_browser = await self._camoufox_context.__aenter__()
             logger.info("Camoufox started successfully")
             return self._camoufox_browser
+        except OSError as e:
+            if "No space left on device" in str(e) or e.errno == 28:
+                logger.error("❌ Недостаточно места на диске для загрузки Camoufox (~713MB требуется)")
+                logger.error("   Освободите место или используйте Playwright вместо Camoufox")
+                raise RuntimeError("Insufficient disk space for Camoufox") from e
+            raise
         except Exception as e:
             logger.error(f"Error starting Camoufox: {e}")
             raise
@@ -78,6 +93,13 @@ class CamoufoxParser(BaseParser):
         if self._camoufox_browser:
             await self._camoufox_browser.close()
             self._camoufox_browser = None
+        # Также закрываем контекст, если он существует
+        if hasattr(self, '_camoufox_context') and self._camoufox_context:
+            try:
+                await self._camoufox_context.__aexit__(None, None, None)
+            except Exception:
+                pass  # Игнорируем ошибки при закрытии контекста
+            self._camoufox_context = None
 
     async def parse_category(self, category_url: str, category_name: str, **kwargs) -> List[Dict]:
         page = await self.start_browser(headless=kwargs.get('headless', True), geoip=True)

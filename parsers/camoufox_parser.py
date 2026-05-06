@@ -8,12 +8,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
 def get_short_path_windows(path: str) -> str:
     """
-    Преобразует длинный путь с кириллицей в короткий 8.3 формат для Windows.
-    Это решает проблему с кодировкой путей в Camoufox при наличии русских букв.
-    Пример работы: C:\\Users\\USER~1\\... вместо C:\\Users\\Пользователь\\...
+    Converts long path to short 8.3 format on Windows.
+    Solves encoding issues with Cyrillic characters in paths.
+    Example: C:/Users/Name -> C:/Users/NAME~1
     """
     if os.name != 'nt':
         return path
@@ -23,7 +22,6 @@ def get_short_path_windows(path: str) -> str:
         return result if result else path
     except Exception:
         return path
-
 
 try:
     from camoufox.async_api import AsyncCamoufox
@@ -36,11 +34,11 @@ from parsers.base_parser import BaseParser
 from utils.session_manager import SessionManager
 from utils.fingerprint import get_camoufox_config
 
-
 class CamoufoxParser(BaseParser):
     def __init__(self, store_name: str, config: Dict[str, Any] = None, **kwargs):
         super().__init__(store_name, config, **kwargs)
         self._camoufox_browser = None
+        
         self._session_manager = SessionManager(
             block_images=True,
             block_webgl=False,
@@ -54,7 +52,7 @@ class CamoufoxParser(BaseParser):
             raise ImportError("Camoufox not installed. Install: pip install camoufox[geoip]")
 
         logger.info(f"Starting Camoufox (headless={not headless}, geoip={geoip}, humanize=True)...")
-        
+
         browser_args = {
             "headless": "virtual" if headless else False,
             "humanize": True,
@@ -62,7 +60,6 @@ class CamoufoxParser(BaseParser):
             "block_webgl": False,
         }
 
-        # Handle GeoIP with short path fix
         if geoip:
             geoip_file = Path(__file__).parent.parent / "GeoLite2-City.mmdb"
             if geoip_file.exists():

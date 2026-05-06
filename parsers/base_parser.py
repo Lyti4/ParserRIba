@@ -127,7 +127,7 @@ class BaseParser:
         headers = self._get_default_headers()
         
         # Добавляем custom headers из KB
-        custom_headers = self.kb.headers.get("custom", {})
+        custom_headers = self.kb.headers.custom if self.kb.headers else {}
         for key, value in custom_headers.items():
             if value == "required":
                 # Подставляем значения по умолчанию
@@ -167,7 +167,10 @@ class BaseParser:
             return None
         
         selectors = self.kb.selectors
-        return selectors.get(selector_type, {}).get("css") or selectors.get(selector_type, {}).get("xpath")
+        selector_config = selectors.get(selector_type)
+        if selector_config:
+            return selector_config.css or selector_config.xpath
+        return None
     
     async def start_browser(self, use_camoufox: bool = True, geoip: bool = False, 
                            block_images: bool = True, block_webgl: bool = False,
@@ -343,7 +346,7 @@ class BaseParser:
             if self._playwright:
                 await self._playwright.stop()
             if self._camoufox_browser:
-                await self._camoufox_browser.close()
+                await self._camoufox_browser.__aexit__(None, None, None)
             logger.info("🛑 Браузер закрыт")
         except Exception as e:
             logger.error(f"Ошибка при закрытии браузера: {e}")
@@ -535,7 +538,7 @@ class BaseParser:
         if not self.kb or not self.kb.headers:
             return
         
-        custom_headers = self.kb.headers.get("custom", {})
+        custom_headers = self.kb.headers.custom if self.kb.headers else {}
         for header, value in custom_headers.items():
             # Подстановка региона если требуется
             if value == "required" and header in ["X-Region", "X-Region-Id"]:
@@ -550,7 +553,7 @@ class BaseParser:
         if not self.kb or not self.kb.headers:
             return
         
-        custom_headers = self.kb.headers.get("custom", {})
+        custom_headers = self.kb.headers.custom if self.kb.headers else {}
         headers_to_set = {}
         
         for header, value in custom_headers.items():

@@ -200,7 +200,9 @@ class BaseParser:
     async def _start_camoufox(self, geoip: bool = False, block_images: bool = True,
                               block_webgl: bool = False, addons: Optional[List[str]] = None,
                               headless: str = "virtual", humanize: bool = True,
-                              webgl_config: Optional[tuple] = None):
+                              webgl_config: Optional[tuple] = None,
+                              os_type: Optional[str] = None,
+                              disable_coop: bool = True):
         """Запуск Camoufox с расширенными настройками stealth.
         
         Args:
@@ -214,44 +216,58 @@ class BaseParser:
                      - False: обычный режим с окном
             humanize: Гуманизировать движения курсора
             webgl_config: Кортеж (vendor, renderer) для WebGL spoofing
+            os_type: Тип ОС для fingerprint (windows, macos, linux)
+            disable_coop: Отключить Cross-Origin-Opener-Policy
         """
         try:
             from camoufox import AsyncCamoufox
             
             logger.info(f"🦊 Запуск Camoufox (headless={headless}, geoip={geoip}, humanize={humanize})...")
             
-            # Подготовка параметров для Camoufox
+            # Подготовка параметров для Camoufox launch_options()
             launch_kwargs = {
-                "geoip": geoip if geoip else None,
                 "block_images": block_images,
                 "block_webgl": block_webgl,
                 "humanize": humanize,
-                "block_webrtc": False,  # Не блокируем по умолчанию
-                "disable_coop": True,   # Разрешаем cross-origin iframe
+                "disable_coop": disable_coop,
             }
             
             # Обработка headless режима
-            # Camoufox принимает headless=True/False, а virtual_display отдельно
             if headless == "virtual":
-                launch_kwargs["headless"] = False  # Не headless, но с virtual_display
-                launch_kwargs["virtual_display"] = ":99"  # Camoufox сам обработает если None
+                launch_kwargs["headless"] = "virtual"  # Camoufox поддерживает 'virtual'
             elif isinstance(headless, bool):
                 launch_kwargs["headless"] = headless
             else:
                 launch_kwargs["headless"] = bool(headless)
             
+            # GeoIP если включён
+            if geoip:
+                launch_kwargs["geoip"] = True
+            
             # Добавляем аддоны если указаны
-            # Поддерживаем как пути к файлам, так и DefaultAddons
             if addons:
                 launch_kwargs["addons"] = addons
             
             # WebGL конфигурация если передана (vendor, renderer)
             if webgl_config and isinstance(webgl_config, tuple) and len(webgl_config) == 2:
                 launch_kwargs["webgl_config"] = webgl_config
+                # Для webgl_config нужно указать OS
+                if os_type:
+                    launch_kwargs["os"] = os_type
+            
+            # Тип ОС для fingerprint
+            if os_type:
+                launch_kwargs["os"] = os_type
             
             # Создаём браузер с параметрами
             self._camoufox_browser = AsyncCamoufox(**launch_kwargs)
-            self._page = await self._camoufox_browser.new_page()
+            
+            # Входим в контекст менеджера
+            await self._camoufox_browser.__aenter__()
+            
+            # Создаём новую страницу
+            browser = self._camoufox_browser.browser
+            self._page = await browser.new_page()
             
             logger.info("✅ Camoufox запущен успешно")
             

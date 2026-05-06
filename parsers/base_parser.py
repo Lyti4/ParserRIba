@@ -245,6 +245,8 @@ class BaseParser:
                 "humanize": humanize,
                 "disable_coop": disable_coop,
                 "headless": effective_headless,
+                "fingerprint": True,  # Включаем автоматический fingerprinting
+                "i_know_what_im_doing": True,  # Отключаем предупреждения о безопасности
             }
             
             # GeoIP если включён

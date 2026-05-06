@@ -50,11 +50,13 @@ from models.schemas import Product
 
 # Импорты парсеров
 from parsers.pyaterochka import PyaterochkaParser
-from parsers.magnit import MagnitParser
-from parsers.lenta import LentaParser
-from parsers.auchan import AuchanParser
-from parsers.okey import OkeyParser
-from parsers.perekrestok import PerekrestokParser
+
+# Временное отключение отсутствующих парсеров для теста
+# from parsers.magnit import MagnitParser
+# from parsers.lenta import LentaParser
+# from parsers.auchan import AuchanParser
+# from parsers.okey import OkeyParser
+# from parsers.perekrestok import PerekrestokParser
 
 
 logger = get_logger("main")
@@ -65,11 +67,12 @@ class ParserFactory:
     
     PARSERS = {
         "pyaterochka": PyaterochkaParser,
-        "magnit": MagnitParser,
-        "lenta": LentaParser,
-        "auchan": AuchanParser,
-        "okey": OkeyParser,
-        "perekrestok": PerekrestokParser,
+        # Остальные парсеры будут добавлены по мере готовности
+        # "magnit": MagnitParser,
+        # "lenta": LentaParser,
+        # "auchan": AuchanParser,
+        # "okey": OkeyParser,
+        # "perekrestok": PerekrestokParser,
     }
     
     @classmethod
@@ -85,32 +88,17 @@ class ParserFactory:
             from camoufox.async_api import AsyncCamoufox
             camoufox_available = True
         except ImportError:
-            logger.warning("⚠️  Camoufox недоступен, будет использоваться Playwright")
+            logger.warning("⚠️  Camoufox недоступен")
         
-        # Pyaterochka использует CamoufoxParser -> base_parser.py (shop_name, region, headless)
+        # Pyaterochka использует CamoufoxParser
         if store_name == "pyaterochka":
             if not camoufox_available:
-                logger.warning("🔄 Переключаемся на Playwright для pyaterochka")
-                # Можно добавить fallback на PlaywrightParser если нужно
-            return parser_class(
-                store_name=store_name,
-                region=kwargs.get('region', '77'),
-                headless=kwargs.get('headless', True)
-            )
-        # Magnit использует base_parser.py (shop_name, region, headless)
-        elif store_name == "magnit":
+                logger.error("❌ Camoufox необходим для pyaterochka")
+                raise ImportError("Camoufox required")
             return parser_class(
                 shop_name=store_name,
-                region=kwargs.get('region', '77'),
-                headless=kwargs.get('headless', True)
-            )
-        # Lenta, Auchan, Okey, Perekrestok используют base.py (context, kb_path)
-        else:
-            # Для этих парсеров нужен BrowserContext - пока передаем заглушку
-            # Требуется доработка main.py для инициализации Playwright
-            raise NotImplementedError(
-                f"Парсер {store_name} требует BrowserContext. "
-                f"Необходимо инициализировать Playwright в main.py"
+                headless=kwargs.get('headless', True),
+                geoip_path=os.environ.get('GEOIP_PATH')
             )
     
     @classmethod

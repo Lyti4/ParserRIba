@@ -52,12 +52,20 @@ class PyaterochkaParser(BaseParser):
             else:
                 logger.info("✅ Используем уже запущенный браузер")
             
-            # Переходим на страницу категории
+            # Переходим на страницу категории с обработкой ошибок
             logger.info(f"🔗 Переход на страницу: {category_url}")
-            await self._page.goto(category_url, wait_until="domcontentloaded", timeout=60000)
+            try:
+                await self._page.goto(category_url, wait_until="domcontentloaded", timeout=60000)
+            except Exception as e:
+                if "NS_BINDING_ABORTED" in str(e):
+                    logger.warning(f"⚠️ Страница прервала загрузку, пробуем еще раз...")
+                    await asyncio.sleep(2)
+                    await self._page.goto(category_url, wait_until="domcontentloaded", timeout=60000)
+                else:
+                    raise
             
             # Дополнительное ожидание загрузки контента
-            await asyncio.sleep(3)
+            await asyncio.sleep(5)
             
             # Применяем стратегии (скроллинг, lazy load) если они включены в KB
             if self._strategies_config.get('scrolling', False):
@@ -132,7 +140,7 @@ class PyaterochkaParser(BaseParser):
         
         products = []
         
-        # Получаем селекторы из KB
+        # Получаем селекторы из KB - используем несколько вариантов
         product_card_selector = self.get_selector('product_card')
         name_selector = self.get_selector('product_name')
         price_selector = self.get_selector('price_current')
@@ -146,10 +154,25 @@ class PyaterochkaParser(BaseParser):
             logger.warning("⚠️ Селектор product_card не найден в KB")
             return products
         
+        logger.info(f"🔍 Используемые селекторы:")
+        logger.info(f"   Карточка: {product_card_selector}")
+        logger.info(f"   Название: {name_selector}")
+        logger.info(f"   Цена: {price_selector}")
+        
         # Находим все карточки товаров
         try:
             card_elements = await self._page.query_selector_all(product_card_selector)
             logger.info(f"🛒 Найдено {len(card_elements)} карточек товаров")
+            
+            # Если не нашли по основному селектору, пробуем альтернативные
+            if len(card_elements) == 0:
+                alt_selectors = ['article[class*="Card"]', '.catalog-item', 'div[class*="product"]']
+                for alt_sel in alt_selectors:
+                    logger.info(f"🔄 Пробуем альтернативный селектор: {alt_sel}")
+                    card_elements = await self._page.query_selector_all(alt_sel)
+                    if len(card_elements) > 0:
+                        logger.info(f"✅ Альтернативный селектор сработал: {len(card_elements)} товаров")
+                        break
             
             for idx, card in enumerate(card_elements):
                 try:
@@ -203,6 +226,7 @@ class PyaterochkaParser(BaseParser):
                     
                     if name.strip():  # Добавляем только если есть название
                         products.append(product)
+                        logger.info(f"   ✅ Товар: {name.strip()} - {price_value} руб.")
                         
                 except Exception as e:
                     logger.warning(f"⚠️ Ошибка при парсинге карточки {idx}: {e}")
@@ -211,4 +235,5 @@ class PyaterochkaParser(BaseParser):
         except Exception as e:
             logger.error(f"❌ Ошибка при поиске карточек: {e}")
         
+        logger.info(f"📦 Итого найдено товаров: {len(products)}")
         return products

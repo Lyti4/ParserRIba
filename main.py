@@ -4,6 +4,26 @@ ParserRiba - Главный скрипт запуска
 Парсер цен на рыбные товары для российских сетей
 """
 
+import os
+import sys
+
+# =============================================================================
+# НАСТРОЙКА CAMOUFOX ДЛЯ WINDOWS
+# =============================================================================
+# Принудительно указываем путь к уже скачанному браузеру Camoufox
+# Это предотвращает попытки автоматической загрузки и ошибки таймаута
+if sys.platform == "win32":
+    camoufox_path = r"C:\CamoufoxBrowser\camoufox-135.0.1-beta.24-win.x86_64\firefox.exe"
+    if os.path.exists(camoufox_path):
+        os.environ["CAMOUFOX_BIN"] = camoufox_path
+        # Отключаем проверку обновлений и авто-загрузку
+        os.environ["CAMOUFOX_SKIP_DOWNLOAD"] = "1"
+        print(f"✅ Camoufox найден: {camoufox_path}")
+    else:
+        print(f"⚠️  Warning: Camoufox не найден по пути {camoufox_path}")
+        print("   Убедитесь, что браузер установлен или измените путь в main.py")
+# =============================================================================
+
 import asyncio
 import argparse
 import yaml

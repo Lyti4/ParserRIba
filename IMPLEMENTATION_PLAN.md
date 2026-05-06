@@ -249,30 +249,44 @@ def get_camoufox_config(fingerprint=None, **kwargs):
 
 **Проверка:** ✅ `from utils.fingerprint import get_camoufox_config` работает успешно
 
+### ✅ Исправление проблемы с загрузкой браузера (2026-05-06 17:15)
+**Проблема:** При запуске парсера происходит попытка повторной загрузки Camoufox и возникает таймаут соединения.  
+**Решение:** В файл `main.py` добавлен блок настройки переменных окружения для Windows:
+
+```python
+# main.py - добавлено в начало файла:
+if sys.platform == "win32":
+    camoufox_path = r"C:\CamoufoxBrowser\camoufox-135.0.1-beta.24-win.x86_64\firefox.exe"
+    if os.path.exists(camoufox_path):
+        os.environ["CAMOUFOX_BIN"] = camoufox_path
+        os.environ["CAMOUFOX_SKIP_DOWNLOAD"] = "1"
+```
+
+**Эффект:** 
+- ✅ Парсер использует уже установленный браузер
+- ✅ Отключена автоматическая проверка обновлений
+- ✅ Исключены ошибки таймаута при загрузке
+
 ### ⚠️ Известная проблема: Rate Limit GitHub API
 При выполнении `camoufox fetch` может возникать ошибка `403 rate limit exceeded`.
 
 **Решения:**
-1. ✅ **Автозагрузка при первом запуске** — Camoufox сам скачает браузер при вызове `AsyncCamoufox()`
+1. ✅ **Использовать установленный браузер** — Переменные `CAMOUFOX_BIN` и `CAMOUFOX_SKIP_DOWNLOAD` в `main.py` решают проблему
 2. ⏳ **Подождать 1 час** — Лимит GitHub API сбрасывается автоматически
 3. 🔧 **Установить версию вручную**: `pip install "camoufox==0.3.15" --force-reinstall`
 4. 🔄 **Альтернативный канал**: `camoufox fetch --channel coryking/stable`
 5. 💻 **Для Windows:** Убедиться, что установлен Visual C++ Redistributable
 
 ### ✅ Готовность кода
-Все 12 функций реализованы и готовы к работе. Требуется только успешная загрузка браузера Camoufox.
+Все 12 функций реализованы и готовы к работе. Браузер Camoufox используется из локальной установки `C:\CamoufoxBrowser\`.
 
 ### 📝 Инструкция для Windows:
 ```bash
-# 1. Установить Visual C++ Redistributable (если нет)
-# Скачать: https://aka.ms/vs/17/release/vc_redist.x64.exe
+# 1. Убедиться, что браузер установлен по пути:
+#    C:\CamoufoxBrowser\camoufox-135.0.1-beta.24-win.x86_64\firefox.exe
 
-# 2. Подождать сброса лимита GitHub API (1 час) или использовать альтернативный канал
-camoufox fetch --channel coryking/stable
+# 2. Запустить парсер (настройка выполняется автоматически в main.py):
+python main.py --store pyaterochka --no-headless --log-level INFO
 
-# 3. Если не работает, установить конкретную версию
-pip install "camoufox==0.3.15" --force-reinstall
-
-# 4. Запустить парсер с новым CamoufoxParser
-python -c "from parsers.camoufox_parser import CamoufoxParser; print('Готово!')"
+# 3. Если путь отличается, отредактировать main.py (строки 15-24)
 ```

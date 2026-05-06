@@ -1,0 +1,41 @@
+# ParserRiba Dependencies
+# Основные библиотеки для парсинга
+
+# Асинхронность и HTTP
+asyncio>=3.4.3
+aiohttp>=3.9.0
+curl-cffi>=0.6.0  # Основной HTTP клиент с обходом детекта
+
+# Browser Automation
+playwright>=1.40.0  # Резервный браузерный парсинг
+playwright-stealth>=1.0.7  # Скрытие автоматизации браузера
+camoufox>=0.4.0  # Продвинутый Firefox с улучшенной маскировкой (основной для сложных сайтов)
+
+# Валидация данных
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Конфигурация
+pyyaml>=6.0.1
+
+# Утилиты
+python-dotenv>=1.0.0
+tenacity>=8.2.0  # Retries
+fake-useragent>=1.4.0
+loguru>=0.7.2  # Логирование
+beautifulsoup4>=4.12.0  # Парсинг HTML
+lxml>=4.9.0  # XML/HTML парсер для BeautifulSoup
+
+# Экспорт данных
+# (опционально, если нужен CSV/Excel)
+# pandas>=2.0.0
+# openpyxl>=3.1.0
+
+# Тестирование
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+
+# Линтинг (разработка)
+# black>=23.0.0
+# flake8>=6.0.0
+# mypy>=1.0.0

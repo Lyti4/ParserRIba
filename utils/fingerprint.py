@@ -7,6 +7,12 @@ import random
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
+try:
+    from browserforge.fingerprints import FingerprintGenerator as BrowserForgeFG
+    BROWSERFORGE_AVAILABLE = True
+except ImportError:
+    BROWSERFORGE_AVAILABLE = False
+
 
 class FingerprintGenerator:
     """

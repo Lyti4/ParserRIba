@@ -21,6 +21,8 @@ class ScrollStrategy(BaseStrategy):
     
     Uses human-like scrolling patterns with random pauses and variable scroll speeds.
     Note: Camoufox's built-in humanize=True provides more reliable C++ implementation.
+    When using Camoufox browser, set humanize=True in browser config instead of relying
+    on this Python-based implementation.
     """
 
     def __init__(self, page: Page, config: Optional[dict] = None):
@@ -28,7 +30,9 @@ class ScrollStrategy(BaseStrategy):
         self.scroll_delay = self.config.get("scroll_delay", 1.0)
         self.max_scrolls = self.config.get("max_scrolls", 10)
         self.scroll_step = self.config.get("scroll_step", 500)
-        self.human_like = self.config.get("human_like", True)  # Use human-like scrolling
+        # human_like is deprecated when using Camoufox - use browser's humanize=True instead
+        self.human_like = self.config.get("human_like", True)
+        self.use_camoufox_humanize = self.config.get("use_camoufox_humanize", False)
 
     async def execute(self, **kwargs) -> bool:
         """

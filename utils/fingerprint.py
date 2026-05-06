@@ -192,7 +192,7 @@ class FingerprintGenerator:
             fingerprint: Pre-generated fingerprint or None to generate new
             
         Returns:
-            Configuration dictionary for Camoufox
+            Configuration dictionary for Camoufox with block_images, block_webgl, humanize
         """
         if fingerprint is None:
             fingerprint = self.generate_fingerprint()
@@ -205,6 +205,11 @@ class FingerprintGenerator:
             "canvas": fingerprint["canvas"],
             "webrtc": fingerprint["webrtc"],
             "audio": fingerprint["audio"],
+            # Camoufox-specific settings
+            "block_images": getattr(self, 'block_images', True),
+            "block_webgl": getattr(self, 'block_webgl', False),
+            "humanize": getattr(self, 'humanize', True),
+            "headless": getattr(self, 'headless', "virtual"),
         }
         
         return config

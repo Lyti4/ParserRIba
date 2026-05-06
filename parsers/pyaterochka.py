@@ -18,9 +18,14 @@ class PyaterochkaParser(BaseParser):
         self.base_url = "https://5ka.ru"
         logger.info(f"PyaterochkaParser initialized for region {region}")
 
-    async def parse_category(self, category_url: str, category_name: str, **kwargs):
+    async def parse_category(self, category_url: str, category_name: str = "Unknown", **kwargs):
         """Парсинг категории товаров через браузер (Camoufox/Playwright)"""
         from models.schemas import ParseResult, CategoryInfo
+        from datetime import datetime
+        
+        start_time = datetime.now()
+        errors = []
+        warnings = []
         
         logger.info(f"Parsing category: {category_url}")
         
@@ -30,20 +35,29 @@ class PyaterochkaParser(BaseParser):
             headless_mode = False
         
         try:
-            # Запускаем браузер с видимым окном если нужно
-            await self.start_browser(
-                use_camoufox=True,
-                geoip=False,
-                block_images=False,  # Не блокируем изображения для правильного рендеринга
-                block_webgl=False,
-                addons=None,
-                headless=headless_mode,
-                humanize=True
-            )
+            # Запускаем браузер ТОЛЬКО если он еще не запущен
+            if not self._page:
+                logger.info("🌐 Браузер еще не запущен, запускаем...")
+                await self.start_browser(
+                    use_camoufox=True,
+                    geoip=False,
+                    block_images=False,  # Не блокируем изображения для правильного рендеринга
+                    block_webgl=False,
+                    addons=None,
+                    headless=headless_mode,
+                    humanize=True
+                )
+                # Небольшая задержка после запуска
+                await asyncio.sleep(2)
+            else:
+                logger.info("✅ Используем уже запущенный браузер")
             
             # Переходим на страницу категории
-            logger.info(f"🌐 Переход на страницу: {category_url}")
+            logger.info(f"🔗 Переход на страницу: {category_url}")
             await self._page.goto(category_url, wait_until="domcontentloaded", timeout=60000)
+            
+            # Дополнительное ожидание загрузки контента
+            await asyncio.sleep(3)
             
             # Применяем стратегии (скроллинг, lazy load) если они включены в KB
             if self._strategies_config.get('scrolling', False):
@@ -59,25 +73,33 @@ class PyaterochkaParser(BaseParser):
             logger.info(f"✅ Страница загружена ({len(html)} bytes)")
             
             # Парсим товары из HTML
-            products = await self._parse_products_from_html(html)
+            products = await self._parse_products_from_html(html, category_name)
             
-            # Закрываем браузер
-            await self.close_browser()
+            duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+            logger.info(f"✅ Категория {category_name}: найдено {len(products)} товаров за {duration_ms}мс")
             
             return ParseResult(
                 shop=self.shop_name,
                 category=CategoryInfo(name=category_name, url=category_url),
                 products=products,
                 total_products=len(products),
-                errors=[],
-                warnings=[]
+                errors=errors,
+                warnings=warnings,
+                parse_duration_ms=duration_ms
             )
                 
         except Exception as e:
             logger.error(f"❌ Ошибка при парсинге категории: {e}")
-            # Закрываем браузер в случае ошибки
-            await self.close_browser()
-            raise
+            errors.append(f"Ошибка парсинга: {e}")
+            # НЕ закрываем браузер здесь - это делает main.py после всех категорий
+            return ParseResult(
+                shop=self.shop_name,
+                category=CategoryInfo(name=category_name, url=category_url),
+                products=[],
+                total_products=0,
+                errors=errors,
+                warnings=warnings
+            )
     
     async def _apply_scrolling(self):
         """Применение стратегии скроллинга"""
@@ -103,7 +125,7 @@ class PyaterochkaParser(BaseParser):
         """)
         await self._page.wait_for_timeout(2000)
     
-    async def _parse_products_from_html(self, html: str):
+    async def _parse_products_from_html(self, html: str, category_name: str = "Unknown"):
         """Парсинг товаров из HTML с использованием селекторов из KB"""
         from playwright.async_api import Page
         from models.schemas import Product, ProductPrice
@@ -127,7 +149,7 @@ class PyaterochkaParser(BaseParser):
         # Находим все карточки товаров
         try:
             card_elements = await self._page.query_selector_all(product_card_selector)
-            logger.info(f"📦 Найдено {len(card_elements)} карточек товаров")
+            logger.info(f"🛒 Найдено {len(card_elements)} карточек товаров")
             
             for idx, card in enumerate(card_elements):
                 try:
@@ -164,13 +186,19 @@ class PyaterochkaParser(BaseParser):
                     if image_el:
                         image_url = await image_el.get_attribute('src') or ""
                     
+                    # Генерируем ID
+                    product_id = f"{self.shop_name}_{category_name}_{idx}"
+                    
                     product = Product(
+                        id=product_id,
                         name=name.strip(),
                         price=ProductPrice(current=price_value, old=old_price_value),
                         weight=weight.strip() if weight else None,
                         brand=brand.strip() if brand else None,
                         url=product_url,
-                        image_url=image_url
+                        image_url=image_url,
+                        category=category_name,
+                        shop=self.shop_name
                     )
                     
                     if name.strip():  # Добавляем только если есть название

@@ -167,45 +167,72 @@ async def parse_store(
         
         all_products = []
         
-        # Парсинг каждой категории
-        for category in categories:
-            logger.info(f"📦 Категория: {category}")
-            
-            # Определяем URL категории
-            category_url = None
-            
-            # Если категория - это ключ из KB, используем соответствующий URL
-            if store_kb and category in store_kb.categories:
-                category_url = store_kb.categories[category]
-                logger.debug(f"   URL категории из KB: {category_url}")
-            # Если категория уже выглядит как URL (начинается с http)
-            elif category.startswith('http'):
-                category_url = category
-                logger.debug(f"   Используем URL напрямую: {category_url}")
-            # Пытаемся найти категорию по частичному совпадению
-            elif store_kb:
-                for kb_cat_name, kb_cat_url in store_kb.categories.items():
-                    if category.lower() in kb_cat_name.lower() or kb_cat_name.lower() in category.lower():
-                        category_url = kb_cat_url
-                        logger.debug(f"   Найдено совпадение в KB: {kb_cat_name} -> {category_url}")
-                        break
-            
-            if not category_url:
-                logger.error(f"❌ Не удалось определить URL для категории: {category}")
-                continue
-            
-            try:
-                parse_result = await parser.parse_category(category_url, category)
-                # parse_result - это ParseResult, берем products из него
-                if parse_result and hasattr(parse_result, 'products'):
-                    all_products.extend(parse_result.products)
-                    logger.info(f"✅ Найдено товаров: {len(parse_result.products)}")
-                else:
-                    logger.warning(f"⚠️ Пустой результат для категории {category}")
+        # Запускаем браузер ОДИН раз перед всеми категориями
+        use_playwright = (
+            store_kb and 
+            getattr(store_kb, 'recommended_tool', None) == "playwright"
+        ) or (
+            store_kb and 
+            getattr(store_kb.anti_bot, 'requires_js', False)
+        )
+        
+        if use_playwright:
+            logger.info("🌐 Запуск браузера перед обработкой всех категорий...")
+            await parser.start_browser(use_camoufox=True, headless=False if not headless else "virtual")
+            # Небольшая задержка после запуска
+            await asyncio.sleep(2)
+        
+        try:
+            # Парсинг каждой категории
+            for category in categories:
+                logger.info(f"📦 Категория: {category}")
                 
-            except Exception as e:
-                logger.error(f"❌ Ошибка при парсинге категории {category}: {e}")
-                continue
+                # Определяем URL категории
+                category_url = None
+                
+                # Если категория - это ключ из KB, используем соответствующий URL
+                if store_kb and category in store_kb.categories:
+                    category_url = store_kb.categories[category]
+                    logger.debug(f"   URL категории из KB: {category_url}")
+                # Если категория уже выглядит как URL (начинается с http)
+                elif category.startswith('http'):
+                    category_url = category
+                    logger.debug(f"   Используем URL напрямую: {category_url}")
+                # Пытаемся найти категорию по частичному совпадению
+                elif store_kb:
+                    for kb_cat_name, kb_cat_url in store_kb.categories.items():
+                        if category.lower() in kb_cat_name.lower() or kb_cat_name.lower() in category.lower():
+                            category_url = kb_cat_url
+                            logger.debug(f"   Найдено совпадение в KB: {kb_cat_name} -> {category_url}")
+                            break
+                
+                if not category_url:
+                    logger.error(f"❌ Не удалось определить URL для категории: {category}")
+                    continue
+                
+                try:
+                    parse_result = await parser.parse_category(category_url, category)
+                    # parse_result - это ParseResult, берем products из него
+                    if parse_result and hasattr(parse_result, 'products'):
+                        all_products.extend(parse_result.products)
+                        logger.info(f"✅ Найдено товаров: {len(parse_result.products)}")
+                    else:
+                        logger.warning(f"⚠️ Пустой результат для категории {category}")
+                    
+                    # Задержка между категориями (чтобы видеть процесс и не спамить запросами)
+                    if len(categories) > 1:
+                        delay = 3  # 3 секунды между категориями
+                        logger.debug(f"⏳ Пауза {delay}с перед следующей категорией...")
+                        await asyncio.sleep(delay)
+                        
+                except Exception as e:
+                    logger.error(f"❌ Ошибка при парсинге категории {category}: {e}")
+                    continue
+        finally:
+            # Закрываем браузер ПОСЛЕ всех категорий
+            if use_playwright:
+                logger.info("🛑 Завершение работы браузера после всех категорий...")
+                await parser.close_browser()
         
         # Сохранение результатов
         if all_products:

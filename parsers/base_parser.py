@@ -239,14 +239,15 @@ class BaseParser:
             logger.info(f"🦊 Запуск Camoufox (OS={system}, headless={effective_headless}, geoip={geoip}, humanize={humanize})...")
             
             # Подготовка параметров для Camoufox launch_options()
+            # Явно создаем словарь, чтобы избежать ошибок с dataclass
             launch_kwargs = {
-                "block_images": block_images,
-                "block_webgl": block_webgl,
-                "humanize": humanize,
-                "disable_coop": disable_coop,
+                "block_images": bool(block_images),
+                "block_webgl": bool(block_webgl),
+                "humanize": bool(humanize),
+                "disable_coop": bool(disable_coop),
                 "headless": effective_headless,
-                "fingerprint": True,  # Включаем автоматический fingerprinting
-                "i_know_what_im_doing": True,  # Отключаем предупреждения о безопасности
+                "fingerprint": True,
+                "i_know_what_im_doing": True,
             }
             
             # GeoIP если включён
@@ -255,21 +256,39 @@ class BaseParser:
             
             # Добавляем аддоны если указаны
             if addons:
-                launch_kwargs["addons"] = addons
+                launch_kwargs["addons"] = list(addons) if addons else None
             
-            # WebGL конфигурация если передана (vendor, renderer)
+            # WebGL конфигурация если передана
             if webgl_config and isinstance(webgl_config, tuple) and len(webgl_config) == 2:
-                launch_kwargs["webgl_config"] = webgl_config
-                # Для webgl_config нужно указать OS
-                if os_type:
-                    launch_kwargs["os"] = os_type
+                launch_kwargs["webgl_vendor"] = webgl_config[0]
+                launch_kwargs["webgl_renderer"] = webgl_config[1]
             
-            # Тип ОС для fingerprint (если не задан явно, можно определить автоматически)
+            # Тип ОС для fingerprint
             if os_type:
                 launch_kwargs["os"] = os_type
             
-            # Создаём браузер с параметрами
-            self._camoufox_browser = AsyncCamoufox(**launch_kwargs)
+            logger.debug(f"🔧 Параметры запуска Camoufox: {launch_kwargs}")
+            
+            # Создаём браузер с параметрами (распаковка словаря)
+            try:
+                self._camoufox_browser = AsyncCamoufox(
+                    block_images=launch_kwargs["block_images"],
+                    block_webgl=launch_kwargs["block_webgl"],
+                    humanize=launch_kwargs["humanize"],
+                    disable_coop=launch_kwargs["disable_coop"],
+                    headless=launch_kwargs["headless"],
+                    fingerprint=launch_kwargs["fingerprint"],
+                    i_know_what_im_doing=launch_kwargs["i_know_what_im_doing"],
+                    geoip=launch_kwargs.get("geoip"),
+                    addons=launch_kwargs.get("addons"),
+                    os=launch_kwargs.get("os"),
+                    webgl_vendor=launch_kwargs.get("webgl_vendor"),
+                    webgl_renderer=launch_kwargs.get("webgl_renderer"),
+                )
+            except TypeError as te:
+                logger.error(f"❌ Ошибка параметров Camoufox: {te}")
+                logger.error(f"Параметры: {launch_kwargs}")
+                raise
             
             # Входим в контекст менеджера
             await self._camoufox_browser.__aenter__()

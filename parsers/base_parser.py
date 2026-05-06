@@ -1,827 +1,377 @@
-"""
-Современный базовый парсер с интеграцией Knowledge Base, стратегий и политик.
-Заменяет устаревший base_parser.py
-"""
 import asyncio
-import random
+import json
 import logging
-from typing import Optional, List, Dict, Any, Type
+import platform
+import random
+import time
+from dataclasses import asdict
 from datetime import datetime
-from curl_cffi import requests as curl_requests
-from loguru import logger
-from functools import wraps
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from models.schemas import Product, ProductPrice, ProductDimensions, ParseResult, CategoryInfo
-from utils.kb_loader import KBLoader, ShopKnowledge
-from strategies.base_strategy import BaseStrategy as Strategy
-from strategies.scroll_strategy import ScrollStrategy
-from strategies.pagination_strategy import PaginationStrategy
-from strategies.lazy_load_strategy import LazyLoadStrategy
-from policies.engine import PoliciesEngine as PolicyEngine
+from camoufox.async_api import AsyncCamoufox
+from loguru import logger
+from pydantic import ValidationError
+
+from models.config import HeadersConfig, SelectorConfig, StrategyConfig
+from models.product import Product
+from parsers.strategies.scroll_strategy import ScrollStrategy
+from utils.geoip import GeoIPService
+from utils.knowledge_base import KnowledgeBase
+
+logger = logging.getLogger(__name__)
 
 
 class BaseParser:
-    """
-    Базовый класс парсера с динамической загрузкой конфигурации из Knowledge Base.
-    
-    Особенности:
-    - Автоматическая загрузка селекторов и headers из MD файлов
-    - Интеграция со стратегиями (скролл, пагинация, lazy load)
-    - Автоматическая обработка ошибок через Policy Engine
-    - Поддержка curl-cffi (основной) и Playwright (резерв)
-    """
-    
-    def __init__(self, shop_name: str, region: str = "77", headless: bool = True):
-        """
-        Инициализация парсера.
-        
-        Args:
-            shop_name: Название магазина (pyaterochka, magnit, lenta, auchan, okey, perekrestok)
-            region: Регион для X-Region header (по умолчанию Москва - 77)
-            headless: Режим браузера для Playwright
-        """
-        self.shop_name = shop_name.lower()
-        self.region = region
+    """Базовый класс для всех парсеров с использованием Knowledge Base"""
+
+    def __init__(self, store_name: str, headless: bool = True, geoip: bool = False):
+        self.store_name = store_name.lower()
         self.headless = headless
+        self.use_geoip = geoip
         
-        # Загрузка Knowledge Base
-        self.kb_loader = KBLoader()
-        self.kb: Optional[ShopKnowledge] = None
+        # Инициализация компонентов
+        self.kb = KnowledgeBase(self.store_name)
+        self.geoip_service = GeoIPService() if self.use_geoip else None
+        
+        # Загрузка конфигурации
         self._load_knowledge_base()
-        
-        # Сессия curl-cffi
-        self.session = curl_requests.Session()
-        
-        # Playwright атрибуты (ленивая инициализация)
-        self._playwright = None
-        self._browser = None
-        self._context = None
-        self._page = None
-        
-        # Camoufox атрибуты
-        self._camoufox_browser = None
-        
-        # Стратегии
-        self.strategies: List[Strategy] = []
         self._init_strategies()
         
-        # Policy Engine
-        self.policy_engine = PolicyEngine()
-        self._init_policies()
+        # Состояние браузера
+        self._camoufox_browser: Optional[AsyncCamoufox] = None
+        self._page = None
+        self._context = None
         
-        logger.info(f"🚀 Парсер {self.shop_name} инициализирован")
-        if self.kb:
-            logger.info(f"   📚 Загружено {len(self.kb.categories)} категорий, {len(self.kb.selectors)} селекторов")
-    
+        logger.info(f"🚀 Парсер {self.store_name} инициализирован")
+        logger.info(f"   📚 Загружено {len(self.kb.categories)} категорий, {len(self.kb.selectors)} селекторов")
+
     def _load_knowledge_base(self):
-        """Загрузка конфигурации из Knowledge Base"""
+        """Загружает базу знаний для магазина"""
         try:
-            self.kb = self.kb_loader.load_shop(self.shop_name)
-            logger.debug(f"KB загружен для {self.shop_name}")
-        except Exception as e:
-            logger.error(f"❌ Ошибка загрузки KB для {self.shop_name}: {e}")
-            raise
-    
+            self.kb.load()
+            logger.debug(f"KB загружен для {self.store_name}")
+        except FileNotFoundError:
+            raise ValueError(f"База знаний для '{self.store_name}' не найдена")
+        except ValidationError as e:
+            raise ValueError(f"Ошибка валидации KB: {e}")
+
     def _init_strategies(self):
-        """Инициализация стратегий на основе KB"""
-        # Стратегии инициализируются позже, когда есть страница
-        self.strategies: List[Strategy] = []
-        self._strategies_config = {}  # Сохраняем конфигурацию для последующего применения
+        """Инициализирует стратегии на основе KB"""
+        self.strategies = {}
+        config = self.kb.strategies or StrategyConfig()
         
-        if not self.kb:
+        logger.debug(f"Конфигурация стратегий: {asdict(config)}")
+        
+        if config.scrolling:
+            self.strategies['scrolling'] = ScrollStrategy(self)
+            
+        # Здесь можно добавить другие стратегии (pagination, lazy_load и т.д.)
+
+    async def _start_camoufox(self):
+        """Запускает браузер Camoufox с настройками из KB"""
+        if self._camoufox_browser:
             return
+
+        system_os = platform.system()
         
-        # Сохраняем конфигурацию стратегий из KB
-        strategies = getattr(self.kb.anti_bot, 'strategies', []) or []
-        self._strategies_config = {
-            'scrolling': 'scrolling' in strategies,
-            'pagination': 'pagination' in strategies,
-            'lazy_load': 'lazy_load' in strategies
-        }
-        logger.debug(f"Конфигурация стратегий: {self._strategies_config}")
-    
-    def _init_policies(self):
-        """Инициализация политик обработки ошибок"""
-        # Политика для 403 ошибки уже есть в DEFAULT_POLICIES
-        
-        # Политика для CAPTCHA
-        captcha_types = getattr(self.kb.anti_bot, 'captcha_types', []) if self.kb else []
-        if captcha_types:
-            from policies.engine import PolicyRule, ErrorType, ActionType
-            self.policy_engine.add_policy(PolicyRule(
-                error_types=[ErrorType.CAPTCHA],
-                actions=[ActionType.SWITCH_TO_PLAYWRIGHT, ActionType.WAIT_AND_RETRY],
-                max_retries=1,
-                delay_between_retries=5.0,
-                priority=15
-            ))
-        
-        # Политика для таймаута уже есть в DEFAULT_POLICIES
-    
-    def _get_headers(self) -> dict:
-        """Получение headers из Knowledge Base"""
-        if not self.kb:
-            return self._get_default_headers()
-        
-        headers = self._get_default_headers()
-        
-        # Добавляем custom headers из KB
-        custom_headers = self.kb.headers.custom if self.kb.headers else {}
-        for key, value in custom_headers.items():
-            if value == "required":
-                # Подставляем значения по умолчанию
-                if "Region" in key:
-                    headers[f"X-{key}"] = self.region
-                elif "Store" in key or "Shop" in key:
-                    headers[f"X-{key}"] = "1"  # Дефолтный магазин
-                elif "Client" in key:
-                    headers[f"X-{key}"] = "web-client"
+        # Определяем режим headless
+        # На Windows virtual display не поддерживается, используем обычный headless или видимый режим
+        if system_os == "Windows":
+            if self.headless:
+                effective_headless = True
+                logger.info("🪟 Обнаружена Windows: используется стандартный headless режим")
             else:
-                headers[f"X-{key}"] = str(value)
-        
-        return headers
-    
-    def _get_default_headers(self) -> dict:
-        """Базовые headers"""
-        return {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-            'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-            'Sec-Ch-Ua-Mobile': '?0',
-            'Sec-Ch-Ua-Platform': '"Windows"',
-        }
-    
-    def get_selector(self, selector_type: str) -> Optional[str]:
-        """
-        Получение селектора из Knowledge Base.
-        
-        Args:
-            selector_type: Тип селектора (product_card, product_name, price_current, etc.)
-        
-        Returns:
-            CSS селектор или None
-        """
-        if not self.kb:
-            return None
-        
-        selectors = self.kb.selectors
-        selector_config = selectors.get(selector_type)
-        if selector_config:
-            return selector_config.css or selector_config.xpath
-        return None
-    
-    async def start_browser(self, use_camoufox: bool = True, geoip: bool = False, 
-                           block_images: bool = True, block_webgl: bool = False,
-                           addons: Optional[List[str]] = None, headless: str = "virtual",
-                           humanize: bool = True):
-        """
-        Запуск браузера Camoufox (основной) или Playwright (резерв).
-        
-        Args:
-            use_camoufox: Использовать Camoufox вместо Playwright
-            geoip: Согласовать регион с прокси (GeoIP)
-            block_images: Блокировать загрузку изображений
-            block_webgl: Блокировать WebGL
-            addons: Список аддонов для установки (например, uBlock)
-            headless: Режим запуска ("virtual", True, False)
-            humanize: Гуманизировать движения курсора (только Camoufox)
-        """
-        if use_camoufox:
-            return await self._start_camoufox(
-                geoip=geoip,
-                block_images=block_images,
-                block_webgl=block_webgl,
-                addons=addons,
-                headless=headless,
-                humanize=humanize
-            )
+                effective_headless = False
+                logger.info("🪟 Обнаружена Windows: virtual display заменен на headless=False (видимый режим)")
         else:
-            return await self._start_playwright()
-    
-    async def _start_camoufox(self, geoip: bool = False, block_images: bool = True,
-                              block_webgl: bool = False, addons: Optional[List[str]] = None,
-                              headless: str = "virtual", humanize: bool = True,
-                              webgl_config: Optional[tuple] = None,
-                              os_type: Optional[str] = None,
-                              disable_coop: bool = True):
-        """Запуск Camoufox с расширенными настройками stealth.
-        
-        Args:
-            geoip: Использовать GeoIP для определения локации
-            block_images: Блокировать изображения
-            block_webgl: Блокировать WebGL
-            addons: Список аддонов (пути к XPI файлам)
-            headless: Режим запуска ("virtual", True, False)
-                     - "virtual": использовать виртуальный дисплей (Xvfb) на Linux
-                     - True: headless режим без GUI
-                     - False: обычный режим с окном
-            humanize: Гуманизировать движения курсора
-            webgl_config: Кортеж (vendor, renderer) для WebGL spoofing
-            os_type: Тип ОС для fingerprint (windows, macos, linux)
-            disable_coop: Отключить Cross-Origin-Opener-Policy
-        """
+            # Linux/Mac могут использовать virtual display если нужно, но camoufox сам разберется
+            effective_headless = self.headless
+
+        logger.info(f"🦊 Запуск Camoufox (OS={system_os}, headless={effective_headless}, geoip={self.use_geoip}, humanize=True)...")
+
         try:
-            from camoufox import AsyncCamoufox
-            import platform
-            
-            # Определение ОС для корректной настройки headless
-            system = platform.system()
-            
-            # На Windows "virtual" headless не поддерживается, используем обычный булевый флаг
-            if system == "Windows" and headless == "virtual":
-                effective_headless = False  # Окно браузера для Windows (чтобы видеть процесс)
-                logger.info(f"🪟 Обнаружена Windows: virtual display заменен на headless={effective_headless} (видимый режим)")
-            else:
-                effective_headless = headless
-            
-            logger.info(f"🦊 Запуск Camoufox (OS={system}, headless={effective_headless}, geoip={geoip}, humanize={humanize})...")
-            
-            # Подготовка параметров для Camoufox launch_options()
-            # Явно создаем словарь, чтобы избежать ошибок с dataclass
-            launch_kwargs = {
-                "block_images": bool(block_images),
-                "block_webgl": bool(block_webgl),
-                "humanize": bool(humanize),
-                "disable_coop": bool(disable_coop),
+            # Формируем параметры запуска
+            # Важно: передаем простые типы данных, чтобы избежать ошибок с dataclass
+            launch_params = {
                 "headless": effective_headless,
-                "fingerprint": True,
-                "i_know_what_im_doing": True,
+                "humanize": True,           # Эмуляция поведения человека
+                "fingerprint": True,        # Автоматическая генерация отпечатка
+                "disable_coop": True,       # Отключаем COOP для стабильности
+                "block_images": False,      # Грузим картинки для правильного рендеринга
+                "block_webgl": False,       # Не блокируем WebGL
+                "i_know_what_im_doing": True # Отключаем предупреждения
             }
             
-            # GeoIP если включён
-            if geoip:
-                launch_kwargs["geoip"] = True
+            logger.debug(f"🔧 Параметры запуска Camoufox: {launch_params}")
+
+            self._camoufox_browser = AsyncCamoufox()
             
-            # Добавляем аддоны если указаны
-            if addons:
-                launch_kwargs["addons"] = list(addons) if addons else None
-            
-            # WebGL конфигурация если передана
-            if webgl_config and isinstance(webgl_config, tuple) and len(webgl_config) == 2:
-                launch_kwargs["webgl_vendor"] = webgl_config[0]
-                launch_kwargs["webgl_renderer"] = webgl_config[1]
-            
-            # Тип ОС для fingerprint
-            if os_type:
-                launch_kwargs["os"] = os_type
-            
-            logger.debug(f"🔧 Параметры запуска Camoufox: {launch_kwargs}")
-            
-            # Создаём браузер с параметрами (распаковка словаря)
-            try:
-                self._camoufox_browser = AsyncCamoufox(
-                    block_images=launch_kwargs["block_images"],
-                    block_webgl=launch_kwargs["block_webgl"],
-                    humanize=launch_kwargs["humanize"],
-                    disable_coop=launch_kwargs["disable_coop"],
-                    headless=launch_kwargs["headless"],
-                    fingerprint=launch_kwargs["fingerprint"],
-                    i_know_what_im_doing=launch_kwargs["i_know_what_im_doing"],
-                    geoip=launch_kwargs.get("geoip"),
-                    addons=launch_kwargs.get("addons"),
-                    os=launch_kwargs.get("os"),
-                    webgl_vendor=launch_kwargs.get("webgl_vendor"),
-                    webgl_renderer=launch_kwargs.get("webgl_renderer"),
-                )
-            except TypeError as te:
-                logger.error(f"❌ Ошибка параметров Camoufox: {te}")
-                logger.error(f"Параметры: {launch_kwargs}")
-                raise
-            
-            # Входим в контекст менеджера
-            await self._camoufox_browser.__aenter__()
-            
-            # Создаём новую страницу
-            browser = self._camoufox_browser.browser
-            self._page = await browser.new_page()
-            
-            logger.info("✅ Camoufox запущен успешно")
-            
-        except ImportError as e:
-            logger.warning(f"⚠️ Camoufox не установлен, пробуем Playwright: {e}")
-            return await self._start_playwright()
-        except Exception as e:
-            logger.error(f"❌ Ошибка запуска Camoufox: {e}")
-            raise
-    
-    async def _start_playwright(self):
-        """Запуск браузера Playwright (резервный режим)."""
-        try:
-            from playwright.async_api import async_playwright
-            from playwright_stealth import stealth_async
-            
-            logger.info(f"🌐 Запуск браузера Playwright ({'невидимый' if self.headless else 'видимый'})...")
-            
-            self._playwright = await async_playwright().start()
-            
-            args = [
-                "--disable-blink-features=AutomationControlled",
-                "--no-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-web-security",
-                "--disable-features=IsolateOrigins,site-per-process"
-            ]
-            
-            self._browser = await self._playwright.chromium.launch(
-                headless=self.headless,
-                args=args
+            # Запуск браузера с явной передачей аргументов
+            await self._camoufox_browser.start(
+                headless=launch_params["headless"],
+                humanize=launch_params["humanize"],
+                fingerprint=launch_params["fingerprint"],
+                disable_coop=launch_params["disable_coop"],
+                block_images=launch_params["block_images"],
+                block_webgl=launch_params["block_webgl"],
+                i_know_what_im_doing=launch_params["i_know_what_im_doing"]
             )
             
-            self._context = await self._browser.new_context(
+            # Создаем контекст и страницу
+            self._context = await self._camoufox_browser.new_context(
                 viewport={"width": 1920, "height": 1080},
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                user_agent=self.kb.headers.user_agent if self.kb.headers else None
             )
-            
             self._page = await self._context.new_page()
             
-            # Применение stealth
-            await stealth_async(self._page)
-            
-            # Маскировка webdriver
-            await self._page.add_init_script("""
-                Object.defineProperty(navigator, 'webdriver', {
-                    get: () => undefined
-                });
-                window.chrome = { runtime: {} };
-            """)
-            
-            logger.info("✅ Браузер Playwright запущен успешно")
-            
-        except ImportError:
-            logger.warning("⚠️ Playwright не установлен, используем curl-cffi")
+            # Применяем кастомные заголовки если есть
+            if self.kb.headers and self.kb.headers.custom:
+                await self._page.set_extra_http_headers(self.kb.headers.custom)
+                logger.debug("Применены кастомные заголовки")
+
+            logger.info("✅ Camoufox запущен успешно")
+
         except Exception as e:
-            logger.error(f"❌ Ошибка запуска браузера: {e}")
+            logger.error(f"❌ Ошибка запуска Camoufox: {e}")
+            await self.close_browser()
             raise
-    
+
     async def close_browser(self):
-        """Закрытие браузера"""
+        """Закрывает браузер и очищает ресурсы"""
         try:
             if self._page:
                 await self._page.close()
+                self._page = None
             if self._context:
                 await self._context.close()
-            if self._browser:
-                await self._browser.close()
-            if self._playwright:
-                await self._playwright.stop()
+                self._context = None
             if self._camoufox_browser:
+                # Корректное закрытие через контекстный менеджер
                 await self._camoufox_browser.__aexit__(None, None, None)
+                self._camoufox_browser = None
             logger.info("🛑 Браузер закрыт")
         except Exception as e:
             logger.error(f"Ошибка при закрытии браузера: {e}")
-    
-    async def close(self):
-        """Алиас для close_browser"""
-        await self.close_browser()
-    
-    async def fetch_page(self, url: str, use_impersonate: str = 'chrome124') -> Optional[str]:
-        """Загрузка страницы через curl-cffi с использованием KB"""
-        try:
-            headers = self._get_headers()
-            
-            # Динамический выбор профиля на основе KB
-            if self.kb and getattr(self.kb, 'recommended_tool', None) == "curl_cffi":
-                use_impersonate = getattr(self.kb.anti_bot, 'recommended_impersonate', 'chrome124') or 'chrome124'
-            
-            response = self.session.get(
-                url, 
-                headers=headers, 
-                timeout=45,
-                impersonate=use_impersonate,
-                allow_redirects=True, 
-                verify=False
-            )
-            
-            # Обработка ответов через Policy Engine
-            context = {
-                "url": url,
-                "status_code": response.status_code,
-                "response_text": response.text[:500] if response.text else ""
-            }
-            
-            if response.status_code == 403:
-                logger.warning(f"⚠️ Защита (403) на {url}")
-                action = await self.policy_engine.evaluate(context)
-                if action == "rotate_proxy_and_retry":
-                    # TODO: Реализовать ротацию прокси
-                    logger.info("🔄 Попытка ротации прокси...")
-                    return await self.fetch_page(url, use_impersonate)
-                return None
-            
-            if response.status_code == 401:
-                # Попытка добавить регион
-                headers['X-Region'] = self.region
-                response = self.session.get(url, headers=headers, timeout=30, impersonate=use_impersonate, verify=False)
-            
-            return response.text if response.status_code == 200 else None
-            
-        except Exception as e:
-            logger.error(f"Ошибка при загрузке {url}: {e}")
-            return None
-    
-    async def fetch_page_playwright(self, url: str, wait_selector: Optional[str] = None, timeout: int = 30000) -> Optional[str]:
-        """Загрузка через Playwright (для JS сайтов)"""
-        try:
-            if not self._page:
-                await self.start_browser()
-            
-            logger.info(f"🔗 Запрос к {url} через Playwright...")
-            
-            # Случайная задержка перед запросом
-            await asyncio.sleep(random.uniform(1.0, 2.5))
-            
-            response = await self._page.goto(url, wait_until="domcontentloaded", timeout=timeout)
-            
-            if wait_selector:
-                await self._page.wait_for_selector(wait_selector, timeout=timeout)
-            
-            # Применение стратегий
-            for strategy in self.strategies:
-                await strategy.apply(self._page)
-            
-            # Дополнительная задержка после загрузки
-            await asyncio.sleep(random.uniform(1.0, 2.0))
-            
-            content = await self._page.content()
-            logger.info(f"✅ Страница загружена успешно")
-            return content
-            
-        except Exception as e:
-            logger.error(f"❌ Ошибка Playwright запроса: {e}")
-            # Фоллбэк на curl-cffi
-            return await self.fetch_page(url)
-    
-    def parse_product_card(self, element: Any) -> Optional[Product]:
-        """
-        Парсинг карточки товара с использованием селекторов из KB.
-        
-        Args:
-            element: HTML элемент карточки товара
-        
-        Returns:
-            Product модель или None
-        """
-        if not self.kb:
-            return None
-        
-        try:
-            # Извлечение данных с использованием селекторов из KB
-            name_selector = self.get_selector("product_name")
-            price_selector = self.get_selector("price_current")
-            
-            # TODO: Реализовать парсинг с BeautifulSoup или lxml
-            # Это заглушка для демонстрации структуры
-            
-            return Product(
-                id="temp_id",
-                name="Temp Product",
-                price=ProductPrice(current=0.0),
-                category="Fish",
-                product_url="https://example.com",
-                shop=self.shop_name
-            )
-        except Exception as e:
-            logger.error(f"Ошибка парсинга карточки товара: {e}")
-            return None
-    
-    async def parse_category(self, category_url: str, category_name: str = "Unknown") -> ParseResult:
-        """
-        Парсинг категории товаров.
-        
-        Args:
-            category_url: URL категории
-            category_name: Имя категории для логирования
-        
-        Returns:
-            ParseResult с списком товаров
-        """
-        start_time = datetime.now()
-        errors = []
-        warnings = []
-        
-        # Определение инструмента для парсинга
-        use_playwright = (
-            self.kb and 
-            getattr(self.kb, 'recommended_tool', None) == "playwright"
-        ) or (
-            self.kb and 
-            getattr(self.kb.anti_bot, 'requires_js', False)
-        )
-        
-        # Если браузер еще не запущен и нужен Playwright/Camoufox - запускаем
-        if use_playwright and not self._page:
-            logger.info("🌐 Браузер не был запущен, запускаем сейчас...")
-            await self.start_browser(use_camoufox=True, headless=False)
-            await asyncio.sleep(2)
-        
-        # Загрузка страницы с применением региональных заголовков
-        if use_playwright:
-            await self._apply_regional_headers_to_page()
-            
-            # Переход на страницу
-            logger.info(f"🔗 Переход на страницу категории: {category_url}")
-            try:
-                response = await self._page.goto(category_url, wait_until="domcontentloaded", timeout=45000)
-                
-                # Дополнительное ожидание загрузки контента
-                await asyncio.sleep(3)
-                
-                # Применяем стратегию скроллинга если включена
-                if self._strategies_config.get('scrolling'):
-                    logger.info("📜 Выполняем скроллинг страницы для загрузки контента...")
-                    await self._execute_scrolling()
-                
-                html = await self._page.content()
-                
-            except Exception as e:
-                logger.error(f"❌ Ошибка загрузки страницы: {e}")
-                errors.append(f"Не удалось загрузить страницу {category_url}: {e}")
-                return ParseResult(
-                    shop=self.shop_name,
-                    category=CategoryInfo(name=category_name, url=category_url),
-                    products=[],
-                    total_products=0,
-                    errors=errors,
-                    warnings=warnings
-                )
-        else:
-            self._apply_regional_headers_to_session()
-            html = await self.fetch_page(category_url)
-        
-        if not html:
-            errors.append(f"Не удалось загрузить страницу {category_url}")
-            return ParseResult(
-                shop=self.shop_name,
-                category=CategoryInfo(name=category_name, url=category_url),
-                products=[],
-                total_products=0,
-                errors=errors,
-                warnings=warnings
-            )
-        
-        # Парсинг товаров
-        products = []
-        if use_playwright:
-            products = await self._parse_products_from_page(category_name)
-        else:
-            # TODO: Реализовать парсинг для curl-cffi
-            logger.warning("Парсинг через curl-cffi пока не реализован")
-        
-        duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
-        
-        logger.info(f"✅ Категория {category_name}: найдено {len(products)} товаров за {duration_ms}мс")
-        
-        return ParseResult(
-            shop=self.shop_name,
-            category=CategoryInfo(name=category_name, url=category_url),
-            products=products,
-            total_products=len(products),
-            errors=errors,
-            warnings=warnings,
-            parse_duration_ms=duration_ms
-        )
-    
-    async def _execute_scrolling(self):
-        """Выполнение скроллинга страницы для подгрузки контента"""
-        try:
-            # Получаем высоту страницы
-            scroll_height = await self._page.evaluate("document.body.scrollHeight")
-            
-            # Скроллим несколько раз с паузами
-            for i in range(3):
-                # Скроллим на 1/3 высоты
-                scroll_position = int(scroll_height * (i + 1) / 3)
-                await self._page.evaluate(f"window.scrollTo(0, {scroll_position})")
-                await asyncio.sleep(1.5)  # Ждем подгрузки контента
-            
-            # Возвращаемся вверх
-            await self._page.evaluate("window.scrollTo(0, 0)")
-            await asyncio.sleep(1)
-            
-            logger.debug("✅ Скроллинг завершен")
-        except Exception as e:
-            logger.warning(f"⚠️ Ошибка при скроллинге: {e}")
-    
-    async def _parse_products_from_page(self, category_name: str) -> List[Product]:
-        """Парсинг товаров со страницы"""
-        if not self._page or not self.kb:
-            return []
-        
-        products = []
-        
-        try:
-            # Получаем селектор карточки товара из KB (список селекторов)
-            card_selectors = self.kb.selectors.get("product_card") if self.kb and self.kb.selectors else []
-            
-            if not card_selectors:
-                logger.warning("⚠️ Селектор product_card не найден в KB")
-                return []
-            
-            # Преобразуем в список CSS селекторов
-            selectors_list = []
-            if hasattr(card_selectors, '__iter__') and not isinstance(card_selectors, str):
-                # Это список объектов SelectorConfig
-                for sel in card_selectors:
-                    if hasattr(sel, 'css') and sel.css:
-                        selectors_list.append(sel.css)
-            elif isinstance(card_selectors, str):
-                # Это строка (один селектор)
-                selectors_list.append(card_selectors)
-            
-            if not selectors_list:
-                logger.warning("⚠️ Нет валидных CSS селекторов для product_card")
-                return []
-            
-            # Пробуем каждый селектор по очереди
-            product_cards = []
-            for card_selector in selectors_list:
-                try:
-                    product_cards = await self._page.query_selector_all(card_selector)
-                    if product_cards:
-                        logger.info(f"🛒 Найдено {len(product_cards)} карточек товаров по селектору: {card_selector}")
-                        break
-                except Exception as e:
-                    logger.debug(f"⚠️ Селектор '{card_selector}' не сработал: {e}")
-                    continue
-            
-            if not product_cards:
-                logger.warning("⚠️ Не найдено товаров ни по одному из селекторов")
-                return []
-            
-            
-            # Парсим каждую карточку
-            for idx, card in enumerate(product_cards):
-                try:
-                    product = await self._parse_product_card(card, category_name, idx)
-                    if product:
-                        products.append(product)
-                except Exception as e:
-                    logger.debug(f"⚠️ Ошибка парсинга карточки #{idx}: {e}")
-            
-        except Exception as e:
-            logger.error(f"❌ Ошибка при парсинге товаров: {e}")
-        
-        return products
-    
-    async def _parse_product_card(self, card_element, category_name: str, index: int) -> Optional[Product]:
-        """Парсинг отдельной карточки товара"""
-        try:
-            # Извлекаем данные с использованием селекторов из KB
-            name_selector = self.get_selector("product_name")
-            price_selector = self.get_selector("price_current")
-            old_price_selector = self.get_selector("price_old")
-            discount_selector = self.get_selector("discount")
-            image_selector = self.get_selector("product_image")
-            link_selector = self.get_selector("product_link")
-            
-            # Извлечение имени
-            name = None
-            if name_selector:
-                name_elem = await card_element.query_selector(name_selector)
-                if name_elem:
-                    name = await name_elem.inner_text()
-                    name = name.strip() if name else None
-            
-            # Извлечение цены
-            current_price = 0.0
-            if price_selector:
-                price_elem = await card_element.query_selector(price_selector)
-                if price_elem:
-                    price_text = await price_elem.inner_text()
-                    # Очищаем от символов валюты и пробелов
-                    price_text = ''.join(c for c in price_text if c.isdigit() or c == '.')
-                    if price_text:
-                        current_price = float(price_text)
-            
-            # Извлечение старой цены
-            old_price = None
-            if old_price_selector:
-                old_price_elem = await card_element.query_selector(old_price_selector)
-                if old_price_elem:
-                    old_price_text = await old_price_elem.inner_text()
-                    old_price_text = ''.join(c for c in old_price_text if c.isdigit() or c == '.')
-                    if old_price_text:
-                        old_price = float(old_price_text)
-            
-            # Извлечение скидки
-            discount = None
-            if discount_selector:
-                discount_elem = await card_element.query_selector(discount_selector)
-                if discount_elem:
-                    discount_text = await discount_elem.inner_text()
-                    discount_text = ''.join(c for c in discount_text if c.isdigit())
-                    if discount_text:
-                        discount = int(discount_text)
-            
-            # Извлечение ссылки
-            product_url = None
-            if link_selector:
-                link_elem = await card_element.query_selector(link_selector)
-                if link_elem:
-                    product_url = await link_elem.get_attribute('href')
-                    # Если относительный URL, делаем абсолютным
-                    if product_url and not product_url.startswith('http'):
-                        base_url = self.kb.base_url if self.kb else ""
-                        product_url = base_url.rstrip('/') + '/' + product_url.lstrip('/')
-            
-            # Извлечение изображения
-            image_url = None
-            if image_selector:
-                img_elem = await card_element.query_selector(image_selector)
-                if img_elem:
-                    image_url = await img_elem.get_attribute('src')
-                    # Если относительный URL, делаем абсолютным
-                    if image_url and not image_url.startswith('http'):
-                        base_url = self.kb.base_url if self.kb else ""
-                        image_url = base_url.rstrip('/') + '/' + image_url.lstrip('/')
-            
-            # Генерируем ID если нет
-            product_id = f"{self.shop_name}_{category_name}_{index}"
-            
-            if not name:
-                name = f"Товар #{index}"
-            
-            return Product(
-                id=product_id,
-                name=name,
-                price=ProductPrice(current=current_price, old=old_price, discount=discount),
-                category=category_name,
-                product_url=product_url or "",
-                shop=self.shop_name,
-                image_url=image_url
-            )
-            
-        except Exception as e:
-            logger.debug(f"⚠️ Ошибка парсинга карточки товара: {e}")
-            return None
-    
-    def _apply_regional_headers_to_session(self):
-        """Применение региональных заголовков к сессии curl-cffi"""
-        if not self.kb or not self.kb.headers:
-            return
-        
-        custom_headers = self.kb.headers.custom if self.kb.headers else {}
-        for header, value in custom_headers.items():
-            # Подстановка региона если требуется
-            if value == "required" and header in ["X-Region", "X-Region-Id"]:
-                self.session.headers[header] = self.region
-            elif value != "required":
-                self.session.headers[header] = value
-        
-        logger.debug(f"Применены заголовки: {list(custom_headers.keys())}")
 
-    async def _apply_regional_headers_to_page(self):
-        """Применение региональных заголовков к странице Playwright"""
-        if not self.kb or not self.kb.headers:
-            return
-        
-        custom_headers = self.kb.headers.custom if self.kb.headers else {}
-        headers_to_set = {}
-        
-        for header, value in custom_headers.items():
-            if value == "required" and header in ["X-Region", "X-Region-Id"]:
-                headers_to_set[header] = self.region
-            elif value != "required":
-                headers_to_set[header] = value
-        
-        if headers_to_set and self.page:
-            await self.page.set_extra_http_headers(headers_to_set)
-            logger.debug(f"Применены заголовки Playwright: {list(headers_to_set.keys())}")
-    
-    async def parse_all_categories(self) -> List[ParseResult]:
-        """Парсинг всех категорий из Knowledge Base"""
-        if not self.kb:
+    async def parse_category(self, category_name: str) -> List[Product]:
+        """Основной метод парсинга категории"""
+        if category_name not in self.kb.categories:
+            logger.warning(f"Категория '{category_name}' не найдена в KB")
             return []
+
+        category_config = self.kb.categories[category_name]
+        url = category_config.url
         
-        results = []
-        for category_name, category_url in self.kb.categories.items():
-            logger.info(f"📦 Парсинг категории: {category_name}")
-            result = await self.parse_category(category_url)
-            results.append(result)
-            
-            # Задержка между запросами
-            delay = getattr(self.kb.anti_bot, 'delay_between_requests', None)
-            if delay:
-                await asyncio.sleep(delay)
+        products = []
+        retry_count = 0
+        max_retries = 2
+
+        while retry_count <= max_retries:
+            try:
+                # Запуск браузера если еще не запущен
+                if not self._page:
+                    await self._start_camoufox()
+                    # Даем время на полную инициализацию
+                    await asyncio.sleep(2)
+
+                logger.info(f"Переход по URL: {url}")
+                
+                # Переход на страницу с обработкой ошибок загрузки
+                try:
+                    await self._page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                except Exception as nav_err:
+                    if "NS_BINDING_ABORTED" in str(nav_err):
+                        logger.warning("⚠️ Страница прервала загрузку (NS_BINDING_ABORTED), пробуем еще раз...")
+                        await asyncio.sleep(2)
+                        await self._page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                    else:
+                        raise
+
+                # Ожидание появления контента
+                logger.info("Ожидание загрузки контента...")
+                await asyncio.sleep(5) 
+
+                # Выполнение стратегий (скроллинг)
+                if 'scrolling' in self.strategies:
+                    logger.info("Выполнение стратегии скроллинга...")
+                    await self.strategies['scrolling'].execute()
+                    await asyncio.sleep(2) # Пауза после скролла
+
+                # Парсинг товаров
+                products = await self._parse_products_from_page(category_name)
+                
+                if products:
+                    logger.info(f"✅ Найдено {len(products)} товаров")
+                else:
+                    logger.warning("⚠️ Товары не найдены после парсинга")
+                
+                break # Успешный выход из цикла retries
+
+            except Exception as e:
+                retry_count += 1
+                logger.error(f"❌ Ошибка при парсинге категории (попытка {retry_count}): {e}")
+                if retry_count > max_retries:
+                    raise
+                logger.info(f"Повторная попытка через 3 секунды...")
+                await asyncio.sleep(3)
+                # Пробуем перезагрузить страницу
+                if self._page:
+                    try:
+                        await self._page.reload(wait_until="domcontentloaded")
+                        await asyncio.sleep(3)
+                    except:
+                        pass 
+
+        return products
+
+    async def _parse_products_from_page(self, category_name: str) -> List[Product]:
+        """Парсит товары со страницы используя селекторы из KB"""
+        products = []
         
-        return results
-    
-    async def run(self):
-        """Основной метод запуска парсера"""
-        logger.info(f"🎯 Запуск парсера {self.shop_name}")
+        # Получаем список селекторов для карточки товара
+        # В KB они могут храниться как список строк или как объект
+        card_selectors_raw = self.kb.selectors.get("product_card")
         
+        card_selectors = []
+        if isinstance(card_selectors_raw, list):
+            card_selectors = card_selectors_raw
+        elif isinstance(card_selectors_raw, str):
+            card_selectors = [card_selectors_raw]
+        elif hasattr(card_selectors_raw, 'css'): # Если это объект конфиг
+             # Если в базе один сложный селектор, попробуем разобрать его или взять css
+             # Но обычно в KB для product_card пишут просто строку CSS
+             card_selectors = [card_selectors_raw.css] 
+        else:
+            logger.error("Неверный формат селектора product_card в KB")
+            return []
+
+        found_elements = None
+        used_selector = None
+
+        # Перебираем селекторы пока не найдем элементы
+        for selector in card_selectors:
+            try:
+                # Пытаемся найти элементы
+                elements = await self._page.query_selector_all(selector)
+                if elements:
+                    found_elements = elements
+                    used_selector = selector
+                    logger.debug(f"Найдено элементов по селектору '{selector}': {len(elements)}")
+                    break
+            except Exception as e:
+                logger.warning(f"Селектор '{selector}' вызвал ошибку: {e}. Пробуем следующий...")
+                continue
+        
+        if not found_elements:
+            logger.warning("❌ Не удалось найти карточки товаров ни по одному из селекторов")
+            # Для отладки можно сохранить HTML
+            # content = await self._page.content()
+            # with open(f"debug_{self.store_name}_{category_name}.html", "w", encoding="utf-8") as f:
+            #     f.write(content)
+            return []
+
+        # Парсим каждый элемент
+        for idx, element in enumerate(found_elements):
+            try:
+                product = await self._parse_product_card(element, category_name, idx)
+                if product:
+                    products.append(product)
+            except Exception as e:
+                logger.debug(f"Ошибка при парсинге карточки #{idx}: {e}")
+                continue
+
+        return products
+
+    async def _parse_product_card(self, element, category_name: str, index: int) -> Optional[Product]:
+        """Извлекает данные из отдельной карточки товара"""
         try:
-            results = await self.parse_all_categories()
+            # Функция для безопасного извлечения текста
+            async def get_text(selector: Optional[str]) -> str:
+                if not selector: return ""
+                try:
+                    el = await element.query_selector(selector)
+                    return (await el.inner_text()).strip() if el else ""
+                except: return ""
+
+            # Функция для безопасного извлечения атрибута
+            async def get_attr(selector: Optional[str], attr: str) -> str:
+                if not selector: return ""
+                try:
+                    el = await element.query_selector(selector)
+                    return (await el.get_attribute(attr) or "").strip() if el else ""
+                except: return ""
             
-            total_products = sum(r.total_products for r in results)
-            logger.info(f"✅ Парсинг завершен. Найдено товаров: {total_products}")
+            # Маппинг полей из KB
+            # Предполагаем, что в KB selectors хранятся в формате:
+            # product_name: { css: ".name-class" }
+            # price: { css: ".price-class" }
+            # и т.д.
             
-            return results
+            sel_map = self.kb.selectors
             
+            # Извлекаем данные используя селекторы из KB
+            # Если селектор задан как объект SelectorConfig, берем .css
+            def get_css(key: str) -> Optional[str]:
+                val = sel_map.get(key)
+                if isinstance(val, SelectorConfig):
+                    return val.css
+                elif isinstance(val, str):
+                    return val
+                elif isinstance(val, dict):
+                    return val.get('css')
+                return None
+
+            name = await get_text(get_css("product_name"))
+            price_str = await get_text(get_css("price"))
+            old_price_str = await get_text(get_css("old_price"))
+            image_url = await get_attr(get_css("image"), "src")
+            
+            # Очистка цены
+            price = 0.0
+            if price_str:
+                clean_price = "".join(filter(str.isdigit, price_str.replace(",", ".")))
+                if clean_price:
+                    price = float(clean_price) / 100.0 if len(clean_price) > 2 else float(clean_price)
+            
+            old_price = 0.0
+            if old_price_str:
+                clean_old = "".join(filter(str.isdigit, old_price_str.replace(",", ".")))
+                if clean_old:
+                    old_price = float(clean_old) / 100.0 if len(clean_old) > 2 else float(clean_old)
+
+            discount = 0
+            if price > 0 and old_price > 0 and old_price > price:
+                discount = int(((old_price - price) / old_price) * 100)
+
+            if not name:
+                return None
+
+            return Product(
+                id=f"{self.store_name}_{category_name}_{index}",
+                name=name,
+                price=price,
+                old_price=old_price if old_price > 0 else None,
+                discount=discount if discount > 0 else None,
+                currency="RUB",
+                category=category_name,
+                shop=self.store_name,
+                image_url=image_url,
+                url="", # URL часто относительный, нужно склеивать с базой
+                parsed_at=datetime.now().isoformat()
+            )
+
         except Exception as e:
-            logger.error(f"❌ Критическая ошибка парсинга: {e}")
-            raise
-        finally:
-            await self.close()
+            logger.debug(f"Ошибка парсинга полей карточки: {e}")
+            return None
+
+    async def parse_all_categories(self) -> Dict[str, List[Product]]:
+        """Парсит все категории из базы знаний"""
+        results = {}
+        for cat_name in self.kb.categories:
+            logger.info(f"📦 Категория: {cat_name}")
+            products = await self.parse_category(cat_name)
+            results[cat_name] = products
+            # Небольшая пауза между категориями если нужно
+            await asyncio.sleep(1)
+        return results

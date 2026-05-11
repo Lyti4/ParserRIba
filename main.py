@@ -8,6 +8,14 @@ import os
 import sys
 from pathlib import Path
 
+# ИЗМЕНЕНО: фикс вывода emoji/UTF-8 в стандартной Windows-консоли.
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except AttributeError:
+        pass
+
 # =============================================================================
 # НАСТРОЙКА CAMOUFOX ДЛЯ WINDOWS
 # =============================================================================
@@ -37,24 +45,15 @@ if sys.platform == "win32":
 
 import asyncio
 import argparse
+import importlib
 import yaml
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List
 
 from utils.logger import get_logger, setup_logger
-from utils.session_manager import SessionManager
-from utils.kb_loader import KBLoader
-from policies.engine import PoliciesEngine as PolicyEngine
-from models.schemas import Product
 
 # Импорты парсеров
-from parsers.pyaterochka import PyaterochkaParser
-from parsers.magnit import MagnitParser
-from parsers.lenta import LentaParser
-from parsers.auchan import AuchanParser
-from parsers.okey import OkeyParser
-from parsers.perekrestok import PerekrestokParser
 
 
 logger = get_logger("main")
@@ -63,21 +62,29 @@ logger = get_logger("main")
 class ParserFactory:
     """Фабрика для создания парсеров."""
     
+    # ИЗМЕНЕНО: парсеры импортируются лениво, чтобы диагностические команды
+    # не падали из-за ошибки импорта в конкретном парсере.
     PARSERS = {
-        "pyaterochka": PyaterochkaParser,
-        "magnit": MagnitParser,
-        "lenta": LentaParser,
-        "auchan": AuchanParser,
-        "okey": OkeyParser,
-        "perekrestok": PerekrestokParser,
+        "pyaterochka": ("parsers.pyaterochka", "PyaterochkaParser"),
+        "magnit": ("parsers.magnit", "MagnitParser"),
+        "lenta": ("parsers.lenta", "LentaParser"),
+        "auchan": ("parsers.auchan", "AuchanParser"),
+        "okey": ("parsers.okey", "OkeyParser"),
+        "perekrestok": ("parsers.perekrestok", "PerekrestokParser"),
     }
+
+    @classmethod
+    def _load_parser_class(cls, store_name: str):
+        module_name, class_name = cls.PARSERS[store_name]
+        module = importlib.import_module(module_name)
+        return getattr(module, class_name)
     
     @classmethod
     def get_parser(cls, store_name: str, config: dict, **kwargs):
         if store_name not in cls.PARSERS:
             raise ValueError(f"Неизвестный магазин: {store_name}")
         
-        parser_class = cls.PARSERS[store_name]
+        parser_class = cls._load_parser_class(store_name)
         
         # Проверяем доступность Camoufox
         camoufox_available = False
@@ -258,7 +265,7 @@ async def save_results(store_name: str, products: list, output_dir: str):
     data = []
     for product in products:
         if hasattr(product, "model_dump"):
-            data.append(product.model_dump())
+            data.append(product.model_dump(mode="json"))
         else:
             data.append(dict(product))
     

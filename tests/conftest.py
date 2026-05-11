@@ -22,7 +22,9 @@ pytestmark = pytest.mark.asyncio(scope="session")
 @pytest.fixture(scope="session")
 def event_loop_policy():
     """Используем политику событий Windows для совместимости."""
-    return asyncio.WindowsSelectorEventLoopPolicy() if sys.platform == "win32" else None
+    # ИЗМЕНЕНО: Playwright запускает driver через subprocess; на Windows
+    # SelectorEventLoopPolicy падает с NotImplementedError.
+    return asyncio.WindowsProactorEventLoopPolicy() if sys.platform == "win32" else None
 
 @pytest.fixture(scope="session")
 async def browser():

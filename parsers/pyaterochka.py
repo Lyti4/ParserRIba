@@ -1,239 +1,202 @@
-import asyncio
-import logging
-from typing import List, Dict, Any
-from curl_cffi import requests as curl_requests
+"""Pyaterochka parser powered by Camoufox and Knowledge Base selectors."""
+
+from __future__ import annotations
+
+import os
+from datetime import datetime
+from typing import Any
+
+from camoufox.async_api import AsyncCamoufox
 from loguru import logger
 
-from parsers.base_parser import BaseParser
+from models.schemas import CategoryInfo, ParseResult, Product, ProductPrice
+from utils.antibot import collect_page_diagnostics, wait_for_pyaterochka_challenge
+from utils.camoufox_launcher import build_camoufox_options, configure_windows_console
+from utils.kb_loader import KBLoader, SelectorConfig
 
-logger = logging.getLogger(__name__)
 
-class PyaterochkaParser(BaseParser):
-    """Парсер Пятерочки на основе curl-cffi + Knowledge Base"""
-    
-    def __init__(self, store_name: str = "pyaterochka", region: str = "77", **kwargs):
-        # Инициализируем базовый парсер с загрузкой KB
-        super().__init__(shop_name=store_name, region=region, headless=kwargs.get('headless', True))
+class PyaterochkaParser:
+    """Parse Pyaterochka catalog categories through Camoufox."""
+
+    def __init__(self, store_name: str = "pyaterochka", region: str = "77", **kwargs: Any):
+        self.shop_name = store_name
         self.region = region
-        self.base_url = "https://5ka.ru"
-        logger.info(f"PyaterochkaParser initialized for region {region}")
+        self.headless = kwargs.get("headless", True)
+        self.kb = KBLoader("knowledge_base").load_shop(store_name)
+        self.base_url = self.kb.base_url.rstrip("/")
+        logger.info("PyaterochkaParser initialized for region {}", region)
 
-    async def parse_category(self, category_url: str, category_name: str = "Unknown", **kwargs):
-        """Парсинг категории товаров через браузер (Camoufox/Playwright)"""
-        from models.schemas import ParseResult, CategoryInfo
-        from datetime import datetime
-        
+    async def parse_category(self, category_url: str, category_name: str = "Unknown", **kwargs: Any) -> ParseResult:
+        """Parse a single Pyaterochka category."""
+        configure_windows_console()
         start_time = datetime.now()
-        errors = []
-        warnings = []
-        
-        logger.info(f"Parsing category: {category_url}")
-        
-        # Определяем режим headless из kwargs или используем значение по умолчанию
-        headless_mode = kwargs.get('headless', 'virtual')
-        if kwargs.get('no_headless', False):
-            headless_mode = False
-        
+        errors: list[str] = []
+        warnings: list[str] = []
+        products: list[Product] = []
+
+        launch_options = build_camoufox_options(
+            headless=kwargs.get("headless", self.headless),
+            proxy_url=kwargs.get("proxy_url") or os.environ.get("PARSER_PROXY"),
+            geoip=kwargs.get("geoip", False),
+            block_images=kwargs.get("block_images", True),
+            block_webgl=kwargs.get("block_webgl", False),
+            humanize=kwargs.get("humanize", True),
+        )
+
         try:
-            # Запускаем браузер ТОЛЬКО если он еще не запущен
-            if not self._page:
-                logger.info("🌐 Браузер еще не запущен, запускаем...")
-                await self.start_browser(
-                    use_camoufox=True,
-                    geoip=False,
-                    block_images=False,  # Не блокируем изображения для правильного рендеринга
-                    block_webgl=False,
-                    addons=None,
-                    headless=headless_mode,
-                    humanize=True
-                )
-                # Небольшая задержка после запуска
-                await asyncio.sleep(2)
-            else:
-                logger.info("✅ Используем уже запущенный браузер")
-            
-            # Переходим на страницу категории с обработкой ошибок
-            logger.info(f"🔗 Переход на страницу: {category_url}")
+            async with AsyncCamoufox(**launch_options) as browser:
+                page = await browser.new_page()
+                if self.kb.headers.custom:
+                    await page.set_extra_http_headers(self.kb.headers.custom)
+
+                response = await page.goto(category_url, wait_until="domcontentloaded", timeout=60_000)
+                await page.wait_for_timeout(5_000)
+                await wait_for_pyaterochka_challenge(page)
+                await self._scroll_page(page)
+                await wait_for_pyaterochka_challenge(page)
+
+                diagnostics = await collect_page_diagnostics(page, response)
+                if diagnostics.blocked:
+                    message = f"Blocked by anti-bot: {diagnostics.reason}"
+                    logger.warning(message)
+                    warnings.append(message)
+                    return self._build_result(category_url, category_name, products, start_time, errors, warnings)
+
+                products = await self._extract_products(page, category_name)
+        except Exception as exc:
+            logger.error("Pyaterochka category parsing failed: {}", exc)
+            errors.append(str(exc))
+
+        return self._build_result(category_url, category_name, products, start_time, errors, warnings)
+
+    async def close_browser(self) -> None:
+        """Compatibility hook: browser is scoped inside parse_category."""
+        return None
+
+    async def _scroll_page(self, page: Any) -> None:
+        """Scroll the page to trigger lazy-loaded product cards."""
+        for _ in range(4):
+            await page.mouse.wheel(0, 900)
+            await page.wait_for_timeout(1_000)
+
+    async def _extract_products(self, page: Any, category_name: str) -> list[Product]:
+        """Extract products from the rendered page using KB selectors."""
+        card_selectors = self._split_selectors(self.kb.selectors.get("product_card"))
+        name_selectors = self._split_selectors(self.kb.selectors.get("product_name"))
+        price_selectors = self._split_selectors(self.kb.selectors.get("price_current"))
+        link_selectors = self._split_selectors(self.kb.selectors.get("product_link"))
+
+        cards = await self._find_cards(page, card_selectors)
+        products: list[Product] = []
+        for index, card in enumerate(cards, start=1):
             try:
-                await self._page.goto(category_url, wait_until="domcontentloaded", timeout=60000)
-            except Exception as e:
-                if "NS_BINDING_ABORTED" in str(e):
-                    logger.warning(f"⚠️ Страница прервала загрузку, пробуем еще раз...")
-                    await asyncio.sleep(2)
-                    await self._page.goto(category_url, wait_until="domcontentloaded", timeout=60000)
-                else:
-                    raise
-            
-            # Дополнительное ожидание загрузки контента
-            await asyncio.sleep(5)
-            
-            # Применяем стратегии (скроллинг, lazy load) если они включены в KB
-            if self._strategies_config.get('scrolling', False):
-                logger.info("📜 Выполняем скроллинг страницы...")
-                await self._apply_scrolling()
-            
-            if self._strategies_config.get('lazy_load', False):
-                logger.info("⏳ Ожидание загрузки lazy-элементов...")
-                await self._page.wait_for_timeout(3000)
-            
-            # Получаем HTML после выполнения JS
-            html = await self._page.content()
-            logger.info(f"✅ Страница загружена ({len(html)} bytes)")
-            
-            # Парсим товары из HTML
-            products = await self._parse_products_from_html(html, category_name)
-            
-            duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
-            logger.info(f"✅ Категория {category_name}: найдено {len(products)} товаров за {duration_ms}мс")
-            
-            return ParseResult(
-                shop=self.shop_name,
-                category=CategoryInfo(name=category_name, url=category_url),
-                products=products,
-                total_products=len(products),
-                errors=errors,
-                warnings=warnings,
-                parse_duration_ms=duration_ms
-            )
-                
-        except Exception as e:
-            logger.error(f"❌ Ошибка при парсинге категории: {e}")
-            errors.append(f"Ошибка парсинга: {e}")
-            # НЕ закрываем браузер здесь - это делает main.py после всех категорий
-            return ParseResult(
-                shop=self.shop_name,
-                category=CategoryInfo(name=category_name, url=category_url),
-                products=[],
-                total_products=0,
-                errors=errors,
-                warnings=warnings
-            )
-    
-    async def _apply_scrolling(self):
-        """Применение стратегии скроллинга"""
-        # Простой скроллинг вниз и вверх
-        await self._page.evaluate("""
-            () => {
-                return new Promise((resolve) => {
-                    let scrollHeight = document.body.scrollHeight;
-                    let currentScroll = 0;
-                    let distance = 500;
-                    let timer = setInterval(() => {
-                        currentScroll += distance;
-                        window.scrollTo(0, currentScroll);
-                        if (currentScroll > scrollHeight - window.innerHeight) {
-                            clearInterval(timer);
-                            // Скроллим обратно вверх
-                            window.scrollTo(0, 0);
-                            resolve();
-                        }
-                    }, 500);
-                });
-            }
-        """)
-        await self._page.wait_for_timeout(2000)
-    
-    async def _parse_products_from_html(self, html: str, category_name: str = "Unknown"):
-        """Парсинг товаров из HTML с использованием селекторов из KB"""
-        from playwright.async_api import Page
-        from models.schemas import Product, ProductPrice
-        
-        products = []
-        
-        # Получаем селекторы из KB - используем несколько вариантов
-        product_card_selector = self.get_selector('product_card')
-        name_selector = self.get_selector('product_name')
-        price_selector = self.get_selector('price_current')
-        old_price_selector = self.get_selector('price_old')
-        weight_selector = self.get_selector('product_weight')
-        brand_selector = self.get_selector('product_brand')
-        image_selector = self.get_selector('product_image')
-        link_selector = self.get_selector('product_link')
-        
-        if not product_card_selector:
-            logger.warning("⚠️ Селектор product_card не найден в KB")
-            return products
-        
-        logger.info(f"🔍 Используемые селекторы:")
-        logger.info(f"   Карточка: {product_card_selector}")
-        logger.info(f"   Название: {name_selector}")
-        logger.info(f"   Цена: {price_selector}")
-        
-        # Находим все карточки товаров
-        try:
-            card_elements = await self._page.query_selector_all(product_card_selector)
-            logger.info(f"🛒 Найдено {len(card_elements)} карточек товаров")
-            
-            # Если не нашли по основному селектору, пробуем альтернативные
-            if len(card_elements) == 0:
-                alt_selectors = ['article[class*="Card"]', '.catalog-item', 'div[class*="product"]']
-                for alt_sel in alt_selectors:
-                    logger.info(f"🔄 Пробуем альтернативный селектор: {alt_sel}")
-                    card_elements = await self._page.query_selector_all(alt_sel)
-                    if len(card_elements) > 0:
-                        logger.info(f"✅ Альтернативный селектор сработал: {len(card_elements)} товаров")
-                        break
-            
-            for idx, card in enumerate(card_elements):
-                try:
-                    # Извлекаем данные из карточки
-                    name_el = await card.query_selector(name_selector) if name_selector else None
-                    price_el = await card.query_selector(price_selector) if price_selector else None
-                    old_price_el = await card.query_selector(old_price_selector) if old_price_selector else None
-                    weight_el = await card.query_selector(weight_selector) if weight_selector else None
-                    brand_el = await card.query_selector(brand_selector) if brand_selector else None
-                    image_el = await card.query_selector(image_selector) if image_selector else None
-                    link_el = await card.query_selector(link_selector) if link_selector else None
-                    
-                    name = await name_el.inner_text() if name_el else ""
-                    price_text = await price_el.inner_text() if price_el else "0"
-                    old_price_text = await old_price_el.inner_text() if old_price_el else None
-                    weight = await weight_el.inner_text() if weight_el else ""
-                    brand = await brand_el.inner_text() if brand_el else ""
-                    
-                    # Очищаем цену от лишних символов
-                    price_value = int(''.join(filter(str.isdigit, price_text)) or 0)
-                    old_price_value = None
-                    if old_price_text:
-                        old_price_value = int(''.join(filter(str.isdigit, old_price_text)) or 0)
-                    
-                    # Получаем ссылку
-                    product_url = ""
-                    if link_el:
-                        href = await link_el.get_attribute('href')
-                        if href:
-                            product_url = href if href.startswith('http') else f"{self.base_url}{href}"
-                    
-                    # Получаем изображение
-                    image_url = ""
-                    if image_el:
-                        image_url = await image_el.get_attribute('src') or ""
-                    
-                    # Генерируем ID
-                    product_id = f"{self.shop_name}_{category_name}_{idx}"
-                    
-                    product = Product(
-                        id=product_id,
-                        name=name.strip(),
-                        price=ProductPrice(current=price_value, old=old_price_value),
-                        weight=weight.strip() if weight else None,
-                        brand=brand.strip() if brand else None,
-                        url=product_url,
-                        image_url=image_url,
-                        category=category_name,
-                        shop=self.shop_name
-                    )
-                    
-                    if name.strip():  # Добавляем только если есть название
-                        products.append(product)
-                        logger.info(f"   ✅ Товар: {name.strip()} - {price_value} руб.")
-                        
-                except Exception as e:
-                    logger.warning(f"⚠️ Ошибка при парсинге карточки {idx}: {e}")
+                name = await self._query_first_text(card, name_selectors)
+                price_text = await self._query_first_text(card, price_selectors)
+                link = await self._query_first_attribute(card, link_selectors, "href")
+                product_link = self._absolute_url(link)
+                if not name or not product_link:
                     continue
-                    
-        except Exception as e:
-            logger.error(f"❌ Ошибка при поиске карточек: {e}")
-        
-        logger.info(f"📦 Итого найдено товаров: {len(products)}")
+
+                products.append(
+                    Product(
+                        id=f"{self.shop_name}_{index}",
+                        name=name,
+                        price=ProductPrice(current=self._parse_price(price_text)),
+                        product_link=product_link,
+                        category=category_name,
+                    )
+                )
+            except Exception as exc:
+                logger.warning("Product card skipped: {}", exc)
+                continue
+        logger.info("Pyaterochka products extracted: {}", len(products))
         return products
+
+    def _build_result(
+        self,
+        category_url: str,
+        category_name: str,
+        products: list[Product],
+        start_time: datetime,
+        errors: list[str],
+        warnings: list[str],
+    ) -> ParseResult:
+        """Build a ParseResult for the category."""
+        duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+        return ParseResult(
+            shop=self.shop_name,
+            category=CategoryInfo(name=category_name, url=category_url),
+            products=products,
+            total_products=len(products),
+            errors=errors,
+            warnings=warnings,
+            parse_duration_ms=duration_ms,
+        )
+
+    def _absolute_url(self, link: str) -> str:
+        """Normalize product link to an absolute URL."""
+        if not link:
+            return ""
+        if link.startswith("http"):
+            return link
+        return f"{self.base_url}{link}"
+
+    @staticmethod
+    def _split_selectors(config: SelectorConfig | None) -> list[str]:
+        """Return individual CSS selectors from KB selector config."""
+        if not config or not config.css:
+            return []
+        return [item.strip() for item in config.css.split("|") if item.strip()]
+
+    @staticmethod
+    async def _query_first_text(root: Any, selectors: list[str]) -> str:
+        """Return text from the first matching selector."""
+        for selector in selectors:
+            try:
+                element = await root.query_selector(selector)
+                if element:
+                    text = await element.inner_text()
+                    if text.strip():
+                        return text.strip()
+            except Exception as exc:
+                logger.debug("Selector failed: {} ({})", selector, exc)
+        return ""
+
+    @staticmethod
+    async def _query_first_attribute(root: Any, selectors: list[str], attr: str) -> str:
+        """Return attribute from the first matching selector."""
+        for selector in selectors:
+            try:
+                element = await root.query_selector(selector)
+                if element:
+                    value = await element.get_attribute(attr)
+                    if value:
+                        return value
+            except Exception as exc:
+                logger.debug("Selector failed: {} ({})", selector, exc)
+        return ""
+
+    @staticmethod
+    async def _find_cards(page: Any, selectors: list[str]) -> list[Any]:
+        """Find product cards using KB selectors."""
+        for selector in selectors:
+            try:
+                cards = await page.query_selector_all(selector)
+                if cards:
+                    logger.info("Product cards found by selector '{}': {}", selector, len(cards))
+                    return cards
+            except Exception as exc:
+                logger.debug("Card selector failed: {} ({})", selector, exc)
+        return []
+
+    @staticmethod
+    def _parse_price(price_text: str) -> float:
+        """Parse a price string into a float."""
+        normalized = price_text.replace(",", ".")
+        cleaned = "".join(char for char in normalized if char.isdigit() or char == ".")
+        if not cleaned:
+            return 0.0
+        try:
+            return float(cleaned)
+        except ValueError:
+            return 0.0

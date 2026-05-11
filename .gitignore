@@ -1,1 +1,36 @@
-Nothing should be ignored based on the provided file changes. The only modified file is 'parsers/base_parser.py', which is a source code file and should not be added to .gitignore.
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local secrets and machine settings
+.env
+.env.*
+config.local.yaml
+*.local.yaml
+
+# Logs and generated diagnostics
+logs/
+*.log
+data/*.html
+data/*.png
+data/*_smoke.json
+GeoLite2-*.mmdb
+*.mmdb
+
+# Build artifacts
+build/
+dist/
+*.spec
+
+# Codex/browser-act local installs
+.agents/
+skills-lock.json

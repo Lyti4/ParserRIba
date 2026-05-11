@@ -1,20 +1,7 @@
-"""
-Парсеры
-"""
-from parsers.pyaterochka import PyaterochkaParser
-from parsers.magnit import MagnitParser
-from parsers.perekrestok import PerekrestokParser
-from parsers.lenta import LentaParser
-from parsers.auchan import AuchanParser
-from parsers.okey import OkeyParser
-from parsers.playwright_parser import PlaywrightParser
+"""Parser package.
 
-__all__ = [
-    "PyaterochkaParser",
-    "MagnitParser",
-    "PerekrestokParser",
-    "LentaParser",
-    "AuchanParser",
-    "OkeyParser",
-    "PlaywrightParser",
-]
+Store parsers are imported lazily by main.ParserFactory, so importing this
+package should not import every store parser and fail on unrelated modules.
+"""
+
+__all__: list[str] = []

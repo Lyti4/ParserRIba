@@ -328,6 +328,11 @@ async def main():
         help="Вывести список доступных магазинов"
     )
     parser.add_argument(
+        "--check-env",
+        action="store_true",
+        help="Проверить Python, Camoufox, GeoIP и прокси"
+    )
+    parser.add_argument(
         "--headless",
         action="store_true",
         default=True,
@@ -344,6 +349,14 @@ async def main():
     
     # Настройка логгера
     setup_logger(level=args.log_level, log_file="logs/parser_riba.log")
+
+    if args.check_env:
+        from scripts.check_environment import main as check_environment
+
+        exit_code = check_environment()
+        if exit_code:
+            raise SystemExit(exit_code)
+        return
     
     # Загрузка конфига
     config = load_config(args.config)

@@ -17,7 +17,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from utils.camoufox_launcher import configure_windows_console, resolve_camoufox_executable
 from utils.env import load_dotenv_file
-from utils.geoip import geoip_database_path, geoip_extra_installed
+from utils.geoip import app_root, geoip_database_path, geoip_extra_installed
 from utils.proxy import mask_proxy_url, parse_proxy_url
 
 CHECK_IP_URL = "http://api.ipify.org?format=json"
@@ -61,7 +61,7 @@ def _check_proxy(proxy_url: str) -> bool:
 def main() -> int:
     """Run environment checks and return a shell exit code."""
     configure_windows_console()
-    load_dotenv_file(ROOT_DIR / ".env")
+    load_dotenv_file(app_root() / ".env")
 
     ok = True
     logger.info("Python: {}", sys.version.split()[0])

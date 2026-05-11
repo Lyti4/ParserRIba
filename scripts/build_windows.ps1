@@ -32,6 +32,16 @@ $BuildPython = Join-Path $BuildVenv "Scripts\python.exe"
     --name ParserRIba `
     --onedir `
     --console `
+    --collect-submodules "models" `
+    --collect-submodules "parsers" `
+    --collect-submodules "scripts" `
+    --collect-submodules "utils" `
+    --collect-data "apify_fingerprint_datapoints" `
+    --collect-data "camoufox" `
+    --collect-data "language_tags" `
+    --hidden-import "geoip2" `
+    --hidden-import "maxminddb" `
+    --hidden-import "pydantic" `
     --add-data "knowledge_base;knowledge_base" `
     --add-data "config.yaml;." `
     main.py
@@ -51,3 +61,4 @@ Write-Host ""
 Write-Host "Build complete: dist\ParserRIba\ParserRIba.exe"
 Write-Host "Before publishing, test:"
 Write-Host "  dist\ParserRIba\ParserRIba.exe --list-stores"
+Write-Host "  dist\ParserRIba\ParserRIba.exe --check-env"

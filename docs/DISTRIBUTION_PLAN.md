@@ -33,6 +33,7 @@ dist\ParserRIba\ParserRIba.exe
 
 ```powershell
 dist\ParserRIba\ParserRIba.exe --list-stores
+dist\ParserRIba\ParserRIba.exe --check-env
 ```
 
 ## Что не включаем в git и portable-архив

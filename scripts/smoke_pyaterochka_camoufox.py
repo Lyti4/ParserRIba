@@ -26,6 +26,7 @@ from utils.antibot import collect_page_diagnostics, wait_for_pyaterochka_challen
 from utils.camoufox_launcher import build_camoufox_options, configure_windows_console
 from utils.env import load_dotenv_file
 from utils.kb_loader import KBLoader, SelectorConfig
+from utils.smoke_report import write_smoke_report
 
 OUTPUT_DIR = ROOT_DIR / "data"
 DEFAULT_CATEGORY = "Рыба"
@@ -175,11 +176,14 @@ async def smoke_parse_pyaterochka(category_name: str = DEFAULT_CATEGORY) -> dict
         }
 
     output_path = OUTPUT_DIR / "pyaterochka_camoufox_smoke.json"
+    report_path = OUTPUT_DIR / "pyaterochka_camoufox_smoke.md"
     output_path.write_text(
         json.dumps(result, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    write_smoke_report(result, report_path)
     logger.info("Smoke result saved: {}", output_path)
+    logger.info("Smoke report saved: {}", report_path)
     logger.info("Cards found: {}", result["cards_found"])
     for product in products[:5]:
         logger.info("{} | {} | {}", product["name"], product["price"], product["link"])

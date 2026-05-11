@@ -24,6 +24,7 @@ logs/
 data/*.html
 data/*.png
 data/*_smoke.json
+data/*_smoke.md
 GeoLite2-*.mmdb
 *.mmdb
 

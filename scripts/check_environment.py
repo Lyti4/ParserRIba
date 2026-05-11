@@ -16,23 +16,11 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from utils.camoufox_launcher import configure_windows_console, resolve_camoufox_executable
+from utils.env import load_dotenv_file
 from utils.geoip import geoip_database_path, geoip_extra_installed
 from utils.proxy import mask_proxy_url, parse_proxy_url
 
 CHECK_IP_URL = "http://api.ipify.org?format=json"
-
-
-def _load_dotenv() -> None:
-    """Load simple KEY=VALUE lines from .env if python-dotenv was not called."""
-    env_path = ROOT_DIR / ".env"
-    if not env_path.exists():
-        return
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#") or "=" not in stripped:
-            continue
-        key, value = stripped.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 
 def _check_import(module_name: str) -> bool:
@@ -73,7 +61,7 @@ def _check_proxy(proxy_url: str) -> bool:
 def main() -> int:
     """Run environment checks and return a shell exit code."""
     configure_windows_console()
-    _load_dotenv()
+    load_dotenv_file(ROOT_DIR / ".env")
 
     ok = True
     logger.info("Python: {}", sys.version.split()[0])

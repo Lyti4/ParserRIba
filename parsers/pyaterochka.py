@@ -12,6 +12,7 @@ from loguru import logger
 from models.schemas import CategoryInfo, ParseResult, Product, ProductPrice
 from utils.antibot import collect_page_diagnostics, wait_for_pyaterochka_challenge
 from utils.camoufox_launcher import build_camoufox_options, configure_windows_console
+from utils.env import load_dotenv_file
 from utils.kb_loader import KBLoader, SelectorConfig
 
 
@@ -29,6 +30,7 @@ class PyaterochkaParser:
     async def parse_category(self, category_url: str, category_name: str = "Unknown", **kwargs: Any) -> ParseResult:
         """Parse a single Pyaterochka category."""
         configure_windows_console()
+        load_dotenv_file(".env")
         start_time = datetime.now()
         errors: list[str] = []
         warnings: list[str] = []

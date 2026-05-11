@@ -24,6 +24,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from utils.antibot import collect_page_diagnostics, wait_for_pyaterochka_challenge
 from utils.camoufox_launcher import build_camoufox_options, configure_windows_console
+from utils.env import load_dotenv_file
 from utils.kb_loader import KBLoader, SelectorConfig
 
 OUTPUT_DIR = ROOT_DIR / "data"
@@ -82,6 +83,7 @@ async def _find_cards(page: Any, selectors: list[str]) -> list[Any]:
 async def smoke_parse_pyaterochka(category_name: str = DEFAULT_CATEGORY) -> dict[str, Any]:
     """Open Pyaterochka category through Camoufox and collect a small sample."""
     configure_windows_console()
+    load_dotenv_file(ROOT_DIR / ".env")
 
     kb = KBLoader(str(ROOT_DIR / "knowledge_base")).load_shop("pyaterochka")
     category_url = kb.categories.get(category_name)

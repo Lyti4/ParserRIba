@@ -38,6 +38,8 @@ PARSER_GEOIP=1
 ```
 
 Не коммитьте `.env`: там могут быть логины и пароли.
+Скрипты `check_environment.py`, `smoke_pyaterochka_camoufox.py` и парсер
+Пятерочки читают `.env` автоматически.
 
 ## 4. GeoIP
 

@@ -48,6 +48,7 @@ $BuildPython = Join-Path $BuildVenv "Scripts\python.exe"
 
 $DistDir = "dist\ParserRIba"
 Copy-Item -LiteralPath ".env.example" -Destination (Join-Path $DistDir ".env.example") -Force
+Copy-Item -LiteralPath "README_START_HERE.txt" -Destination (Join-Path $DistDir "README_START_HERE.txt") -Force
 if (Test-Path -LiteralPath (Join-Path $DistDir "docs")) {
     Remove-Item -LiteralPath (Join-Path $DistDir "docs") -Recurse -Force
 }
@@ -57,8 +58,15 @@ if (Test-Path -LiteralPath "GeoLite2-City.mmdb") {
     Copy-Item -LiteralPath "GeoLite2-City.mmdb" -Destination (Join-Path $DistDir "GeoLite2-City.mmdb") -Force
 }
 
+$ZipPath = "dist\ParserRIba-windows-x64.zip"
+if (Test-Path -LiteralPath $ZipPath) {
+    Remove-Item -LiteralPath $ZipPath -Force
+}
+Compress-Archive -Path "$DistDir\*" -DestinationPath $ZipPath -Force
+
 Write-Host ""
 Write-Host "Build complete: dist\ParserRIba\ParserRIba.exe"
+Write-Host "ZIP complete: $ZipPath"
 Write-Host "Before publishing, test:"
 Write-Host "  dist\ParserRIba\ParserRIba.exe --list-stores"
 Write-Host "  dist\ParserRIba\ParserRIba.exe --check-env"

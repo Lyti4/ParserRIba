@@ -27,6 +27,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_windows.
 
 ```text
 dist\ParserRIba\ParserRIba.exe
+dist\ParserRIba-windows-x64.zip
 ```
 
 Проверка:
@@ -67,6 +68,7 @@ ParserRIba-windows-x64.zip
 - `knowledge_base/`;
 - `config.yaml`;
 - `.env.example`;
+- `README_START_HERE.txt`;
 - `docs/WINDOWS_QUICKSTART.md`.
 
 Если нужен GeoIP в portable-версии, положите `GeoLite2-City.mmdb` рядом с

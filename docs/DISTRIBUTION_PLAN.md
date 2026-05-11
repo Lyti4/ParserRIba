@@ -20,7 +20,7 @@
 
 ```powershell
 cd /d C:\tmp\ParserRIba-clean
-.\scripts\build_windows.ps1 -Clean
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_windows.ps1 -Clean
 ```
 
 Результат:
@@ -67,5 +67,8 @@ ParserRIba-windows-x64.zip
 - `config.yaml`;
 - `.env.example`;
 - `docs/WINDOWS_QUICKSTART.md`.
+
+Если нужен GeoIP в portable-версии, положите `GeoLite2-City.mmdb` рядом с
+`ParserRIba.exe` в папку `dist\ParserRIba\`.
 
 После стабилизации Пятерочки и еще 1-2 магазинов делать полноценный установщик.

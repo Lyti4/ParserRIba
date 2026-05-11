@@ -4,12 +4,20 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import sys
 from pathlib import Path
 
 from loguru import logger
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_GEOIP_PATH = ROOT_DIR / "GeoLite2-City.mmdb"
+
+
+def app_root() -> Path:
+    """Return project root in source mode or executable folder in frozen mode."""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return ROOT_DIR
 
 
 def geoip_extra_installed() -> bool:
@@ -25,8 +33,14 @@ def geoip_database_path() -> Path | None:
         if path.exists():
             return path
 
-    if DEFAULT_GEOIP_PATH.exists():
-        return DEFAULT_GEOIP_PATH
+    candidates = [
+        app_root() / "GeoLite2-City.mmdb",
+        DEFAULT_GEOIP_PATH,
+        Path(getattr(sys, "_MEIPASS", app_root())) / "GeoLite2-City.mmdb",
+    ]
+    for path in candidates:
+        if path.exists():
+            return path
     return None
 
 

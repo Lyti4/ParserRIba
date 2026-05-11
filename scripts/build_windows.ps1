@@ -36,6 +36,17 @@ $BuildPython = Join-Path $BuildVenv "Scripts\python.exe"
     --add-data "config.yaml;." `
     main.py
 
+$DistDir = "dist\ParserRIba"
+Copy-Item -LiteralPath ".env.example" -Destination (Join-Path $DistDir ".env.example") -Force
+if (Test-Path -LiteralPath (Join-Path $DistDir "docs")) {
+    Remove-Item -LiteralPath (Join-Path $DistDir "docs") -Recurse -Force
+}
+Copy-Item -LiteralPath "docs" -Destination (Join-Path $DistDir "docs") -Recurse -Force
+
+if (Test-Path -LiteralPath "GeoLite2-City.mmdb") {
+    Copy-Item -LiteralPath "GeoLite2-City.mmdb" -Destination (Join-Path $DistDir "GeoLite2-City.mmdb") -Force
+}
+
 Write-Host ""
 Write-Host "Build complete: dist\ParserRIba\ParserRIba.exe"
 Write-Host "Before publishing, test:"

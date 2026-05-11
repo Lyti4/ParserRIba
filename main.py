@@ -8,6 +8,12 @@ import os
 import sys
 from pathlib import Path
 
+def _app_root() -> Path:
+    """Return source root or frozen executable directory."""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).parent
+
 # ИЗМЕНЕНО: фикс вывода emoji/UTF-8 в стандартной Windows-консоли.
 if sys.platform == "win32":
     try:
@@ -33,7 +39,7 @@ if sys.platform == "win32":
         print("   Убедитесь, что браузер установлен или измените путь в main.py")
     
     # Настройка GeoIP базы данных
-    geoip_path = Path(__file__).parent / "GeoLite2-City.mmdb"
+    geoip_path = _app_root() / "GeoLite2-City.mmdb"
     if geoip_path.exists():
         os.environ["GEOIP_PATH"] = str(geoip_path)
         print(f"🌍 GeoIP база найдена: {geoip_path}")

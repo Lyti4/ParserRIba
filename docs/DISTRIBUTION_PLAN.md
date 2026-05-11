@@ -69,6 +69,7 @@ ParserRIba-windows-x64.zip
 - `config.yaml`;
 - `.env.example`;
 - `README_START_HERE.txt`;
+- `docs/PROJECT_REPORT.md`;
 - `docs/WINDOWS_QUICKSTART.md`.
 
 Если нужен GeoIP в portable-версии, положите `GeoLite2-City.mmdb` рядом с

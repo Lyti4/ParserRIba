@@ -79,5 +79,16 @@ def test_detect_pyaterochka_ok_catalog() -> None:
     assert reason == "ok"
 
 
+def test_detect_pyaterochka_rotate_image_captcha() -> None:
+    blocked, reason = detect_pyaterochka_antibot(
+        "https://5ka.ru/catalog/ryba--251C13077/",
+        "Проверка",
+        "<html><body>Поверните изображение горизонтально</body></html>",
+    )
+
+    assert blocked is True
+    assert reason == "pyaterochka_rotate_image_captcha"
+
+
 def test_geoip_extra_available_in_test_environment() -> None:
     assert geoip_extra_installed() is True

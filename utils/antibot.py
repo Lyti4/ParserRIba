@@ -33,6 +33,12 @@ def detect_pyaterochka_antibot(url: str, title: str, html: str) -> tuple[bool, s
         return True, "pyaterochka_antibot_query"
     if lowered_title.startswith("loading https://5ka.ru/"):
         return True, "pyaterochka_loading_challenge"
+    if "captcha" in lowered_html or "капч" in lowered_html:
+        return True, "pyaterochka_captcha"
+    if "повер" in lowered_html and "изображ" in lowered_html:
+        return True, "pyaterochka_rotate_image_captcha"
+    if "rotate" in lowered_html and "image" in lowered_html:
+        return True, "pyaterochka_rotate_image_captcha"
     if "/exhkqyad" in lowered_html or "xpvnsulc" in lowered_html:
         return True, "pyaterochka_antibot_html"
     return False, "ok"

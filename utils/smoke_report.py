@@ -29,6 +29,20 @@ def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
     if navigation_error:
         lines.append(f"- Navigation error: {str(navigation_error).splitlines()[0]}")
 
+    reason = str(result.get("block_reason", ""))
+    if "captcha" in reason:
+        lines.extend(
+            [
+                "",
+                "## Manual Action",
+                "Captcha detected. Run visual mode with images enabled and solve it in Camoufox:",
+                "",
+                "```powershell",
+                "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\run_pyaterochka_visual.ps1",
+                "```",
+            ]
+        )
+
     attempts = result.get("attempts") or []
     if attempts:
         lines.extend(["", "## Attempts"])

@@ -21,6 +21,19 @@ def test_build_pyaterochka_smoke_report_blocked() -> None:
     assert "No sample products" in report
 
 
+def test_build_pyaterochka_smoke_report_captcha_manual_action() -> None:
+    report = build_pyaterochka_smoke_report(
+        {
+            "blocked": True,
+            "block_reason": "pyaterochka_rotate_image_captcha",
+            "products_sample": [],
+        }
+    )
+
+    assert "Manual Action" in report
+    assert "run_pyaterochka_visual.ps1" in report
+
+
 def test_build_pyaterochka_smoke_report_products() -> None:
     report = build_pyaterochka_smoke_report(
         {

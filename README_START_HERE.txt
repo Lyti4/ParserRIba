@@ -16,6 +16,7 @@ ParserRIba - быстрый старт
 4. Если нужен прокси, скопируйте файл .env.example в .env и заполните:
 
    PARSER_PROXY=http://user:password@host:port
+   PARSER_PROXIES=http://user:password@host1:port;http://user:password@host2:port
 
 5. GeoIP:
 

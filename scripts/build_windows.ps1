@@ -66,10 +66,14 @@ if (Test-Path -LiteralPath $ZipPath) {
     Remove-Item -LiteralPath $ZipPath -Force
 }
 Compress-Archive -Path "$DistDir\*" -DestinationPath $ZipPath -Force
+$ChecksumPath = "$ZipPath.sha256"
+$Hash = Get-FileHash -LiteralPath $ZipPath -Algorithm SHA256
+"$($Hash.Hash)  $(Split-Path -Leaf $ZipPath)" | Set-Content -LiteralPath $ChecksumPath -Encoding ascii
 
 Write-Host ""
 Write-Host "Build complete: dist\ParserRIba\ParserRIba.exe"
 Write-Host "ZIP complete: $ZipPath"
+Write-Host "SHA256 complete: $ChecksumPath"
 Write-Host "Before publishing, test:"
 Write-Host "  dist\ParserRIba\ParserRIba.exe --list-stores"
 Write-Host "  dist\ParserRIba\ParserRIba.exe --check-env"

@@ -28,6 +28,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_windows.
 ```text
 dist\ParserRIba\ParserRIba.exe
 dist\ParserRIba-windows-x64.zip
+dist\ParserRIba-windows-x64.zip.sha256
 ```
 
 Проверка:
@@ -61,6 +62,9 @@ dist\ParserRIba\ParserRIba.exe --check-env
 ```text
 ParserRIba-windows-x64.zip
 ```
+
+Рядом со ZIP создается `.sha256` файл для проверки целостности архива перед
+публикацией релиза.
 
 Внутри:
 

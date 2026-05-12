@@ -17,7 +17,11 @@ ParserRIba - быстрый старт
 
    RUN_PYATEROCHKA_VISUAL.bat
 
-4. Если нужен прокси, скопируйте файл .env.example в .env и заполните:
+4. Если нужен прокси, сначала откройте:
+
+   SETUP_ENV.bat
+
+   Потом заполните .env:
 
    PARSER_PROXY=http://user:password@host:port
    PARSER_PROXIES=http://user:password@host1:port;http://user:password@host2:port

@@ -69,6 +69,7 @@ ParserRIba-windows-x64.zip
 - `config.yaml`;
 - `.env.example`;
 - `README_START_HERE.txt`;
+- `SETUP_ENV.bat`;
 - `RUN_PYATEROCHKA_VISUAL.bat`;
 - `docs/PROJECT_REPORT.md`;
 - `docs/WINDOWS_QUICKSTART.md`.

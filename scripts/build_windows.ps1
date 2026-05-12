@@ -50,6 +50,7 @@ $DistDir = "dist\ParserRIba"
 Copy-Item -LiteralPath ".env.example" -Destination (Join-Path $DistDir ".env.example") -Force
 Copy-Item -LiteralPath "README_START_HERE.txt" -Destination (Join-Path $DistDir "README_START_HERE.txt") -Force
 Copy-Item -LiteralPath "RUN_PYATEROCHKA_VISUAL.bat" -Destination (Join-Path $DistDir "RUN_PYATEROCHKA_VISUAL.bat") -Force
+Copy-Item -LiteralPath "SETUP_ENV.bat" -Destination (Join-Path $DistDir "SETUP_ENV.bat") -Force
 if (Test-Path -LiteralPath (Join-Path $DistDir "docs")) {
     Remove-Item -LiteralPath (Join-Path $DistDir "docs") -Recurse -Force
 }

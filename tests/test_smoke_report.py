@@ -30,6 +30,10 @@ def test_build_pyaterochka_smoke_report_products() -> None:
             "cards_found": 1,
             "final_url": "https://5ka.ru/catalog/",
             "html_size": 999,
+            "proxy_enabled": True,
+            "proxy": "http://user:***@proxy.example:1000",
+            "browser_external_ip": "203.0.113.10",
+            "geoip_enabled": True,
             "html_path": "data/page.html",
             "screenshot_path": "data/page.png",
             "products_sample": [
@@ -43,4 +47,6 @@ def test_build_pyaterochka_smoke_report_products() -> None:
     )
 
     assert "Status: ok" in report
+    assert "Proxy enabled: True" in report
+    assert "Browser external IP: 203.0.113.10" in report
     assert "Fish | 100 | https://5ka.ru/product" in report

@@ -26,6 +26,7 @@ from utils.antibot import collect_page_diagnostics, wait_for_pyaterochka_challen
 from utils.camoufox_launcher import build_camoufox_options, configure_windows_console
 from utils.env import load_dotenv_file
 from utils.kb_loader import KBLoader, SelectorConfig
+from utils.proxy import mask_proxy_url
 from utils.smoke_report import write_smoke_report
 
 OUTPUT_DIR = ROOT_DIR / "data"
@@ -81,6 +82,24 @@ async def _find_cards(page: Any, selectors: list[str]) -> list[Any]:
     return []
 
 
+async def _browser_external_ip(page: Any) -> str:
+    """Return the external IP observed from inside the browser page."""
+    try:
+        value = await page.evaluate(
+            """async () => {
+                const response = await fetch("https://api.ipify.org?format=json", {
+                    cache: "no-store"
+                });
+                const payload = await response.json();
+                return payload.ip || "";
+            }"""
+        )
+        return str(value or "")
+    except Exception as exc:
+        logger.warning("Browser IP check failed: {}", exc)
+        return ""
+
+
 async def smoke_parse_pyaterochka(category_name: str = DEFAULT_CATEGORY) -> dict[str, Any]:
     """Open Pyaterochka category through Camoufox and collect a small sample."""
     configure_windows_console()
@@ -99,10 +118,12 @@ async def smoke_parse_pyaterochka(category_name: str = DEFAULT_CATEGORY) -> dict
     logger.info("Starting Camoufox for Pyaterochka smoke test")
     logger.info("Category: {} -> {}", category_name, category_url)
 
+    proxy_url = os.environ.get(PROXY_ENV, "").strip()
+    geoip_enabled = os.environ.get("PARSER_GEOIP", "").lower() in {"1", "true", "yes"}
     launch_options = build_camoufox_options(
         headless=False if sys.platform == "win32" else "virtual",
-        proxy_url=os.environ.get(PROXY_ENV),
-        geoip=os.environ.get("PARSER_GEOIP", "").lower() in {"1", "true", "yes"},
+        proxy_url=proxy_url,
+        geoip=geoip_enabled,
         block_images=True,
         block_webgl=False,
         humanize=True,
@@ -131,6 +152,7 @@ async def smoke_parse_pyaterochka(category_name: str = DEFAULT_CATEGORY) -> dict
         await wait_for_pyaterochka_challenge(page)
 
         diagnostics = await collect_page_diagnostics(page, response)
+        external_ip = await _browser_external_ip(page)
         page_html = await page.content()
         screenshot_path = OUTPUT_DIR / "pyaterochka_camoufox_smoke.png"
         html_path = OUTPUT_DIR / "pyaterochka_camoufox_smoke.html"
@@ -168,6 +190,10 @@ async def smoke_parse_pyaterochka(category_name: str = DEFAULT_CATEGORY) -> dict
             "blocked": diagnostics.blocked,
             "block_reason": diagnostics.reason,
             "navigation_error": navigation_error,
+            "proxy_enabled": bool(proxy_url),
+            "proxy": mask_proxy_url(proxy_url) if proxy_url else "",
+            "geoip_enabled": geoip_enabled,
+            "browser_external_ip": external_ip,
             "screenshot_path": str(screenshot_path),
             "html_path": str(html_path),
             "cards_found": len(cards),

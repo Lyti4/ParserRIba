@@ -18,6 +18,10 @@ def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
         f"- Cards found: {result.get('cards_found', 0)}",
         f"- Final URL: {result.get('final_url', '')}",
         f"- HTML size: {result.get('html_size', 0)}",
+        f"- Proxy enabled: {result.get('proxy_enabled', False)}",
+        f"- Proxy: {result.get('proxy', '')}",
+        f"- Browser external IP: {result.get('browser_external_ip', '')}",
+        f"- GeoIP enabled: {result.get('geoip_enabled', False)}",
     ]
 
     navigation_error = result.get("navigation_error")

@@ -84,3 +84,4 @@ ParserRIba-windows-x64.zip
 
 После стабилизации Пятерочки и еще 1-2 магазинов делать полноценный установщик.
 План установщика описан в `docs/INSTALLER_ROADMAP.md`.
+Перед публикацией ZIP используйте `docs/RELEASE_CHECKLIST.md`.

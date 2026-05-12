@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import sys
+import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -105,6 +106,8 @@ async def smoke_parse_pyaterochka(
     category_name: str = DEFAULT_CATEGORY,
     attempts: int = 3,
     headless: bool | str | None = None,
+    pause: bool = False,
+    block_images: bool = True,
 ) -> dict[str, Any]:
     """Open Pyaterochka category through Camoufox and collect a small sample."""
     configure_windows_console()
@@ -145,7 +148,7 @@ async def smoke_parse_pyaterochka(
             headless=browser_headless,
             proxy_url=proxy_url,
             geoip=geoip_enabled,
-            block_images=True,
+            block_images=block_images,
             block_webgl=False,
             humanize=True,
         )
@@ -159,6 +162,7 @@ async def smoke_parse_pyaterochka(
                 geoip_enabled=geoip_enabled,
                 attempt=attempt,
                 attempts=attempts,
+                pause=pause,
             )
         except Exception as exc:
             logger.warning("Smoke attempt {} failed: {}", attempt, exc)
@@ -204,6 +208,7 @@ async def _run_smoke_attempt(
     geoip_enabled: bool,
     attempt: int,
     attempts: int,
+    pause: bool,
 ) -> dict[str, Any]:
     """Run one browser/proxy smoke attempt."""
     card_selectors = _split_selectors(kb.selectors.get("product_card"))
@@ -240,6 +245,10 @@ async def _run_smoke_attempt(
 
         cards = await _find_cards(page, card_selectors)
         products = await _extract_sample_products(cards, name_selectors, price_selectors, link_selectors)
+        if pause:
+            logger.info("Pause enabled; leave this PowerShell window open to inspect Camoufox")
+            while True:
+                await page.wait_for_timeout(60_000)
 
     return {
         "shop": "pyaterochka",
@@ -315,15 +324,21 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--attempts", type=int, default=3)
     parser.add_argument("--headless", action="store_true", default=None)
     parser.add_argument("--no-headless", action="store_false", dest="headless")
+    parser.add_argument("--pause", action="store_true", help="Keep browser open after the smoke attempt")
+    parser.add_argument("--load-images", action="store_true", help="Allow images for visual captcha checks")
     return parser.parse_args()
 
 
 if __name__ == "__main__":
+    if sys.platform == "win32":
+        warnings.filterwarnings("ignore", category=ResourceWarning)
     args = _parse_args()
     asyncio.run(
         smoke_parse_pyaterochka(
             category_name=args.category,
             attempts=args.attempts,
             headless=args.headless,
+            pause=args.pause,
+            block_images=not args.load_images,
         )
     )

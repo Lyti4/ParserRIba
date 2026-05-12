@@ -19,6 +19,19 @@ pytest_plugins = ('pytest_asyncio',)
 # Устанавливаем режим asyncio по умолчанию
 pytestmark = pytest.mark.asyncio(scope="session")
 
+
+def pytest_collection_modifyitems(config, items):
+    """Skip live network smoke tests unless explicitly requested."""
+    if os.environ.get("RUN_NETWORK_SMOKE") == "1":
+        return
+
+    skip_network = pytest.mark.skip(
+        reason="live website smoke tests are disabled; set RUN_NETWORK_SMOKE=1 to run them"
+    )
+    for item in items:
+        if "network" in item.keywords:
+            item.add_marker(skip_network)
+
 @pytest.fixture(scope="session")
 def event_loop_policy():
     """Используем политику событий Windows для совместимости."""

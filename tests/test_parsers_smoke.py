@@ -12,6 +12,8 @@ import asyncio
 from playwright.async_api import Page, TimeoutError
 from playwright._impl._errors import Error as PlaywrightError
 
+pytestmark = pytest.mark.network
+
 # Список магазинов для тестирования
 SHOPS = [
     ("pyaterochka", "https://5post.ru"),

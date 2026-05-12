@@ -1,259 +1,234 @@
+"""Camoufox fingerprint profile helpers.
+
+Camoufox already generates BrowserForge fingerprints internally. This module
+keeps ParserRIba's fingerprint settings explicit, configurable and reportable
+without building an inconsistent custom user agent by hand.
 """
-Fingerprint generation and management using BrowserForge via Camoufox.
-Provides automatic fingerprint generation with proper OS/browser coordination.
-"""
 
-import random
-from typing import Optional, Dict, Any, List
-from datetime import datetime
+from __future__ import annotations
 
-try:
-    from browserforge.fingerprints import FingerprintGenerator as BrowserForgeFG
-    BROWSERFORGE_AVAILABLE = True
-except ImportError:
-    BROWSERFORGE_AVAILABLE = False
+import os
+from dataclasses import asdict, dataclass
+from typing import Any
+
+from browserforge.fingerprints import Screen
 
 
-class FingerprintGenerator:
-    """
-    Generates realistic browser fingerprints using BrowserForge integration.
-    
-    Features:
-    - Automatic OS/browser/version coordination
-    - WebGL/Canvas spoofing configuration
-    - Font list matching OS
-    - Screen resolution matching device type
-    - Timezone matching geolocation
-    """
-    
-    # Common fonts by OS
-    FONTS_BY_OS = {
-        "windows": [
-            "Arial", "Arial Black", "Calibri", "Cambria", "Comic Sans MS",
-            "Consolas", "Courier New", "Georgia", "Impact", "Segoe UI",
-            "Tahoma", "Times New Roman", "Trebuchet MS", "Verdana"
-        ],
-        "macos": [
-            "Arial", "Helvetica", "Menlo", "Monaco", "San Francisco",
-            "Times New Roman", "Courier New", "Georgia", "Verdana",
-            "American Typewriter", "Gill Sans", "Optima"
-        ],
-        "linux": [
-            "Arial", "DejaVu Sans", "DejaVu Serif", "Liberation Sans",
-            "Liberation Serif", "Ubuntu", "Cantarell", "Droid Sans",
-            "Droid Serif", "FreeSans", "FreeSerif"
-        ]
+DEFAULT_WINDOWS_SCREEN = {
+    "min_width": 1366,
+    "max_width": 1920,
+    "min_height": 768,
+    "max_height": 1080,
+}
+
+
+@dataclass(frozen=True)
+class CamoufoxFingerprintProfile:
+    """Serializable constraints passed to Camoufox fingerprint generation."""
+
+    os: str | list[str] = "windows"
+    locale: str | list[str] = "ru-RU"
+    humanize: bool | float = 1.5
+    block_images: bool = True
+    block_webrtc: bool = True
+    block_webgl: bool = False
+    screen_min_width: int | None = DEFAULT_WINDOWS_SCREEN["min_width"]
+    screen_max_width: int | None = DEFAULT_WINDOWS_SCREEN["max_width"]
+    screen_min_height: int | None = DEFAULT_WINDOWS_SCREEN["min_height"]
+    screen_max_height: int | None = DEFAULT_WINDOWS_SCREEN["max_height"]
+    window_width: int | None = None
+    window_height: int | None = None
+    fingerprint_preset: bool | None = None
+    webgl_vendor: str | None = None
+    webgl_renderer: str | None = None
+
+    def screen(self) -> Screen | None:
+        """Return BrowserForge screen constraints for Camoufox."""
+        values = (
+            self.screen_min_width,
+            self.screen_max_width,
+            self.screen_min_height,
+            self.screen_max_height,
+        )
+        if all(value is None for value in values):
+            return None
+        return Screen(
+            min_width=self.screen_min_width,
+            max_width=self.screen_max_width,
+            min_height=self.screen_min_height,
+            max_height=self.screen_max_height,
+        )
+
+    def window(self) -> tuple[int, int] | None:
+        """Return fixed browser window size, if configured."""
+        if self.window_width and self.window_height:
+            return (self.window_width, self.window_height)
+        return None
+
+    def webgl_config(self) -> tuple[str, str] | None:
+        """Return fixed WebGL vendor/renderer pair, if configured."""
+        if self.webgl_vendor and self.webgl_renderer:
+            return (self.webgl_vendor, self.webgl_renderer)
+        return None
+
+    def launch_options(self) -> dict[str, Any]:
+        """Return Camoufox launch options controlled by this profile."""
+        options: dict[str, Any] = {
+            "os": self.os,
+            "locale": self.locale,
+            "humanize": self.humanize,
+            "block_images": self.block_images,
+            "block_webrtc": self.block_webrtc,
+            "block_webgl": self.block_webgl,
+        }
+        screen = self.screen()
+        if screen:
+            options["screen"] = screen
+        window = self.window()
+        if window:
+            options["window"] = window
+        webgl_config = self.webgl_config()
+        if webgl_config:
+            options["webgl_config"] = webgl_config
+        if self.fingerprint_preset is not None:
+            options["fingerprint_preset"] = self.fingerprint_preset
+        return options
+
+    def summary(self) -> dict[str, Any]:
+        """Return a report-safe summary of the fingerprint settings."""
+        data = asdict(self)
+        data["engine"] = (
+            "camoufox-preset" if self.fingerprint_preset else "camoufox-browserforge"
+        )
+        return data
+
+
+def build_fingerprint_profile(
+    *,
+    os_value: str | list[str] | None = None,
+    locale: str | list[str] | None = None,
+    humanize: bool | float | None = None,
+    block_images: bool | None = None,
+    block_webrtc: bool | None = None,
+    block_webgl: bool | None = None,
+) -> CamoufoxFingerprintProfile:
+    """Build a fingerprint profile from defaults, environment and overrides."""
+    return CamoufoxFingerprintProfile(
+        os=_coalesce(_env_list_or_string("CAMOUFOX_FINGERPRINT_OS"), os_value, "windows"),
+        locale=_coalesce(_env_list_or_string("CAMOUFOX_LOCALE"), locale, "ru-RU"),
+        humanize=_coalesce(_env_bool_float("CAMOUFOX_HUMANIZE"), humanize, 1.5),
+        block_images=_coalesce(_env_bool("CAMOUFOX_BLOCK_IMAGES"), block_images, True),
+        block_webrtc=_coalesce(_env_bool("CAMOUFOX_BLOCK_WEBRTC"), block_webrtc, True),
+        block_webgl=_coalesce(_env_bool("CAMOUFOX_BLOCK_WEBGL"), block_webgl, False),
+        screen_min_width=_env_int("CAMOUFOX_SCREEN_MIN_WIDTH", DEFAULT_WINDOWS_SCREEN["min_width"]),
+        screen_max_width=_env_int("CAMOUFOX_SCREEN_MAX_WIDTH", DEFAULT_WINDOWS_SCREEN["max_width"]),
+        screen_min_height=_env_int("CAMOUFOX_SCREEN_MIN_HEIGHT", DEFAULT_WINDOWS_SCREEN["min_height"]),
+        screen_max_height=_env_int("CAMOUFOX_SCREEN_MAX_HEIGHT", DEFAULT_WINDOWS_SCREEN["max_height"]),
+        window_width=_env_int("CAMOUFOX_WINDOW_WIDTH"),
+        window_height=_env_int("CAMOUFOX_WINDOW_HEIGHT"),
+        fingerprint_preset=_env_bool("CAMOUFOX_FINGERPRINT_PRESET"),
+        webgl_vendor=_env_str("CAMOUFOX_WEBGL_VENDOR"),
+        webgl_renderer=_env_str("CAMOUFOX_WEBGL_RENDERER"),
+    )
+
+
+def fingerprint_summary_from_options(options: dict[str, Any]) -> dict[str, Any]:
+    """Build a compact report summary from Camoufox launch options."""
+    screen = options.get("screen")
+    screen_summary = {}
+    if screen:
+        screen_summary = {
+            "min_width": getattr(screen, "min_width", None),
+            "max_width": getattr(screen, "max_width", None),
+            "min_height": getattr(screen, "min_height", None),
+            "max_height": getattr(screen, "max_height", None),
+        }
+    return {
+        "engine": "camoufox-preset" if options.get("fingerprint_preset") else "camoufox-browserforge",
+        "os": options.get("os", ""),
+        "locale": options.get("locale", ""),
+        "humanize": options.get("humanize", False),
+        "block_images": options.get("block_images", False),
+        "block_webrtc": options.get("block_webrtc", False),
+        "block_webgl": options.get("block_webgl", False),
+        "screen": screen_summary,
+        "window": options.get("window", ""),
+        "webgl_configured": bool(options.get("webgl_config")),
     }
-    
-    # Screen resolutions by device type
-    RESOLUTIONS = {
-        "desktop": [
-            (1920, 1080), (1366, 768), (1536, 864), (1440, 900),
-            (1280, 720), (1600, 900), (1920, 1200), (2560, 1440)
-        ],
-        "laptop": [
-            (1366, 768), (1440, 900), (1536, 864), (1600, 900),
-            (1920, 1080), (1280, 720), (1366, 768)
-        ],
-        "mobile": [
-            (360, 640), (375, 667), (414, 736), (375, 812),
-            (414, 896), (390, 844), (428, 926)
-        ]
-    }
-    
-    def __init__(self, os_type: Optional[str] = None, browser: str = "firefox"):
-        """
-        Initialize fingerprint generator.
-        
-        Args:
-            os_type: Target OS (windows, macos, linux) or None for random
-            browser: Browser type (firefox, chrome)
-        """
-        self.os_type = os_type or random.choice(["windows", "macos", "linux"])
-        self.browser = browser
-        
-    def generate_fingerprint(self, config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        Generate complete browser fingerprint.
-        
-        Args:
-            config: Optional configuration for specific spoofing options
-            
-        Returns:
-            Dictionary with fingerprint data
-        """
-        config = config or {}
-        
-        # Select resolution based on device type
-        device_type = config.get("device_type", "desktop")
-        width, height = random.choice(self.RESOLUTIONS.get(device_type, self.RESOLUTIONS["desktop"]))
-        
-        # Get fonts for OS
-        fonts = self.FONTS_BY_OS.get(self.os_type, self.FONTS_BY_OS["linux"])
-        
-        # Generate user agent
-        user_agent = self._generate_user_agent()
-        
-        # Build fingerprint
-        fingerprint = {
-            "user_agent": user_agent,
-            "platform": self._get_platform(),
-            "viewport": {"width": width, "height": height},
-            "screen": {"width": width, "height": height, "avail_width": width, "avail_height": height},
-            "language": "ru-RU",
-            "languages": ["ru-RU", "ru", "en-US", "en"],
-            "timezone": config.get("timezone", "Europe/Moscow"),
-            "hardware_concurrency": config.get("hardware_concurrency", random.choice([4, 6, 8, 12])),
-            "device_memory": config.get("device_memory", random.choice([4, 8, 16])),
-            "fonts": fonts,
-            "webgl": self._generate_webgl_config(config),
-            "canvas": config.get("canvas_mode", "noise"),  # noise, block, allow
-            "webrtc": config.get("webrtc_mode", "spoof"),  # spoof, block, allow
-            "audio": config.get("audio_mode", "noise"),  # noise, block, allow
-        }
-        
-        # Add OS-specific properties
-        if self.os_type == "windows":
-            fingerprint["os_version"] = "10.0"
-            fingerprint["architecture"] = "Win64"
-        elif self.os_type == "macos":
-            fingerprint["os_version"] = random.choice(["10_15_7", "11_0", "12_0", "13_0", "14_0"])
-            fingerprint["architecture"] = "Intel"
-        else:  # linux
-            fingerprint["os_version"] = "x86_64"
-            fingerprint["architecture"] = "Linux x86_64"
-        
-        return fingerprint
-    
-    def _generate_user_agent(self) -> str:
-        """Generate realistic user agent for the configured OS and browser."""
-        if self.browser == "firefox":
-            versions = ["120.0", "121.0", "122.0", "123.0"]
-            version = random.choice(versions)
-            
-            if self.os_type == "windows":
-                return f"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:{version.split('.')[0]}.0) Gecko/20100101 Firefox/{version}"
-            elif self.os_type == "macos":
-                return f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:{version.split('.')[0]}.0) Gecko/20100101 Firefox/{version}"
-            else:
-                return f"Mozilla/5.0 (X11; Linux x86_64; rv:{version.split('.')[0]}.0) Gecko/20100101 Firefox/{version}"
-        else:  # chrome
-            versions = ["120.0.0.0", "121.0.0.0", "122.0.0.0", "123.0.0.0"]
-            version = random.choice(versions)
-            
-            if self.os_type == "windows":
-                return f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36"
-            elif self.os_type == "macos":
-                return f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36"
-            else:
-                return f"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36"
-    
-    def _get_platform(self) -> str:
-        """Get platform string for the configured OS."""
-        if self.os_type == "windows":
-            return "Win32"
-        elif self.os_type == "macos":
-            return "MacIntel"
-        else:
-            return "Linux x86_64"
-    
-    def _generate_webgl_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate WebGL spoofing configuration."""
-        webgl_config = config.get("webgl", {})
-        
-        # Default vendor/renderer pairs by OS
-        vendors_renderers = {
-            "windows": [
-                ("Google Inc. (Intel)", "ANGLE (Intel, Intel(R) HD Graphics 520 Direct3D11 vs_5_0 ps_5_0, D3D11)"),
-                ("Google Inc. (NVIDIA)", "ANGLE (NVIDIA, NVIDIA GeForce GTX 1050 Direct3D11 vs_5_0 ps_5_0, D3D11)"),
-                ("Google Inc. (AMD)", "ANGLE (AMD, AMD Radeon RX 5500 XT Direct3D11 vs_5_0 ps_5_0, D3D11)"),
-            ],
-            "macos": [
-                ("Apple Inc.", "Apple M1"),
-                ("Apple Inc.", "Apple M2"),
-                ("Intel Inc.", "Intel(R) Iris(TM) Plus Graphics 640"),
-            ],
-            "linux": [
-                ("Google Inc. (Intel Open Source Technology Center)", "Mesa DRI Intel(R) HD Graphics 620 (Kaby Lake GT2)"),
-                ("X.Org", "AMD Radeon RX 5500 XT (radeonsi, navi14, LLVM 15.0.7, DRM 3.49, 6.1.0-25-amd64)"),
-            ]
-        }
-        
-        vendor_renderer = random.choice(vendors_renderers.get(self.os_type, vendors_renderers["linux"]))
-        
-        return {
-            "enabled": webgl_config.get("enabled", True),
-            "vendor": webgl_config.get("vendor", vendor_renderer[0]),
-            "renderer": webgl_config.get("renderer", vendor_renderer[1]),
-            "version": webgl_config.get("version", "WebGL 1.0 (OpenGL ES 2.0 Chromium)"),
-            "shading_language_version": webgl_config.get("shading_language_version", "WebGL GLSL ES 1.0 (OpenGL ES GLSL ES 1.0 Chromium)"),
-            "parameters": webgl_config.get("parameters", {}),
-        }
-    
-    def get_camoufox_config(self, fingerprint: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        Convert fingerprint to Camoufox-compatible configuration.
-        
-        Args:
-            fingerprint: Pre-generated fingerprint or None to generate new
-            
-        Returns:
-            Configuration dictionary for Camoufox with block_images, block_webgl, humanize
-        """
-        if fingerprint is None:
-            fingerprint = self.generate_fingerprint()
-        
-        config = {
-            "webgl": {
-                "vendor": fingerprint["webgl"]["vendor"],
-                "renderer": fingerprint["webgl"]["renderer"],
-            },
-            "canvas": fingerprint["canvas"],
-            "webrtc": fingerprint["webrtc"],
-            "audio": fingerprint["audio"],
-            # Camoufox-specific settings
-            "block_images": getattr(self, 'block_images', True),
-            "block_webgl": getattr(self, 'block_webgl', False),
-            "humanize": getattr(self, 'humanize', True),
-            "headless": getattr(self, 'headless', "virtual"),
-        }
-        
-        return config
 
 
-def get_camoufox_config(fingerprint: Optional[Dict[str, Any]] = None, **kwargs) -> Dict[str, Any]:
-    """
-    Convert fingerprint to Camoufox-compatible configuration.
-    
-    Args:
-        fingerprint: Pre-generated fingerprint or None to generate new
-        **kwargs: Additional Camoufox settings (block_images, block_webgl, humanize, headless)
-        
-    Returns:
-        Configuration dictionary for Camoufox
-    """
-    gen = FingerprintGenerator(os_type=None, browser="firefox")
-    
-    # Update generator attributes with kwargs
-    for key, value in kwargs.items():
-        setattr(gen, key, value)
-    
-    return gen.get_camoufox_config(fingerprint)
+def get_camoufox_config(fingerprint: dict[str, Any] | None = None, **kwargs: Any) -> dict[str, Any]:
+    """Backward-compatible helper returning Camoufox profile launch options."""
+    _ = fingerprint
+    profile = build_fingerprint_profile(
+        os_value=kwargs.get("os") or kwargs.get("fingerprint_os"),
+        locale=kwargs.get("locale"),
+        humanize=kwargs.get("humanize"),
+        block_images=kwargs.get("block_images"),
+        block_webrtc=kwargs.get("block_webrtc"),
+        block_webgl=kwargs.get("block_webgl"),
+    )
+    return profile.launch_options()
 
 
-def create_fingerprint_for_region(region: str = "RU", timezone: str = "Europe/Moscow") -> Dict[str, Any]:
-    """
-    Create a fingerprint optimized for a specific region.
-    
-    Args:
-        region: Region code (RU, US, DE, etc.)
-        timezone: Timezone string
-        
-    Returns:
-        Fingerprint dictionary
-    """
-    gen = FingerprintGenerator(os_type=None, browser="firefox")
-    return gen.generate_fingerprint({
+def create_fingerprint_for_region(region: str = "RU", timezone: str = "Europe/Moscow") -> dict[str, Any]:
+    """Return a reportable regional fingerprint intent without custom spoof data."""
+    return {
+        "region": region,
         "timezone": timezone,
-        "language": f"{region}-{region}" if region == "RU" else f"en-{region}",
-    })
+        "profile": build_fingerprint_profile().summary(),
+    }
+
+
+def _coalesce(*values: Any) -> Any:
+    for value in values:
+        if value is not None:
+            return value
+    return None
+
+
+def _env_str(name: str) -> str | None:
+    value = os.environ.get(name, "").strip()
+    return value or None
+
+
+def _env_int(name: str, default: int | None = None) -> int | None:
+    value = _env_str(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
+def _env_bool(name: str) -> bool | None:
+    value = _env_str(name)
+    if value is None:
+        return None
+    return value.lower() in {"1", "true", "yes", "on"}
+
+
+def _env_bool_float(name: str) -> bool | float | None:
+    value = _env_str(name)
+    if value is None:
+        return None
+    lowered = value.lower()
+    if lowered in {"1", "true", "yes", "on"}:
+        return True
+    if lowered in {"0", "false", "no", "off"}:
+        return False
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
+def _env_list_or_string(name: str) -> str | list[str] | None:
+    value = _env_str(name)
+    if value is None:
+        return None
+    parts = [item.strip() for item in value.replace(";", ",").split(",") if item.strip()]
+    if len(parts) > 1:
+        return parts
+    return parts[0] if parts else None

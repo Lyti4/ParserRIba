@@ -32,8 +32,21 @@ def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
                 f"- Fingerprint OS: {fingerprint.get('os', '')}",
                 f"- Locale: {fingerprint.get('locale', '')}",
                 f"- Camoufox humanize: {fingerprint.get('humanize', False)}",
+                f"- Block images: {fingerprint.get('block_images', False)}",
+                f"- Block WebRTC: {fingerprint.get('block_webrtc', False)}",
+                f"- Block WebGL: {fingerprint.get('block_webgl', False)}",
             ]
         )
+        screen = fingerprint.get("screen") or {}
+        if screen:
+            lines.append(
+                "- Screen constraints: {min_width}-{max_width} x {min_height}-{max_height}".format(
+                    min_width=screen.get("min_width", ""),
+                    max_width=screen.get("max_width", ""),
+                    min_height=screen.get("min_height", ""),
+                    max_height=screen.get("max_height", ""),
+                )
+            )
     behavior_profile = result.get("behavior_profile") or {}
     if behavior_profile:
         lines.extend(

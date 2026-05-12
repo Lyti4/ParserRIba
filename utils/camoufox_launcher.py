@@ -9,6 +9,7 @@ from typing import Any
 
 from loguru import logger
 
+from utils.fingerprint import build_fingerprint_profile
 from utils.geoip import prepare_geoip
 from utils.proxy import mask_proxy_url, parse_proxy_url
 
@@ -50,6 +51,7 @@ def build_camoufox_options(
     proxy_url: str | None = None,
     geoip: bool = False,
     block_images: bool = True,
+    block_webrtc: bool | None = None,
     block_webgl: bool = False,
     humanize: bool | float = True,
     locale: str = "ru-RU",
@@ -58,19 +60,20 @@ def build_camoufox_options(
     """Build AsyncCamoufox options in one place."""
     executable_path = resolve_camoufox_executable()
     geoip_enabled = prepare_geoip() if geoip else False
+    profile = build_fingerprint_profile(
+        os_value=fingerprint_os,
+        locale=locale,
+        humanize=humanize,
+        block_images=block_images,
+        block_webrtc=block_webrtc,
+        block_webgl=block_webgl,
+    )
     options: dict[str, Any] = {
         "geoip": geoip_enabled,
-        "humanize": humanize,
-        "block_images": block_images,
-        "block_webgl": block_webgl,
         "headless": normalize_headless(headless),
         "i_know_what_im_doing": True,
-        "locale": locale,
     }
-    if fingerprint_os:
-        # ИЗМЕНЕНО: Camoufox сам генерирует BrowserForge fingerprint; здесь
-        # ограничиваем профиль Windows, чтобы он совпадал с целевой платформой.
-        options["os"] = fingerprint_os
+    options.update(profile.launch_options())
 
     if executable_path:
         # ИЗМЕНЕНО: используем локальный Camoufox, чтобы не требовать `camoufox fetch`.

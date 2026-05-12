@@ -31,6 +31,7 @@ from utils.antibot import (
 )
 from utils.camoufox_launcher import build_camoufox_options, configure_windows_console
 from utils.env import load_dotenv_file
+from utils.fingerprint import fingerprint_summary_from_options
 from utils.human_behavior import browse_category_page, build_category_behavior_profile, hover_product_cards
 from utils.kb_loader import KBLoader, SelectorConfig
 from utils.proxy import choose_proxy_for_attempt, load_proxy_urls, mask_proxy_url
@@ -305,12 +306,7 @@ async def _run_smoke_attempt(
         "proxy_enabled": bool(proxy_url),
         "proxy": mask_proxy_url(proxy_url) if proxy_url else "",
         "geoip_enabled": geoip_enabled,
-        "fingerprint": {
-            "engine": "camoufox-browserforge",
-            "os": launch_options.get("os", ""),
-            "locale": launch_options.get("locale", ""),
-            "humanize": launch_options.get("humanize", False),
-        },
+        "fingerprint": fingerprint_summary_from_options(launch_options),
         "behavior_profile": behavior_profile.summary(),
         "browser_external_ip": external_ip,
         "screenshot_path": str(screenshot_path),

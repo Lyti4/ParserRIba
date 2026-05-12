@@ -57,8 +57,10 @@ Already implemented:
 Next:
 
 - field-test with real RU proxy pool;
-- consider BrowserForge fingerprint presets only after smoke reports show a
-  stable failure pattern.
+- keep BrowserForge generation inside Camoufox and expose only safe constraints:
+  OS, locale, screen, window, WebRTC, WebGL, image loading and humanize.
+- consider bundled Camoufox fingerprint presets only after smoke reports show a
+  stable failure pattern and only when the installed Camoufox binary supports it well.
 
 ### Crawlee
 

@@ -59,10 +59,11 @@ class PyaterochkaParser:
                 headless=kwargs.get("headless", self.headless),
                 proxy_url=proxy_url,
                 geoip=kwargs.get("geoip", False),
-                block_images=kwargs.get("block_images", True),
-                block_webgl=kwargs.get("block_webgl", False),
-                humanize=kwargs.get("humanize", True),
-                fingerprint_os=kwargs.get("fingerprint_os", "windows"),
+                block_images=kwargs.get("block_images"),
+                block_webrtc=kwargs.get("block_webrtc"),
+                block_webgl=kwargs.get("block_webgl"),
+                humanize=kwargs.get("humanize"),
+                fingerprint_os=kwargs.get("fingerprint_os"),
             )
 
             try:

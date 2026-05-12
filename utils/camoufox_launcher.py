@@ -50,12 +50,12 @@ def build_camoufox_options(
     headless: bool | str = True,
     proxy_url: str | None = None,
     geoip: bool = False,
-    block_images: bool = True,
+    block_images: bool | None = None,
     block_webrtc: bool | None = None,
-    block_webgl: bool = False,
-    humanize: bool | float = True,
-    locale: str = "ru-RU",
-    fingerprint_os: str | list[str] | None = "windows",
+    block_webgl: bool | None = None,
+    humanize: bool | float | None = None,
+    locale: str | None = None,
+    fingerprint_os: str | list[str] | None = None,
 ) -> dict[str, Any]:
     """Build AsyncCamoufox options in one place."""
     executable_path = resolve_camoufox_executable()

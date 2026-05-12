@@ -114,12 +114,12 @@ def build_fingerprint_profile(
 ) -> CamoufoxFingerprintProfile:
     """Build a fingerprint profile from defaults, environment and overrides."""
     return CamoufoxFingerprintProfile(
-        os=_coalesce(_env_list_or_string("CAMOUFOX_FINGERPRINT_OS"), os_value, "windows"),
-        locale=_coalesce(_env_list_or_string("CAMOUFOX_LOCALE"), locale, "ru-RU"),
-        humanize=_coalesce(_env_bool_float("CAMOUFOX_HUMANIZE"), humanize, 1.5),
-        block_images=_coalesce(_env_bool("CAMOUFOX_BLOCK_IMAGES"), block_images, True),
-        block_webrtc=_coalesce(_env_bool("CAMOUFOX_BLOCK_WEBRTC"), block_webrtc, True),
-        block_webgl=_coalesce(_env_bool("CAMOUFOX_BLOCK_WEBGL"), block_webgl, False),
+        os=_coalesce(os_value, _env_list_or_string("CAMOUFOX_FINGERPRINT_OS"), "windows"),
+        locale=_coalesce(locale, _env_list_or_string("CAMOUFOX_LOCALE"), "ru-RU"),
+        humanize=_coalesce(humanize, _env_bool_float("CAMOUFOX_HUMANIZE"), 1.5),
+        block_images=_coalesce(block_images, _env_bool("CAMOUFOX_BLOCK_IMAGES"), True),
+        block_webrtc=_coalesce(block_webrtc, _env_bool("CAMOUFOX_BLOCK_WEBRTC"), True),
+        block_webgl=_coalesce(block_webgl, _env_bool("CAMOUFOX_BLOCK_WEBGL"), False),
         screen_min_width=_env_int("CAMOUFOX_SCREEN_MIN_WIDTH", DEFAULT_WINDOWS_SCREEN["min_width"]),
         screen_max_width=_env_int("CAMOUFOX_SCREEN_MAX_WIDTH", DEFAULT_WINDOWS_SCREEN["max_width"]),
         screen_min_height=_env_int("CAMOUFOX_SCREEN_MIN_HEIGHT", DEFAULT_WINDOWS_SCREEN["min_height"]),

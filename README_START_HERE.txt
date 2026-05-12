@@ -17,6 +17,10 @@ ParserRIba - быстрый старт
 
    RUN_PYATEROCHKA_VISUAL.bat
 
+   После проверки откройте отчеты:
+
+   OPEN_REPORTS.bat
+
 4. Если нужен прокси, сначала откройте:
 
    SETUP_ENV.bat

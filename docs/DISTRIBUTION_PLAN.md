@@ -71,6 +71,7 @@ ParserRIba-windows-x64.zip
 - `README_START_HERE.txt`;
 - `SETUP_ENV.bat`;
 - `RUN_PYATEROCHKA_VISUAL.bat`;
+- `OPEN_REPORTS.bat`;
 - `docs/PROJECT_REPORT.md`;
 - `docs/WINDOWS_QUICKSTART.md`.
 

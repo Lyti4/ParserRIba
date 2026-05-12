@@ -76,3 +76,4 @@ ParserRIba-windows-x64.zip
 `ParserRIba.exe` в папку `dist\ParserRIba\`.
 
 После стабилизации Пятерочки и еще 1-2 магазинов делать полноценный установщик.
+План установщика описан в `docs/INSTALLER_ROADMAP.md`.

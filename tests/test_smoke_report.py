@@ -26,6 +26,8 @@ def test_build_pyaterochka_smoke_report_products() -> None:
         {
             "blocked": False,
             "block_reason": "ok",
+            "attempt": 2,
+            "max_attempts": 3,
             "http_status": 200,
             "cards_found": 1,
             "final_url": "https://5ka.ru/catalog/",
@@ -43,10 +45,28 @@ def test_build_pyaterochka_smoke_report_products() -> None:
                     "link": "https://5ka.ru/product",
                 }
             ],
+            "attempts": [
+                {
+                    "attempt": 1,
+                    "blocked": True,
+                    "block_reason": "pyaterochka_antibot_redirect",
+                    "cards_found": 0,
+                    "proxy": "http://***:***@proxy-one.example:1000",
+                },
+                {
+                    "attempt": 2,
+                    "blocked": False,
+                    "block_reason": "ok",
+                    "cards_found": 1,
+                    "proxy": "http://***:***@proxy-two.example:1000",
+                },
+            ],
         }
     )
 
     assert "Status: ok" in report
+    assert "Attempt: 2 / 3" in report
+    assert "#1: blocked=True" in report
     assert "Proxy enabled: True" in report
     assert "Browser external IP: 203.0.113.10" in report
     assert "Fish | 100 | https://5ka.ru/product" in report

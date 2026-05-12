@@ -52,6 +52,8 @@ def build_camoufox_options(
     block_images: bool = True,
     block_webgl: bool = False,
     humanize: bool = True,
+    locale: str = "ru-RU",
+    timezone_id: str = "Europe/Moscow",
 ) -> dict[str, Any]:
     """Build AsyncCamoufox options in one place."""
     executable_path = resolve_camoufox_executable()
@@ -63,6 +65,8 @@ def build_camoufox_options(
         "block_webgl": block_webgl,
         "headless": normalize_headless(headless),
         "i_know_what_im_doing": True,
+        "locale": locale,
+        "timezone_id": timezone_id,
     }
 
     if executable_path:

@@ -45,3 +45,29 @@ def mask_proxy_url(proxy_url: str) -> str:
         return "<proxy>"
     scheme = parsed.scheme or "http"
     return f"{scheme}://***:***@{parsed.hostname}:{parsed.port}"
+
+
+def split_proxy_urls(value: str) -> list[str]:
+    """Split comma/newline/semicolon separated proxy URLs."""
+    urls: list[str] = []
+    for raw_line in value.replace(";", "\n").replace(",", "\n").splitlines():
+        proxy_url = raw_line.strip()
+        if proxy_url:
+            urls.append(proxy_url)
+    return urls
+
+
+def load_proxy_urls(primary: str = "", pool: str = "") -> list[str]:
+    """Return proxy URLs with the primary proxy first and duplicates removed."""
+    ordered: list[str] = []
+    for proxy_url in [primary.strip(), *split_proxy_urls(pool)]:
+        if proxy_url and proxy_url not in ordered:
+            ordered.append(proxy_url)
+    return ordered
+
+
+def choose_proxy_for_attempt(proxy_urls: list[str], attempt: int) -> str:
+    """Return a proxy URL for a 1-based attempt number."""
+    if not proxy_urls:
+        return ""
+    return proxy_urls[(attempt - 1) % len(proxy_urls)]

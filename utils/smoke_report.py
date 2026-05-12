@@ -14,6 +14,7 @@ def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
         "",
         f"- Status: {status}",
         f"- Block reason: {result.get('block_reason', 'unknown')}",
+        f"- Attempt: {result.get('attempt', '')} / {result.get('max_attempts', '')}",
         f"- HTTP status: {result.get('http_status')}",
         f"- Cards found: {result.get('cards_found', 0)}",
         f"- Final URL: {result.get('final_url', '')}",
@@ -27,6 +28,20 @@ def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
     navigation_error = result.get("navigation_error")
     if navigation_error:
         lines.append(f"- Navigation error: {str(navigation_error).splitlines()[0]}")
+
+    attempts = result.get("attempts") or []
+    if attempts:
+        lines.extend(["", "## Attempts"])
+        for attempt in attempts:
+            lines.append(
+                "- #{attempt}: blocked={blocked}, reason={reason}, cards={cards}, proxy={proxy}".format(
+                    attempt=attempt.get("attempt", ""),
+                    blocked=attempt.get("blocked", ""),
+                    reason=attempt.get("block_reason", ""),
+                    cards=attempt.get("cards_found", 0),
+                    proxy=attempt.get("proxy", ""),
+                )
+            )
 
     lines.extend(
         [

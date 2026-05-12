@@ -14,6 +14,7 @@ from utils.antibot import collect_page_diagnostics, wait_for_pyaterochka_challen
 from utils.camoufox_launcher import build_camoufox_options, configure_windows_console
 from utils.env import load_dotenv_file
 from utils.kb_loader import KBLoader, SelectorConfig
+from utils.proxy import choose_proxy_for_attempt, load_proxy_urls, mask_proxy_url
 
 
 class PyaterochkaParser:
@@ -35,39 +36,43 @@ class PyaterochkaParser:
         errors: list[str] = []
         warnings: list[str] = []
         products: list[Product] = []
-
-        launch_options = build_camoufox_options(
-            headless=kwargs.get("headless", self.headless),
-            proxy_url=kwargs.get("proxy_url") or os.environ.get("PARSER_PROXY"),
-            geoip=kwargs.get("geoip", False),
-            block_images=kwargs.get("block_images", True),
-            block_webgl=kwargs.get("block_webgl", False),
-            humanize=kwargs.get("humanize", True),
+        attempts = int(kwargs.get("attempts") or os.environ.get("PARSER_ATTEMPTS", "3"))
+        proxy_urls = load_proxy_urls(
+            primary=kwargs.get("proxy_url") or os.environ.get("PARSER_PROXY", ""),
+            pool=os.environ.get("PARSER_PROXIES", ""),
         )
 
-        try:
-            async with AsyncCamoufox(**launch_options) as browser:
-                page = await browser.new_page()
-                if self.kb.headers.custom:
-                    await page.set_extra_http_headers(self.kb.headers.custom)
+        for attempt in range(1, attempts + 1):
+            proxy_url = choose_proxy_for_attempt(proxy_urls, attempt)
+            if proxy_url:
+                logger.info("Pyaterochka attempt {} uses proxy {}", attempt, mask_proxy_url(proxy_url))
+            else:
+                logger.info("Pyaterochka attempt {} runs without proxy", attempt)
 
-                response = await page.goto(category_url, wait_until="domcontentloaded", timeout=60_000)
-                await page.wait_for_timeout(5_000)
-                await wait_for_pyaterochka_challenge(page)
-                await self._scroll_page(page)
-                await wait_for_pyaterochka_challenge(page)
+            launch_options = build_camoufox_options(
+                headless=kwargs.get("headless", self.headless),
+                proxy_url=proxy_url,
+                geoip=kwargs.get("geoip", False),
+                block_images=kwargs.get("block_images", True),
+                block_webgl=kwargs.get("block_webgl", False),
+                humanize=kwargs.get("humanize", True),
+            )
 
-                diagnostics = await collect_page_diagnostics(page, response)
-                if diagnostics.blocked:
-                    message = f"Blocked by anti-bot: {diagnostics.reason}"
-                    logger.warning(message)
-                    warnings.append(message)
-                    return self._build_result(category_url, category_name, products, start_time, errors, warnings)
-
-                products = await self._extract_products(page, category_name)
-        except Exception as exc:
-            logger.error("Pyaterochka category parsing failed: {}", exc)
-            errors.append(str(exc))
+            try:
+                products = await self._parse_category_once(
+                    category_url=category_url,
+                    category_name=category_name,
+                    launch_options=launch_options,
+                    warnings=warnings,
+                )
+                if products:
+                    break
+            except Exception as exc:
+                logger.error("Pyaterochka attempt {} failed: {}", attempt, exc)
+                errors.append(f"attempt {attempt}: {exc}")
+                if attempt >= attempts:
+                    break
+                continue
 
         return self._build_result(category_url, category_name, products, start_time, errors, warnings)
 
@@ -80,6 +85,34 @@ class PyaterochkaParser:
         for _ in range(4):
             await page.mouse.wheel(0, 900)
             await page.wait_for_timeout(1_000)
+
+    async def _parse_category_once(
+        self,
+        category_url: str,
+        category_name: str,
+        launch_options: dict[str, Any],
+        warnings: list[str],
+    ) -> list[Product]:
+        """Parse one category with one browser/proxy session."""
+        async with AsyncCamoufox(**launch_options) as browser:
+            page = await browser.new_page()
+            if self.kb.headers.custom:
+                await page.set_extra_http_headers(self.kb.headers.custom)
+
+            response = await page.goto(category_url, wait_until="domcontentloaded", timeout=60_000)
+            await page.wait_for_timeout(5_000)
+            await wait_for_pyaterochka_challenge(page)
+            await self._scroll_page(page)
+            await wait_for_pyaterochka_challenge(page)
+
+            diagnostics = await collect_page_diagnostics(page, response)
+            if diagnostics.blocked or diagnostics.status == 403:
+                message = f"Blocked by anti-bot: {diagnostics.reason}, status={diagnostics.status}"
+                logger.warning(message)
+                warnings.append(message)
+                return []
+
+            return await self._extract_products(page, category_name)
 
     async def _extract_products(self, page: Any, category_name: str) -> list[Product]:
         """Extract products from the rendered page using KB selectors."""

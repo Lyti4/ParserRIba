@@ -1,6 +1,12 @@
 from utils.antibot import detect_pyaterochka_antibot
 from utils.geoip import geoip_extra_installed
-from utils.proxy import mask_proxy_url, parse_proxy_url
+from utils.proxy import (
+    choose_proxy_for_attempt,
+    load_proxy_urls,
+    mask_proxy_url,
+    parse_proxy_url,
+    split_proxy_urls,
+)
 
 
 def test_parse_proxy_url_splits_credentials() -> None:
@@ -21,6 +27,34 @@ def test_mask_proxy_url_hides_credentials() -> None:
 
     assert masked == "http://***:***@example.com:1000"
     assert "secret" not in masked
+
+
+def test_split_proxy_urls_accepts_common_separators() -> None:
+    value = "http://a:1\nhttp://b:2; http://c:3, http://d:4"
+
+    assert split_proxy_urls(value) == [
+        "http://a:1",
+        "http://b:2",
+        "http://c:3",
+        "http://d:4",
+    ]
+
+
+def test_load_proxy_urls_keeps_primary_first_and_deduplicates() -> None:
+    proxies = load_proxy_urls(
+        primary="http://primary:1000",
+        pool="http://second:1000\nhttp://primary:1000",
+    )
+
+    assert proxies == ["http://primary:1000", "http://second:1000"]
+
+
+def test_choose_proxy_for_attempt_rotates() -> None:
+    proxies = ["http://one:1000", "http://two:1000"]
+
+    assert choose_proxy_for_attempt(proxies, 1) == "http://one:1000"
+    assert choose_proxy_for_attempt(proxies, 2) == "http://two:1000"
+    assert choose_proxy_for_attempt(proxies, 3) == "http://one:1000"
 
 
 def test_detect_pyaterochka_antibot_redirect() -> None:

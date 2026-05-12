@@ -3,6 +3,7 @@ from utils.human_behavior import (
     browse_category_page,
     build_category_behavior_profile,
     hover_product_cards,
+    cooldown_for_reason,
 )
 
 
@@ -70,3 +71,16 @@ async def test_hover_product_cards_moves_over_limited_cards() -> None:
     await hover_product_cards(page, [FakeCard(), FakeCard(), FakeCard()], profile)
 
     assert len(page.mouse.moves) == 2
+
+
+async def test_cooldown_for_antibot_uses_retry_range() -> None:
+    page = FakePage()
+    profile = HumanBehaviorProfile(
+        retry_cooldown_min_ms=10,
+        retry_cooldown_max_ms=10,
+    )
+
+    timeout_ms = await cooldown_for_reason(page, "pyaterochka_antibot_redirect", profile)
+
+    assert timeout_ms == 10
+    assert page.pauses == [10]

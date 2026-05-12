@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import asyncio
 from datetime import datetime
 from typing import Any
 
@@ -10,13 +11,14 @@ from camoufox.async_api import AsyncCamoufox
 from loguru import logger
 
 from models.schemas import CategoryInfo, ParseResult, Product, ProductPrice
-from utils.antibot import collect_page_diagnostics, wait_for_pyaterochka_challenge
+from utils.antibot import wait_for_pyaterochka_state
 from utils.camoufox_launcher import build_camoufox_options, configure_windows_console
 from utils.env import load_dotenv_file
 from utils.human_behavior import (
     HumanBehaviorProfile,
     browse_category_page,
     build_category_behavior_profile,
+    cooldown_for_reason,
     hover_product_cards,
 )
 from utils.kb_loader import KBLoader, SelectorConfig
@@ -48,6 +50,7 @@ class PyaterochkaParser:
             pool=os.environ.get("PARSER_PROXIES", ""),
         )
 
+        behavior_profile = build_category_behavior_profile(category_name)
         for attempt in range(1, attempts + 1):
             proxy_url = choose_proxy_for_attempt(proxy_urls, attempt)
             if proxy_url:
@@ -72,14 +75,18 @@ class PyaterochkaParser:
                     category_name=category_name,
                     launch_options=launch_options,
                     warnings=warnings,
+                    behavior_profile=behavior_profile,
                 )
                 if products:
                     break
+                if attempt < attempts:
+                    await self._cooldown_between_attempts(behavior_profile, warnings)
             except Exception as exc:
                 logger.error("Pyaterochka attempt {} failed: {}", attempt, exc)
                 errors.append(f"attempt {attempt}: {exc}")
                 if attempt >= attempts:
                     break
+                await self._cooldown_between_attempts(behavior_profile, errors)
                 continue
 
         return self._build_result(category_url, category_name, products, start_time, errors, warnings)
@@ -94,6 +101,7 @@ class PyaterochkaParser:
         category_name: str,
         launch_options: dict[str, Any],
         warnings: list[str],
+        behavior_profile: HumanBehaviorProfile,
     ) -> list[Product]:
         """Parse one category with one browser/proxy session."""
         async with AsyncCamoufox(**launch_options) as browser:
@@ -103,12 +111,15 @@ class PyaterochkaParser:
 
             response = await page.goto(category_url, wait_until="domcontentloaded", timeout=60_000)
             await page.wait_for_timeout(5_000)
-            await wait_for_pyaterochka_challenge(page)
-            behavior_profile = build_category_behavior_profile(category_name)
+            diagnostics = await wait_for_pyaterochka_state(page, response)
+            if diagnostics.blocked or diagnostics.status == 403:
+                message = f"Blocked by anti-bot: {diagnostics.reason}, status={diagnostics.status}"
+                logger.warning(message)
+                warnings.append(message)
+                return []
             await browse_category_page(page, behavior_profile)
-            await wait_for_pyaterochka_challenge(page)
+            diagnostics = await wait_for_pyaterochka_state(page, response)
 
-            diagnostics = await collect_page_diagnostics(page, response)
             if diagnostics.blocked or diagnostics.status == 403:
                 message = f"Blocked by anti-bot: {diagnostics.reason}, status={diagnostics.status}"
                 logger.warning(message)
@@ -116,6 +127,19 @@ class PyaterochkaParser:
                 return []
 
             return await self._extract_products(page, category_name, behavior_profile)
+
+    async def _cooldown_between_attempts(
+        self,
+        behavior_profile: HumanBehaviorProfile,
+        messages: list[str],
+    ) -> None:
+        """Wait politely before starting a new browser/proxy attempt."""
+        reason = messages[-1] if messages else "empty_result"
+        class _CooldownPage:
+            async def wait_for_timeout(self, timeout_ms: int) -> None:
+                await asyncio.sleep(timeout_ms / 1000)
+
+        await cooldown_for_reason(_CooldownPage(), reason, behavior_profile)
 
     async def _extract_products(
         self,

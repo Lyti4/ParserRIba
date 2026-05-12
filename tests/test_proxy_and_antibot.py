@@ -1,4 +1,9 @@
-from utils.antibot import classify_navigation_error, detect_pyaterochka_antibot
+from utils.antibot import (
+    PageDiagnostics,
+    classify_navigation_error,
+    detect_pyaterochka_antibot,
+    wait_for_pyaterochka_state,
+)
 from utils.geoip import geoip_extra_installed
 from utils.proxy import (
     choose_proxy_for_attempt,
@@ -98,3 +103,24 @@ def test_classify_navigation_dns_error() -> None:
 
 def test_geoip_extra_available_in_test_environment() -> None:
     assert geoip_extra_installed() is True
+
+
+class FakeStatePage:
+    url = "https://5ka.ru/xpvnsulc/"
+
+    async def title(self) -> str:
+        return "Loading https://5ka.ru/xpvnsulc/"
+
+    async def content(self) -> str:
+        return "<html></html>"
+
+    async def wait_for_timeout(self, timeout_ms: int) -> None:
+        self.url = "https://5ka.ru/catalog/ryba--251C13077/"
+
+
+async def test_wait_for_pyaterochka_state_returns_antibot_without_extra_wait() -> None:
+    diagnostics = await wait_for_pyaterochka_state(FakeStatePage(), seconds=2)
+
+    assert isinstance(diagnostics, PageDiagnostics)
+    assert diagnostics.blocked is True
+    assert diagnostics.reason == "pyaterochka_antibot_redirect"

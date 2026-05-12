@@ -160,12 +160,14 @@ smoke-отчет. Если будет антибот, первым делом д
 - Human-like поведение вынесено в `utils/human_behavior.py`.
 - Для Пятерочки подключены случайные паузы, глубина скролла, micro-scroll и hover по карточкам.
 - Smoke-отчет показывает fingerprint и behavior profile.
+- Добавлено умное ожидание состояния Пятерочки: каталог, антибот/challenge или таймаут.
+- Добавлены cooldown-паузы между попытками: дольше после антибота/капчи, короче после сетевых ошибок.
 
 ### Нужно сделать дальше
 
-1. Прогнать live smoke Пятерочки с рабочим RU proxy, `geoip=True` и включенным behavior profile.
-2. По новому smoke-отчету сравнить: внешний IP, final URL, captcha/challenge, network errors, cards found.
-3. Если капча остается, докрутить ротацию proxy/session и поведенческие паузы без автоматического обхода captcha.
+1. Прогнать визуальный manual-challenge режим с `--load-images`, решить капчу вручную и сохранить рабочую сессию.
+2. Добавить persistent Camoufox profile/session reuse для Пятерочки, чтобы не проходить challenge заново каждый запуск.
+3. По smoke-отчету после ручного прохождения сравнить: final URL, cards found, network errors, products sample.
 4. После стабильной Пятерочки встроить тот же путь в основной `main.py`.
 5. Дальше перейти к GUI launcher и подготовке installer.
 

@@ -27,12 +27,17 @@ if str(ROOT_DIR) not in sys.path:
 from utils.antibot import (
     classify_navigation_error,
     collect_page_diagnostics,
-    wait_for_pyaterochka_challenge,
+    wait_for_pyaterochka_state,
 )
 from utils.camoufox_launcher import build_camoufox_options, configure_windows_console
 from utils.env import load_dotenv_file
 from utils.fingerprint import fingerprint_summary_from_options
-from utils.human_behavior import browse_category_page, build_category_behavior_profile, hover_product_cards
+from utils.human_behavior import (
+    browse_category_page,
+    build_category_behavior_profile,
+    cooldown_for_reason,
+    hover_product_cards,
+)
 from utils.kb_loader import KBLoader, SelectorConfig
 from utils.proxy import choose_proxy_for_attempt, load_proxy_urls, mask_proxy_url
 from utils.smoke_report import write_smoke_report
@@ -202,6 +207,9 @@ async def smoke_parse_pyaterochka(
         )
         if final_result.get("cards_found", 0) > 0 and not final_result.get("blocked"):
             break
+        if attempt < attempts:
+            reason = str(final_result.get("block_reason") or "empty_result")
+            await cooldown_for_reason(_SmokeCooldownPage(), reason, build_category_behavior_profile(category_name))
 
     result = final_result or _failed_attempt_result(
         category_name, category_url, 0, attempts, RuntimeError("no attempts executed")
@@ -263,10 +271,12 @@ async def _run_smoke_attempt(
             logger.warning("Navigation failed: {}", exc)
         await page.wait_for_timeout(5_000)
         if not navigation_error:
-            await wait_for_pyaterochka_challenge(page)
-            await browse_category_page(page, behavior_profile)
-            await wait_for_pyaterochka_challenge(page)
-        diagnostics = await collect_page_diagnostics(page, response)
+            diagnostics = await wait_for_pyaterochka_state(page, response)
+            if not diagnostics.blocked:
+                await browse_category_page(page, behavior_profile)
+                diagnostics = await wait_for_pyaterochka_state(page, response)
+        else:
+            diagnostics = await collect_page_diagnostics(page, response)
         block_reason = diagnostics.reason
         blocked = diagnostics.blocked
         navigation_reason = classify_navigation_error(navigation_error)
@@ -370,6 +380,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--pause", action="store_true", help="Keep browser open after the smoke attempt")
     parser.add_argument("--load-images", action="store_true", help="Allow images for visual captcha checks")
     return parser.parse_args()
+
+
+class _SmokeCooldownPage:
+    async def wait_for_timeout(self, timeout_ms: int) -> None:
+        await asyncio.sleep(timeout_ms / 1000)
 
 
 if __name__ == "__main__":

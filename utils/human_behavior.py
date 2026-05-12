@@ -24,6 +24,12 @@ class HumanBehaviorProfile:
     hover_cards: int = 5
     mouse_move_steps_min: int = 8
     mouse_move_steps_max: int = 18
+    retry_cooldown_min_ms: int = 45_000
+    retry_cooldown_max_ms: int = 120_000
+    network_cooldown_min_ms: int = 10_000
+    network_cooldown_max_ms: int = 30_000
+    empty_result_cooldown_min_ms: int = 20_000
+    empty_result_cooldown_max_ms: int = 45_000
 
     def summary(self) -> dict[str, Any]:
         """Return a serializable profile summary for diagnostics."""
@@ -52,6 +58,19 @@ async def human_pause(page: Any, profile: HumanBehaviorProfile, factor: float = 
     min_ms = max(0, int(profile.min_pause_ms * factor))
     max_ms = max(min_ms, int(profile.max_pause_ms * factor))
     await page.wait_for_timeout(random.randint(min_ms, max_ms))
+
+
+async def cooldown_for_reason(page: Any, reason: str, profile: HumanBehaviorProfile) -> int:
+    """Wait before another attempt based on the previous attempt reason."""
+    if reason.startswith("network_"):
+        timeout_ms = random.randint(profile.network_cooldown_min_ms, profile.network_cooldown_max_ms)
+    elif "captcha" in reason or "antibot" in reason or reason == "http_403":
+        timeout_ms = random.randint(profile.retry_cooldown_min_ms, profile.retry_cooldown_max_ms)
+    else:
+        timeout_ms = random.randint(profile.empty_result_cooldown_min_ms, profile.empty_result_cooldown_max_ms)
+    logger.info("Cooldown before next attempt: {} ms ({})", timeout_ms, reason or "empty_result")
+    await page.wait_for_timeout(timeout_ms)
+    return timeout_ms
 
 
 async def browse_category_page(page: Any, profile: HumanBehaviorProfile) -> None:

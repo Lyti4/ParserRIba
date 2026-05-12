@@ -7,6 +7,7 @@ from typing import Any
 
 
 PYATEROCHKA_CHALLENGE_PATHS = ("/xpvnsulc/", "/exhkqyad")
+PYATEROCHKA_CATALOG_MARKERS = ("/catalog/",)
 
 
 @dataclass(frozen=True)
@@ -81,3 +82,18 @@ async def wait_for_pyaterochka_challenge(page: Any, seconds: int = 30) -> None:
         if not any(path in page.url.lower() for path in PYATEROCHKA_CHALLENGE_PATHS):
             return
         await page.wait_for_timeout(1_000)
+
+
+async def wait_for_pyaterochka_state(page: Any, response: Any = None, seconds: int = 30) -> PageDiagnostics:
+    """Wait until Pyaterochka settles on catalog, challenge or timeout."""
+    last_diagnostics = await collect_page_diagnostics(page, response)
+    for _ in range(seconds):
+        diagnostics = await collect_page_diagnostics(page, response)
+        last_diagnostics = diagnostics
+        if diagnostics.blocked:
+            return diagnostics
+        lowered_url = diagnostics.final_url.lower()
+        if any(marker in lowered_url for marker in PYATEROCHKA_CATALOG_MARKERS):
+            return diagnostics
+        await page.wait_for_timeout(1_000)
+    return last_diagnostics

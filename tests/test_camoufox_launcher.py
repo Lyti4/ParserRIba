@@ -5,9 +5,10 @@ def test_build_camoufox_options_uses_ru_profile_defaults() -> None:
     options = build_camoufox_options(headless=True)
 
     assert options["locale"] == "ru-RU"
-    assert options["humanize"] is True
+    assert options["humanize"] == 1.5
     assert options["i_know_what_im_doing"] is True
     assert options["os"] == "windows"
+    assert options["block_webrtc"] is True
 
 
 def test_build_camoufox_options_allows_locale_override() -> None:

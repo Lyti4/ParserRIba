@@ -13,6 +13,10 @@ ParserRIba - быстрый старт
 
    ParserRIba.exe --store pyaterochka --no-headless
 
+   Или двойным кликом откройте:
+
+   RUN_PYATEROCHKA_VISUAL.bat
+
 4. Если нужен прокси, скопируйте файл .env.example в .env и заполните:
 
    PARSER_PROXY=http://user:password@host:port

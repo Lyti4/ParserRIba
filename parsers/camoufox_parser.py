@@ -56,6 +56,7 @@ class CamoufoxParser(BaseParser):
             block_images=kwargs.get("block_images", True),
             block_webgl=kwargs.get("block_webgl", False),
             humanize=kwargs.get("humanize", True),
+            fingerprint_os=kwargs.get("fingerprint_os", "windows"),
         )
 
         try:

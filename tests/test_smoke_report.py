@@ -49,6 +49,20 @@ def test_build_pyaterochka_smoke_report_products() -> None:
             "proxy": "http://user:***@proxy.example:1000",
             "browser_external_ip": "203.0.113.10",
             "geoip_enabled": True,
+            "fingerprint": {
+                "engine": "camoufox-browserforge",
+                "os": "windows",
+                "locale": "ru-RU",
+                "humanize": True,
+            },
+            "behavior_profile": {
+                "name": "fish-category",
+                "scroll_steps_min": 5,
+                "scroll_steps_max": 8,
+                "scroll_delta_min": 280,
+                "scroll_delta_max": 760,
+                "hover_cards": 6,
+            },
             "html_path": "data/page.html",
             "screenshot_path": "data/page.png",
             "products_sample": [
@@ -89,4 +103,6 @@ def test_build_pyaterochka_smoke_report_products() -> None:
     assert "403" in report
     assert "Proxy enabled: True" in report
     assert "Browser external IP: 203.0.113.10" in report
+    assert "Fingerprint OS: windows" in report
+    assert "Behavior profile: fish-category" in report
     assert "Fish | 100 | https://5ka.ru/product" in report

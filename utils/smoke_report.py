@@ -24,6 +24,30 @@ def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
         f"- Browser external IP: {result.get('browser_external_ip', '')}",
         f"- GeoIP enabled: {result.get('geoip_enabled', False)}",
     ]
+    fingerprint = result.get("fingerprint") or {}
+    if fingerprint:
+        lines.extend(
+            [
+                f"- Fingerprint engine: {fingerprint.get('engine', '')}",
+                f"- Fingerprint OS: {fingerprint.get('os', '')}",
+                f"- Locale: {fingerprint.get('locale', '')}",
+                f"- Camoufox humanize: {fingerprint.get('humanize', False)}",
+            ]
+        )
+    behavior_profile = result.get("behavior_profile") or {}
+    if behavior_profile:
+        lines.extend(
+            [
+                f"- Behavior profile: {behavior_profile.get('name', '')}",
+                "- Behavior scroll: {min_steps}-{max_steps} steps, {min_delta}-{max_delta}px".format(
+                    min_steps=behavior_profile.get("scroll_steps_min", ""),
+                    max_steps=behavior_profile.get("scroll_steps_max", ""),
+                    min_delta=behavior_profile.get("scroll_delta_min", ""),
+                    max_delta=behavior_profile.get("scroll_delta_max", ""),
+                ),
+                f"- Behavior hover cards: {behavior_profile.get('hover_cards', '')}",
+            ]
+        )
 
     navigation_error = result.get("navigation_error")
     if navigation_error:

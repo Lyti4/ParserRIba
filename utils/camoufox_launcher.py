@@ -51,8 +51,9 @@ def build_camoufox_options(
     geoip: bool = False,
     block_images: bool = True,
     block_webgl: bool = False,
-    humanize: bool = True,
+    humanize: bool | float = True,
     locale: str = "ru-RU",
+    fingerprint_os: str | list[str] | None = "windows",
 ) -> dict[str, Any]:
     """Build AsyncCamoufox options in one place."""
     executable_path = resolve_camoufox_executable()
@@ -66,6 +67,10 @@ def build_camoufox_options(
         "i_know_what_im_doing": True,
         "locale": locale,
     }
+    if fingerprint_os:
+        # ИЗМЕНЕНО: Camoufox сам генерирует BrowserForge fingerprint; здесь
+        # ограничиваем профиль Windows, чтобы он совпадал с целевой платформой.
+        options["os"] = fingerprint_os
 
     if executable_path:
         # ИЗМЕНЕНО: используем локальный Camoufox, чтобы не требовать `camoufox fetch`.

@@ -27,6 +27,7 @@ if str(ROOT_DIR) not in sys.path:
 from utils.antibot import collect_page_diagnostics, wait_for_pyaterochka_challenge
 from utils.camoufox_launcher import build_camoufox_options, configure_windows_console
 from utils.env import load_dotenv_file
+from utils.human_behavior import browse_category_page, build_category_behavior_profile, hover_product_cards
 from utils.kb_loader import KBLoader, SelectorConfig
 from utils.proxy import choose_proxy_for_attempt, load_proxy_urls, mask_proxy_url
 from utils.smoke_report import write_smoke_report
@@ -168,6 +169,7 @@ async def smoke_parse_pyaterochka(
             block_images=block_images,
             block_webgl=False,
             humanize=True,
+            fingerprint_os="windows",
         )
         try:
             final_result = await _run_smoke_attempt(
@@ -232,6 +234,7 @@ async def _run_smoke_attempt(
     name_selectors = _split_selectors(kb.selectors.get("product_name"))
     price_selectors = _split_selectors(kb.selectors.get("price_current"))
     link_selectors = _split_selectors(kb.selectors.get("product_link"))
+    behavior_profile = build_category_behavior_profile(category_name)
     async with AsyncCamoufox(**launch_options) as browser:
         page = await browser.new_page()
         network_events: list[dict[str, Any]] = []
@@ -255,10 +258,7 @@ async def _run_smoke_attempt(
             logger.warning("Navigation failed: {}", exc)
         await page.wait_for_timeout(5_000)
         await wait_for_pyaterochka_challenge(page)
-
-        for _ in range(4):
-            await page.mouse.wheel(0, 900)
-            await page.wait_for_timeout(1_000)
+        await browse_category_page(page, behavior_profile)
 
         await wait_for_pyaterochka_challenge(page)
         diagnostics = await collect_page_diagnostics(page, response)
@@ -271,6 +271,7 @@ async def _run_smoke_attempt(
         html_path.write_text(page_html, encoding="utf-8")
 
         cards = await _find_cards(page, card_selectors)
+        await hover_product_cards(page, cards, behavior_profile)
         products = await _extract_sample_products(cards, name_selectors, price_selectors, link_selectors)
         if pause:
             logger.info("Pause enabled; leave this PowerShell window open to inspect Camoufox")
@@ -293,6 +294,13 @@ async def _run_smoke_attempt(
         "proxy_enabled": bool(proxy_url),
         "proxy": mask_proxy_url(proxy_url) if proxy_url else "",
         "geoip_enabled": geoip_enabled,
+        "fingerprint": {
+            "engine": "camoufox-browserforge",
+            "os": launch_options.get("os", ""),
+            "locale": launch_options.get("locale", ""),
+            "humanize": launch_options.get("humanize", False),
+        },
+        "behavior_profile": behavior_profile.summary(),
         "browser_external_ip": external_ip,
         "screenshot_path": str(screenshot_path),
         "html_path": str(html_path),

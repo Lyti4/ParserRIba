@@ -153,18 +153,21 @@ smoke-отчет. Если будет антибот, первым делом д
 - `humanize=True`.
 - `block_images=True`.
 - `i_know_what_im_doing=True`.
+- BrowserForge fingerprint profile ограничен по Windows через единый Camoufox launcher.
 - Прокси через `PARSER_PROXY`.
 - Маскировка прокси в логах.
 - Smoke-отчет с внешним IP браузера.
+- Human-like поведение вынесено в `utils/human_behavior.py`.
+- Для Пятерочки подключены случайные паузы, глубина скролла, micro-scroll и hover по карточкам.
+- Smoke-отчет показывает fingerprint и behavior profile.
 
 ### Нужно сделать дальше
 
-1. Поддержать список прокси через `PARSER_PROXIES`.
-2. Добавить ротацию прокси-сессии после антибота/403.
-3. Включить RU browser profile defaults: `locale=ru-RU`, `timezone_id=Europe/Moscow`.
-4. Добавить smoke CLI аргументы: категория, число попыток, headless/no-headless.
-5. В отчет добавить номер попытки, выбранный прокси и причину остановки.
-6. После стабильной Пятерочки встроить тот же путь в основной `main.py`.
+1. Прогнать live smoke Пятерочки с рабочим RU proxy, `geoip=True` и включенным behavior profile.
+2. По новому smoke-отчету сравнить: внешний IP, final URL, captcha/challenge, network errors, cards found.
+3. Если капча остается, докрутить ротацию proxy/session и поведенческие паузы без автоматического обхода captcha.
+4. После стабильной Пятерочки встроить тот же путь в основной `main.py`.
+5. Дальше перейти к GUI launcher и подготовке installer.
 
 ### Пока не берем
 

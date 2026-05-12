@@ -7,6 +7,7 @@ def test_build_camoufox_options_uses_ru_profile_defaults() -> None:
     assert options["locale"] == "ru-RU"
     assert options["humanize"] is True
     assert options["i_know_what_im_doing"] is True
+    assert options["os"] == "windows"
 
 
 def test_build_camoufox_options_allows_locale_override() -> None:
@@ -16,3 +17,12 @@ def test_build_camoufox_options_allows_locale_override() -> None:
     )
 
     assert options["locale"] == "en-US"
+
+
+def test_build_camoufox_options_allows_fingerprint_os_override() -> None:
+    options = build_camoufox_options(
+        headless=True,
+        fingerprint_os=["windows", "linux"],
+    )
+
+    assert options["os"] == ["windows", "linux"]

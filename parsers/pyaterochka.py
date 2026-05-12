@@ -13,6 +13,12 @@ from models.schemas import CategoryInfo, ParseResult, Product, ProductPrice
 from utils.antibot import collect_page_diagnostics, wait_for_pyaterochka_challenge
 from utils.camoufox_launcher import build_camoufox_options, configure_windows_console
 from utils.env import load_dotenv_file
+from utils.human_behavior import (
+    HumanBehaviorProfile,
+    browse_category_page,
+    build_category_behavior_profile,
+    hover_product_cards,
+)
 from utils.kb_loader import KBLoader, SelectorConfig
 from utils.proxy import choose_proxy_for_attempt, load_proxy_urls, mask_proxy_url
 
@@ -56,6 +62,7 @@ class PyaterochkaParser:
                 block_images=kwargs.get("block_images", True),
                 block_webgl=kwargs.get("block_webgl", False),
                 humanize=kwargs.get("humanize", True),
+                fingerprint_os=kwargs.get("fingerprint_os", "windows"),
             )
 
             try:
@@ -80,12 +87,6 @@ class PyaterochkaParser:
         """Compatibility hook: browser is scoped inside parse_category."""
         return None
 
-    async def _scroll_page(self, page: Any) -> None:
-        """Scroll the page to trigger lazy-loaded product cards."""
-        for _ in range(4):
-            await page.mouse.wheel(0, 900)
-            await page.wait_for_timeout(1_000)
-
     async def _parse_category_once(
         self,
         category_url: str,
@@ -102,7 +103,8 @@ class PyaterochkaParser:
             response = await page.goto(category_url, wait_until="domcontentloaded", timeout=60_000)
             await page.wait_for_timeout(5_000)
             await wait_for_pyaterochka_challenge(page)
-            await self._scroll_page(page)
+            behavior_profile = build_category_behavior_profile(category_name)
+            await browse_category_page(page, behavior_profile)
             await wait_for_pyaterochka_challenge(page)
 
             diagnostics = await collect_page_diagnostics(page, response)
@@ -112,9 +114,14 @@ class PyaterochkaParser:
                 warnings.append(message)
                 return []
 
-            return await self._extract_products(page, category_name)
+            return await self._extract_products(page, category_name, behavior_profile)
 
-    async def _extract_products(self, page: Any, category_name: str) -> list[Product]:
+    async def _extract_products(
+        self,
+        page: Any,
+        category_name: str,
+        behavior_profile: HumanBehaviorProfile | None = None,
+    ) -> list[Product]:
         """Extract products from the rendered page using KB selectors."""
         card_selectors = self._split_selectors(self.kb.selectors.get("product_card"))
         name_selectors = self._split_selectors(self.kb.selectors.get("product_name"))
@@ -122,6 +129,8 @@ class PyaterochkaParser:
         link_selectors = self._split_selectors(self.kb.selectors.get("product_link"))
 
         cards = await self._find_cards(page, card_selectors)
+        if behavior_profile:
+            await hover_product_cards(page, cards, behavior_profile)
         products: list[Product] = []
         for index, card in enumerate(cards, start=1):
             try:

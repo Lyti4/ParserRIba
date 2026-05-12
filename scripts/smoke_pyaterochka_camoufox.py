@@ -24,7 +24,11 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from utils.antibot import collect_page_diagnostics, wait_for_pyaterochka_challenge
+from utils.antibot import (
+    classify_navigation_error,
+    collect_page_diagnostics,
+    wait_for_pyaterochka_challenge,
+)
 from utils.camoufox_launcher import build_camoufox_options, configure_windows_console
 from utils.env import load_dotenv_file
 from utils.human_behavior import browse_category_page, build_category_behavior_profile, hover_product_cards
@@ -257,11 +261,17 @@ async def _run_smoke_attempt(
             navigation_error = str(exc)
             logger.warning("Navigation failed: {}", exc)
         await page.wait_for_timeout(5_000)
-        await wait_for_pyaterochka_challenge(page)
-        await browse_category_page(page, behavior_profile)
-
-        await wait_for_pyaterochka_challenge(page)
+        if not navigation_error:
+            await wait_for_pyaterochka_challenge(page)
+            await browse_category_page(page, behavior_profile)
+            await wait_for_pyaterochka_challenge(page)
         diagnostics = await collect_page_diagnostics(page, response)
+        block_reason = diagnostics.reason
+        blocked = diagnostics.blocked
+        navigation_reason = classify_navigation_error(navigation_error)
+        if navigation_reason:
+            block_reason = navigation_reason
+            blocked = True
         external_ip = await _browser_external_ip(page)
         page_html = await page.content()
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -270,8 +280,9 @@ async def _run_smoke_attempt(
         await page.screenshot(path=str(screenshot_path), full_page=True)
         html_path.write_text(page_html, encoding="utf-8")
 
-        cards = await _find_cards(page, card_selectors)
-        await hover_product_cards(page, cards, behavior_profile)
+        cards = [] if navigation_error else await _find_cards(page, card_selectors)
+        if cards:
+            await hover_product_cards(page, cards, behavior_profile)
         products = await _extract_sample_products(cards, name_selectors, price_selectors, link_selectors)
         if pause:
             logger.info("Pause enabled; leave this PowerShell window open to inspect Camoufox")
@@ -288,8 +299,8 @@ async def _run_smoke_attempt(
         "page_title": diagnostics.title,
         "final_url": diagnostics.final_url,
         "html_size": diagnostics.html_size,
-        "blocked": diagnostics.blocked,
-        "block_reason": diagnostics.reason,
+        "blocked": blocked,
+        "block_reason": block_reason,
         "navigation_error": navigation_error,
         "proxy_enabled": bool(proxy_url),
         "proxy": mask_proxy_url(proxy_url) if proxy_url else "",

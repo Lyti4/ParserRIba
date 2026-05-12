@@ -52,6 +52,15 @@ def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
     navigation_error = result.get("navigation_error")
     if navigation_error:
         lines.append(f"- Navigation error: {str(navigation_error).splitlines()[0]}")
+        reason = str(result.get("block_reason", ""))
+        if reason.startswith("network_"):
+            lines.extend(
+                [
+                    "",
+                    "## Network Action",
+                    "Navigation failed before the catalog loaded. Check DNS, VPN/proxy connectivity, or set a working RU proxy in `.env`.",
+                ]
+            )
 
     reason = str(result.get("block_reason", ""))
     if "captcha" in reason:

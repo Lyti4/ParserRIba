@@ -1,4 +1,4 @@
-from utils.antibot import detect_pyaterochka_antibot
+from utils.antibot import classify_navigation_error, detect_pyaterochka_antibot
 from utils.geoip import geoip_extra_installed
 from utils.proxy import (
     choose_proxy_for_attempt,
@@ -88,6 +88,12 @@ def test_detect_pyaterochka_rotate_image_captcha() -> None:
 
     assert blocked is True
     assert reason == "pyaterochka_rotate_image_captcha"
+
+
+def test_classify_navigation_dns_error() -> None:
+    reason = classify_navigation_error("Page.goto: NS_ERROR_UNKNOWN_HOST")
+
+    assert reason == "network_dns_error"
 
 
 def test_geoip_extra_available_in_test_environment() -> None:

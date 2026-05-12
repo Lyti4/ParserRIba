@@ -44,6 +44,22 @@ def detect_pyaterochka_antibot(url: str, title: str, html: str) -> tuple[bool, s
     return False, "ok"
 
 
+def classify_navigation_error(error_text: str) -> str:
+    """Classify browser navigation errors into report-friendly reasons."""
+    lowered = error_text.lower()
+    if not lowered:
+        return ""
+    if "ns_error_unknown_host" in lowered or "err_name_not_resolved" in lowered:
+        return "network_dns_error"
+    if "timeout" in lowered:
+        return "network_timeout"
+    if "proxy" in lowered:
+        return "network_proxy_error"
+    if "connection" in lowered or "net::err_" in lowered:
+        return "network_connection_error"
+    return "navigation_error"
+
+
 async def collect_page_diagnostics(page: Any, response: Any = None) -> PageDiagnostics:
     """Collect URL, title, status and anti-bot state from a Playwright page."""
     title = await page.title()

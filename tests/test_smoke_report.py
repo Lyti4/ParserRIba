@@ -34,6 +34,20 @@ def test_build_pyaterochka_smoke_report_captcha_manual_action() -> None:
     assert "run_pyaterochka_visual.ps1" in report
 
 
+def test_build_pyaterochka_smoke_report_network_action() -> None:
+    report = build_pyaterochka_smoke_report(
+        {
+            "blocked": True,
+            "block_reason": "network_dns_error",
+            "navigation_error": "Page.goto: NS_ERROR_UNKNOWN_HOST",
+            "products_sample": [],
+        }
+    )
+
+    assert "Network Action" in report
+    assert "working RU proxy" in report
+
+
 def test_build_pyaterochka_smoke_report_products() -> None:
     report = build_pyaterochka_smoke_report(
         {

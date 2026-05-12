@@ -61,12 +61,19 @@ def test_build_pyaterochka_smoke_report_products() -> None:
                     "proxy": "http://***:***@proxy-two.example:1000",
                 },
             ],
+            "network": {
+                "responses": 3,
+                "status_counts": {"200": 2, "403": 1},
+                "error_samples": [{"status": 403, "url": "https://5ka.ru/xpvnsulc/"}],
+            },
         }
     )
 
     assert "Status: ok" in report
     assert "Attempt: 2 / 3" in report
     assert "#1: blocked=True" in report
+    assert "Responses: 3" in report
+    assert "403" in report
     assert "Proxy enabled: True" in report
     assert "Browser external IP: 203.0.113.10" in report
     assert "Fish | 100 | https://5ka.ru/product" in report

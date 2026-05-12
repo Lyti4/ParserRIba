@@ -102,6 +102,23 @@ async def _browser_external_ip(page: Any) -> str:
         return ""
 
 
+def _build_network_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build a compact network summary for smoke diagnostics."""
+    status_counts: dict[str, int] = {}
+    error_samples: list[dict[str, Any]] = []
+    for event in events:
+        status = event.get("status")
+        status_key = str(status) if status is not None else "unknown"
+        status_counts[status_key] = status_counts.get(status_key, 0) + 1
+        if isinstance(status, int) and status >= 400 and len(error_samples) < 10:
+            error_samples.append(event)
+    return {
+        "responses": len(events),
+        "status_counts": status_counts,
+        "error_samples": error_samples,
+    }
+
+
 async def smoke_parse_pyaterochka(
     category_name: str = DEFAULT_CATEGORY,
     attempts: int = 3,
@@ -217,6 +234,16 @@ async def _run_smoke_attempt(
     link_selectors = _split_selectors(kb.selectors.get("product_link"))
     async with AsyncCamoufox(**launch_options) as browser:
         page = await browser.new_page()
+        network_events: list[dict[str, Any]] = []
+        page.on(
+            "response",
+            lambda item: network_events.append(
+                {
+                    "status": item.status,
+                    "url": item.url[:220],
+                }
+            ),
+        )
         if kb.headers.custom:
             await page.set_extra_http_headers(kb.headers.custom)
         navigation_error = ""
@@ -271,6 +298,7 @@ async def _run_smoke_attempt(
         "html_path": str(html_path),
         "cards_found": len(cards),
         "products_sample": products,
+        "network": _build_network_summary(network_events),
         "parsed_at": datetime.now().isoformat(timespec="seconds"),
     }
 

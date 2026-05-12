@@ -43,6 +43,22 @@ def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
                 )
             )
 
+    network = result.get("network") or {}
+    if network:
+        lines.extend(
+            [
+                "",
+                "## Network",
+                f"- Responses: {network.get('responses', 0)}",
+                f"- Status counts: {network.get('status_counts', {})}",
+            ]
+        )
+        error_samples = network.get("error_samples") or []
+        if error_samples:
+            lines.append("- Error samples:")
+            for item in error_samples[:5]:
+                lines.append(f"  - {item.get('status')}: {item.get('url', '')}")
+
     lines.extend(
         [
             f"- HTML path: {result.get('html_path', '')}",

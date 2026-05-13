@@ -1,4 +1,8 @@
-from utils.camoufox_launcher import allow_images_in_profile, build_camoufox_options
+from utils.camoufox_launcher import (
+    allow_images_in_profile,
+    build_camoufox_options,
+    disable_session_restore_in_profile,
+)
 
 
 def test_build_camoufox_options_uses_ru_profile_defaults() -> None:
@@ -50,3 +54,17 @@ def test_allow_images_in_profile_updates_persisted_pref(tmp_path) -> None:
     allow_images_in_profile(profile_dir)
 
     assert 'user_pref("permissions.default.image", 1);' in prefs_path.read_text(encoding="utf-8")
+
+
+def test_disable_session_restore_in_profile_writes_startup_prefs(tmp_path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir()
+    prefs_path = profile_dir / "prefs.js"
+    prefs_path.write_text('user_pref("browser.startup.page", 3);\n', encoding="utf-8")
+
+    disable_session_restore_in_profile(profile_dir)
+    prefs = prefs_path.read_text(encoding="utf-8")
+
+    assert 'user_pref("browser.startup.page", 0);' in prefs
+    assert 'user_pref("browser.sessionstore.resume_from_crash", false);' in prefs
+    assert 'user_pref("browser.sessionstore.max_resumed_crashes", 0);' in prefs

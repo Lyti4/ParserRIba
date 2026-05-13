@@ -90,6 +90,7 @@ def build_camoufox_options(
     if profile_dir:
         path = Path(profile_dir)
         path.mkdir(parents=True, exist_ok=True)
+        disable_session_restore_in_profile(path)
         if options.get("block_images") is False:
             allow_images_in_profile(path)
         options["persistent_context"] = True
@@ -101,16 +102,44 @@ def build_camoufox_options(
 
 def allow_images_in_profile(profile_dir: Path) -> None:
     """Undo a persisted Firefox image block when visual captcha mode is used."""
+    _upsert_profile_pref(profile_dir, "permissions.default.image", "1")
+    logger.info("Persistent profile image loading enabled: {}", profile_dir / "prefs.js")
+
+
+def disable_session_restore_in_profile(profile_dir: Path) -> None:
+    """Keep a persistent profile from restoring stale windows in visual smoke mode."""
+    prefs = {
+        "browser.startup.page": "0",
+        "browser.sessionstore.resume_from_crash": "false",
+        "browser.sessionstore.max_resumed_crashes": "0",
+    }
+    for key, value in prefs.items():
+        _upsert_profile_pref(profile_dir, key, value)
+
+
+def _upsert_profile_pref(profile_dir: Path, key: str, value: str) -> None:
+    """Set a Firefox preference in prefs.js without touching other profile data."""
     prefs_path = profile_dir / "prefs.js"
+    new_line = f'user_pref("{key}", {value});'
     if not prefs_path.exists():
+        prefs_path.write_text(new_line + "\n", encoding="utf-8")
         return
     content = prefs_path.read_text(encoding="utf-8", errors="ignore")
-    blocked_pref = 'user_pref("permissions.default.image", 2);'
-    allowed_pref = 'user_pref("permissions.default.image", 1);'
-    if blocked_pref not in content:
+    lines = content.splitlines()
+    pref_prefix = f'user_pref("{key}", '
+    changed = False
+    for index, line in enumerate(lines):
+        if line.startswith(pref_prefix):
+            if line != new_line:
+                lines[index] = new_line
+                changed = True
+            break
+    else:
+        lines.append(new_line)
+        changed = True
+    if not changed:
         return
-    prefs_path.write_text(content.replace(blocked_pref, allowed_pref), encoding="utf-8")
-    logger.info("Persistent profile image loading enabled: {}", prefs_path)
+    prefs_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def normalize_headless(headless: bool | str) -> bool | str:

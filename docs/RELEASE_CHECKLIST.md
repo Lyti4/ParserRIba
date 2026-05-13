@@ -40,6 +40,7 @@ dist\ParserRIba-windows-x64.zip.sha256
 - [ ] `PARSER_GEOIP=1` when `GeoLite2-City.mmdb` is present.
 - [ ] Visual mode loads captcha images.
 - [ ] Visual mode waits until product cards are visible before saving the final manual report.
+- [ ] Visual mode opens one fresh catalog window with the persistent profile.
 - [ ] Smoke report includes:
   - final URL;
   - HTTP status;

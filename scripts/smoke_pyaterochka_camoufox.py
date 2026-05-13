@@ -50,7 +50,9 @@ PROFILE_DIR = ROOT_DIR / "profiles" / "pyaterochka"
 DEFAULT_CATEGORY = "Рыба"
 PROXY_ENV = "PARSER_PROXY"
 PROXY_PREFLIGHT_URL = "https://api.ipify.org?format=json"
-PRODUCT_API_MARKERS = ("api", "catalog", "product", "products", "search", "plu")
+CATALOG_DIAGNOSTIC_MARKERS = ("api", "catalog", "product", "products", "search", "plu", "xpvnsulc")
+PRODUCT_API_HOSTS = ("5ka.ru", "5d.5ka.ru")
+PRODUCT_API_PATH_MARKERS = ("/api/catalog", "/api/orders", "/api/products", "/api/search")
 SENSITIVE_QUERY_KEYS = (
     "access",
     "auth",
@@ -157,8 +159,9 @@ def _build_network_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
         estimated_body_bytes += int(event.get("content_length") or 0)
         if isinstance(status, int) and status >= 400 and len(error_samples) < 10:
             error_samples.append(event)
-        if _is_product_api_url(event.get("url", "")):
+        if _is_catalog_diagnostic_url(event.get("url", "")):
             catalog_samples.append(event)
+        if _is_product_api_url(event.get("url", "")):
             if len(product_api_samples) < 12:
                 product_api_samples.append(event)
             if event.get("empty_products_payload") and len(empty_product_api_samples) < 8:
@@ -173,6 +176,12 @@ def _build_network_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
         "product_api_samples": product_api_samples,
         "empty_product_api_samples": empty_product_api_samples,
     }
+
+
+def _is_catalog_diagnostic_url(url: Any) -> bool:
+    """Return True when a URL is useful for catalog/network diagnostics."""
+    lowered = str(url or "").lower()
+    return any(marker in lowered for marker in CATALOG_DIAGNOSTIC_MARKERS)
 
 
 def _classify_proxy_health(
@@ -200,10 +209,14 @@ def _classify_proxy_health(
         status = "preflight_failed"
         traffic_risk = "high"
         notes.append("Proxy preflight failed before opening Pyaterochka.")
-    if int(status_counts.get("407", 0)) > 0:
+    auth_challenges = int(status_counts.get("407", 0))
+    if auth_challenges > 0 and not preflight.get("ok"):
         status = "proxy_auth_failed"
         traffic_risk = "high"
         notes.append("HTTP 407 means proxy authentication or account access failed.")
+    elif auth_challenges > 0:
+        traffic_risk = "medium" if traffic_risk == "low" else traffic_risk
+        notes.append("A transient HTTP 407 appeared, but proxy preflight later succeeded.")
     if int(status_counts.get("429", 0)) > 0:
         status = "rate_limited"
         traffic_risk = "medium"
@@ -235,8 +248,15 @@ def _classify_proxy_health(
 
 def _is_product_api_url(url: Any) -> bool:
     """Return True when a URL looks relevant to catalog/product diagnostics."""
-    lowered = str(url or "").lower()
-    return any(marker in lowered for marker in PRODUCT_API_MARKERS)
+    try:
+        parts = urlsplit(str(url or ""))
+    except ValueError:
+        return False
+    host = parts.netloc.lower()
+    path = parts.path.lower()
+    return any(host.endswith(item) for item in PRODUCT_API_HOSTS) and any(
+        marker in path for marker in PRODUCT_API_PATH_MARKERS
+    )
 
 
 def _sanitize_diagnostic_url(url: str, max_length: int = 260) -> str:
@@ -353,6 +373,7 @@ def _extract_page_context(page_html: str) -> dict[str, Any]:
         "catalog_store_present": "catalogStore" in page_html,
         "selected_store_detected": bool(
             re.search(r'"(?:selectedStore|currentStore|activeStore|store)"\s*:\s*\{', page_html)
+            or re.search(r'"storeId"\s*:\s*"[^"]+', page_html)
         ),
         "address_detected": bool(re.search(r'"address"\s*:\s*"[^"]+', page_html)),
         "region_hint_detected": any(marker in page_html.lower() for marker in ("москва", "moscow", "city")),

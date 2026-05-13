@@ -27,3 +27,15 @@ def test_build_camoufox_options_allows_fingerprint_os_override() -> None:
     )
 
     assert options["os"] == ["windows", "linux"]
+
+
+def test_build_camoufox_options_allows_persistent_profile(tmp_path) -> None:
+    profile_dir = tmp_path / "profile"
+    options = build_camoufox_options(
+        headless=True,
+        user_data_dir=profile_dir,
+    )
+
+    assert options["persistent_context"] is True
+    assert options["user_data_dir"] == str(profile_dir)
+    assert profile_dir.exists()

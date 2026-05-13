@@ -63,6 +63,8 @@ def test_build_pyaterochka_smoke_report_products() -> None:
             "proxy": "http://user:***@proxy.example:1000",
             "browser_external_ip": "203.0.113.10",
             "geoip_enabled": True,
+            "persistent_profile": True,
+            "profile_dir": "profiles/pyaterochka",
             "fingerprint": {
                 "engine": "camoufox-browserforge",
                 "os": "windows",
@@ -117,6 +119,7 @@ def test_build_pyaterochka_smoke_report_products() -> None:
     assert "403" in report
     assert "Proxy enabled: True" in report
     assert "Browser external IP: 203.0.113.10" in report
+    assert "Persistent profile: True" in report
     assert "Fingerprint OS: windows" in report
     assert "Behavior profile: fish-category" in report
     assert "Fish | 100 | https://5ka.ru/product" in report

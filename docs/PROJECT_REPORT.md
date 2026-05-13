@@ -162,12 +162,13 @@ smoke-отчет. Если будет антибот, первым делом д
 - Smoke-отчет показывает fingerprint и behavior profile.
 - Добавлено умное ожидание состояния Пятерочки: каталог, антибот/challenge или таймаут.
 - Добавлены cooldown-паузы между попытками: дольше после антибота/капчи, короче после сетевых ошибок.
+- Visual smoke использует persistent Camoufox profile, чтобы ручное прохождение challenge могло сохранять сессию.
 
 ### Нужно сделать дальше
 
-1. Прогнать визуальный manual-challenge режим с `--load-images`, решить капчу вручную и сохранить рабочую сессию.
-2. Добавить persistent Camoufox profile/session reuse для Пятерочки, чтобы не проходить challenge заново каждый запуск.
-3. По smoke-отчету после ручного прохождения сравнить: final URL, cards found, network errors, products sample.
+1. Прогнать визуальный manual-challenge режим с `--load-images`, решить капчу вручную и проверить, сохранилась ли сессия в `profiles/pyaterochka`.
+2. Запустить повторный smoke с `--persistent-profile` уже без ручного вмешательства и сравнить: final URL, cards found, network errors, products sample.
+3. Если session reuse работает, встроить persistent profile в основной Pyaterochka parser как опциональный режим.
 4. После стабильной Пятерочки встроить тот же путь в основной `main.py`.
 5. Дальше перейти к GUI launcher и подготовке installer.
 

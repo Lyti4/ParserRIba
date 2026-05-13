@@ -18,4 +18,5 @@ Write-Host ""
     --attempts $Attempts `
     --no-headless `
     --load-images `
+    --persistent-profile `
     --pause

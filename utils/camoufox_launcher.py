@@ -56,6 +56,7 @@ def build_camoufox_options(
     humanize: bool | float | None = None,
     locale: str | None = None,
     fingerprint_os: str | list[str] | None = None,
+    user_data_dir: str | Path | None = None,
 ) -> dict[str, Any]:
     """Build AsyncCamoufox options in one place."""
     executable_path = resolve_camoufox_executable()
@@ -84,6 +85,14 @@ def build_camoufox_options(
         parsed_proxy = parse_proxy_url(proxy_url)
         options["proxy"] = parsed_proxy.as_playwright()
         logger.info("Using proxy {}", mask_proxy_url(proxy_url))
+
+    profile_dir = user_data_dir or os.environ.get("CAMOUFOX_USER_DATA_DIR", "")
+    if profile_dir:
+        path = Path(profile_dir)
+        path.mkdir(parents=True, exist_ok=True)
+        options["persistent_context"] = True
+        options["user_data_dir"] = str(path)
+        logger.info("Using persistent Camoufox profile: {}", path)
 
     return options
 

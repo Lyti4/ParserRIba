@@ -43,6 +43,7 @@ from utils.proxy import choose_proxy_for_attempt, load_proxy_urls, mask_proxy_ur
 from utils.smoke_report import write_smoke_report
 
 OUTPUT_DIR = ROOT_DIR / "data"
+PROFILE_DIR = ROOT_DIR / "profiles" / "pyaterochka"
 DEFAULT_CATEGORY = "Рыба"
 PROXY_ENV = "PARSER_PROXY"
 
@@ -136,6 +137,7 @@ async def smoke_parse_pyaterochka(
     headless: bool | str | None = None,
     pause: bool = False,
     block_images: bool = True,
+    persistent_profile: bool = False,
 ) -> dict[str, Any]:
     """Open Pyaterochka category through Camoufox and collect a small sample."""
     configure_windows_console()
@@ -180,6 +182,7 @@ async def smoke_parse_pyaterochka(
             block_webgl=False,
             humanize=True,
             fingerprint_os="windows",
+            user_data_dir=PROFILE_DIR if persistent_profile else None,
         )
         try:
             final_result = await _run_smoke_attempt(
@@ -316,6 +319,8 @@ async def _run_smoke_attempt(
         "proxy_enabled": bool(proxy_url),
         "proxy": mask_proxy_url(proxy_url) if proxy_url else "",
         "geoip_enabled": geoip_enabled,
+        "persistent_profile": bool(launch_options.get("persistent_context")),
+        "profile_dir": str(launch_options.get("user_data_dir", "")),
         "fingerprint": fingerprint_summary_from_options(launch_options),
         "behavior_profile": behavior_profile.summary(),
         "browser_external_ip": external_ip,
@@ -379,6 +384,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--no-headless", action="store_false", dest="headless")
     parser.add_argument("--pause", action="store_true", help="Keep browser open after the smoke attempt")
     parser.add_argument("--load-images", action="store_true", help="Allow images for visual captcha checks")
+    parser.add_argument("--persistent-profile", action="store_true", help="Reuse local Camoufox profile/session")
     return parser.parse_args()
 
 
@@ -398,5 +404,6 @@ if __name__ == "__main__":
             headless=args.headless,
             pause=args.pause,
             block_images=not args.load_images,
+            persistent_profile=args.persistent_profile,
         )
     )

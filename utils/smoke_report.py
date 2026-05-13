@@ -23,6 +23,8 @@ def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
         f"- Proxy: {result.get('proxy', '')}",
         f"- Browser external IP: {result.get('browser_external_ip', '')}",
         f"- GeoIP enabled: {result.get('geoip_enabled', False)}",
+        f"- Persistent profile: {result.get('persistent_profile', False)}",
+        f"- Profile dir: {result.get('profile_dir', '')}",
     ]
     fingerprint = result.get("fingerprint") or {}
     if fingerprint:

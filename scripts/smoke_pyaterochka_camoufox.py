@@ -138,6 +138,7 @@ async def smoke_parse_pyaterochka(
     pause: bool = False,
     block_images: bool = True,
     persistent_profile: bool = False,
+    manual_wait: bool = False,
 ) -> dict[str, Any]:
     """Open Pyaterochka category through Camoufox and collect a small sample."""
     configure_windows_console()
@@ -195,6 +196,7 @@ async def smoke_parse_pyaterochka(
                 attempt=attempt,
                 attempts=attempts,
                 pause=pause,
+                manual_wait=manual_wait,
             )
         except Exception as exc:
             logger.warning("Smoke attempt {} failed: {}", attempt, exc)
@@ -219,6 +221,18 @@ async def smoke_parse_pyaterochka(
     )
     result["attempts"] = attempt_results
 
+    output_path, report_path = _write_smoke_outputs(result)
+    logger.info("Smoke result saved: {}", output_path)
+    logger.info("Smoke report saved: {}", report_path)
+    logger.info("Cards found: {}", result["cards_found"])
+    for product in result.get("products_sample", [])[:5]:
+        logger.info("{} | {} | {}", product["name"], product["price"], product["link"])
+    return result
+
+
+def _write_smoke_outputs(result: dict[str, Any]) -> tuple[Path, Path]:
+    """Write smoke JSON and Markdown outputs."""
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output_path = OUTPUT_DIR / "pyaterochka_camoufox_smoke.json"
     report_path = OUTPUT_DIR / "pyaterochka_camoufox_smoke.md"
     output_path.write_text(
@@ -226,12 +240,7 @@ async def smoke_parse_pyaterochka(
         encoding="utf-8",
     )
     write_smoke_report(result, report_path)
-    logger.info("Smoke result saved: {}", output_path)
-    logger.info("Smoke report saved: {}", report_path)
-    logger.info("Cards found: {}", result["cards_found"])
-    for product in result.get("products_sample", [])[:5]:
-        logger.info("{} | {} | {}", product["name"], product["price"], product["link"])
-    return result
+    return output_path, report_path
 
 
 async def _run_smoke_attempt(
@@ -244,6 +253,7 @@ async def _run_smoke_attempt(
     attempt: int,
     attempts: int,
     pause: bool,
+    manual_wait: bool,
 ) -> dict[str, Any]:
     """Run one browser/proxy smoke attempt."""
     card_selectors = _split_selectors(kb.selectors.get("product_card"))
@@ -280,29 +290,79 @@ async def _run_smoke_attempt(
                 diagnostics = await wait_for_pyaterochka_state(page, response)
         else:
             diagnostics = await collect_page_diagnostics(page, response)
-        block_reason = diagnostics.reason
-        blocked = diagnostics.blocked
-        navigation_reason = classify_navigation_error(navigation_error)
-        if navigation_reason:
-            block_reason = navigation_reason
-            blocked = True
-        external_ip = await _browser_external_ip(page)
-        page_html = await page.content()
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        screenshot_path = OUTPUT_DIR / "pyaterochka_camoufox_smoke.png"
-        html_path = OUTPUT_DIR / "pyaterochka_camoufox_smoke.html"
-        await page.screenshot(path=str(screenshot_path), full_page=True)
-        html_path.write_text(page_html, encoding="utf-8")
+        if manual_wait:
+            logger.info("Manual wait enabled; solve captcha in Camoufox, then press Enter here")
+            await asyncio.to_thread(input, "Press Enter after the catalog is visible in Camoufox...")
+            diagnostics = await collect_page_diagnostics(page, response)
+            navigation_error = ""
 
-        cards = [] if navigation_error else await _find_cards(page, card_selectors)
-        if cards:
-            await hover_product_cards(page, cards, behavior_profile)
-        products = await _extract_sample_products(cards, name_selectors, price_selectors, link_selectors)
+        result = await _build_attempt_result(
+            page=page,
+            response=response,
+            diagnostics=diagnostics,
+            navigation_error=navigation_error,
+            network_events=network_events,
+            card_selectors=card_selectors,
+            name_selectors=name_selectors,
+            price_selectors=price_selectors,
+            link_selectors=link_selectors,
+            behavior_profile=behavior_profile,
+            category_name=category_name,
+            category_url=category_url,
+            launch_options=launch_options,
+            proxy_url=proxy_url,
+            geoip_enabled=geoip_enabled,
+            attempt=attempt,
+            attempts=attempts,
+        )
         if pause:
+            output_path, report_path = _write_smoke_outputs(result)
+            logger.info("Smoke result saved before pause: {}", output_path)
+            logger.info("Smoke report saved before pause: {}", report_path)
             logger.info("Pause enabled; leave this PowerShell window open to inspect Camoufox")
             while True:
                 await page.wait_for_timeout(60_000)
+        return result
 
+
+async def _build_attempt_result(
+    page: Any,
+    response: Any,
+    diagnostics: Any,
+    navigation_error: str,
+    network_events: list[dict[str, Any]],
+    card_selectors: list[str],
+    name_selectors: list[str],
+    price_selectors: list[str],
+    link_selectors: list[str],
+    behavior_profile: Any,
+    category_name: str,
+    category_url: str,
+    launch_options: dict[str, Any],
+    proxy_url: str,
+    geoip_enabled: bool,
+    attempt: int,
+    attempts: int,
+) -> dict[str, Any]:
+    """Collect the final smoke result from the current page state."""
+    block_reason = diagnostics.reason
+    blocked = diagnostics.blocked
+    navigation_reason = classify_navigation_error(navigation_error)
+    if navigation_reason:
+        block_reason = navigation_reason
+        blocked = True
+    external_ip = await _browser_external_ip(page)
+    page_html = await page.content()
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    screenshot_path = OUTPUT_DIR / "pyaterochka_camoufox_smoke.png"
+    html_path = OUTPUT_DIR / "pyaterochka_camoufox_smoke.html"
+    await page.screenshot(path=str(screenshot_path), full_page=True)
+    html_path.write_text(page_html, encoding="utf-8")
+
+    cards = [] if navigation_error else await _find_cards(page, card_selectors)
+    if cards:
+        await hover_product_cards(page, cards, behavior_profile)
+    products = await _extract_sample_products(cards, name_selectors, price_selectors, link_selectors)
     return {
         "shop": "pyaterochka",
         "category": category_name,
@@ -385,6 +445,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--pause", action="store_true", help="Keep browser open after the smoke attempt")
     parser.add_argument("--load-images", action="store_true", help="Allow images for visual captcha checks")
     parser.add_argument("--persistent-profile", action="store_true", help="Reuse local Camoufox profile/session")
+    parser.add_argument("--manual-wait", action="store_true", help="Wait for Enter after manual captcha solving")
     return parser.parse_args()
 
 
@@ -405,5 +466,6 @@ if __name__ == "__main__":
             pause=args.pause,
             block_images=not args.load_images,
             persistent_profile=args.persistent_profile,
+            manual_wait=args.manual_wait,
         )
     )

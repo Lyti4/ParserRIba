@@ -19,4 +19,5 @@ Write-Host ""
     --no-headless `
     --load-images `
     --persistent-profile `
+    --manual-wait `
     --pause

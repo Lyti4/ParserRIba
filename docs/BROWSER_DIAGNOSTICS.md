@@ -64,6 +64,28 @@ provider's private API. It reports practical symptoms observed by the browser:
 preflight status, external IP, failed requests, 407/429/5xx responses and an
 estimated minimum response byte count from `Content-Length` headers.
 
+## Passive API discovery
+
+When the page shell opens but product cards are still missing, run the passive
+API discovery mode:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\discover_pyaterochka_api.py --no-headless --listen-seconds 180
+```
+
+Workflow:
+
+1. Solve captcha manually if it appears.
+2. Press Enter in PowerShell.
+3. Scroll the catalog and open category pages for the configured listen window.
+4. Read:
+   - `data\pyaterochka_api_discovery.json`
+   - `data\pyaterochka_api_discovery.md`
+
+This mode only listens to 5ka/5d API responses and stores safe URL/payload
+summaries. It does not save cookies, auth headers, proxy credentials or captcha
+tokens.
+
 ## Local Codex MCP setup
 
 Expected local tools:

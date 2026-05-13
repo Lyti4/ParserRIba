@@ -25,6 +25,8 @@ def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
         f"- GeoIP enabled: {result.get('geoip_enabled', False)}",
         f"- Persistent profile: {result.get('persistent_profile', False)}",
         f"- Profile dir: {result.get('profile_dir', '')}",
+        f"- Manual wait: {result.get('manual_wait', False)}",
+        f"- Manual cards ready: {result.get('manual_cards_ready', False)}",
     ]
     fingerprint = result.get("fingerprint") or {}
     if fingerprint:
@@ -119,6 +121,11 @@ def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
         if error_samples:
             lines.append("- Error samples:")
             for item in error_samples[:5]:
+                lines.append(f"  - {item.get('status')}: {item.get('url', '')}")
+        catalog_samples = network.get("catalog_samples") or []
+        if catalog_samples:
+            lines.append("- Catalog/API samples:")
+            for item in catalog_samples[:8]:
                 lines.append(f"  - {item.get('status')}: {item.get('url', '')}")
 
     lines.extend(

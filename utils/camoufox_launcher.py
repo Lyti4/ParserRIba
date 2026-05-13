@@ -90,11 +90,27 @@ def build_camoufox_options(
     if profile_dir:
         path = Path(profile_dir)
         path.mkdir(parents=True, exist_ok=True)
+        if options.get("block_images") is False:
+            allow_images_in_profile(path)
         options["persistent_context"] = True
         options["user_data_dir"] = str(path)
         logger.info("Using persistent Camoufox profile: {}", path)
 
     return options
+
+
+def allow_images_in_profile(profile_dir: Path) -> None:
+    """Undo a persisted Firefox image block when visual captcha mode is used."""
+    prefs_path = profile_dir / "prefs.js"
+    if not prefs_path.exists():
+        return
+    content = prefs_path.read_text(encoding="utf-8", errors="ignore")
+    blocked_pref = 'user_pref("permissions.default.image", 2);'
+    allowed_pref = 'user_pref("permissions.default.image", 1);'
+    if blocked_pref not in content:
+        return
+    prefs_path.write_text(content.replace(blocked_pref, allowed_pref), encoding="utf-8")
+    logger.info("Persistent profile image loading enabled: {}", prefs_path)
 
 
 def normalize_headless(headless: bool | str) -> bool | str:

@@ -1,4 +1,4 @@
-from utils.camoufox_launcher import build_camoufox_options
+from utils.camoufox_launcher import allow_images_in_profile, build_camoufox_options
 
 
 def test_build_camoufox_options_uses_ru_profile_defaults() -> None:
@@ -39,3 +39,14 @@ def test_build_camoufox_options_allows_persistent_profile(tmp_path) -> None:
     assert options["persistent_context"] is True
     assert options["user_data_dir"] == str(profile_dir)
     assert profile_dir.exists()
+
+
+def test_allow_images_in_profile_updates_persisted_pref(tmp_path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir()
+    prefs_path = profile_dir / "prefs.js"
+    prefs_path.write_text('user_pref("permissions.default.image", 2);\n', encoding="utf-8")
+
+    allow_images_in_profile(profile_dir)
+
+    assert 'user_pref("permissions.default.image", 1);' in prefs_path.read_text(encoding="utf-8")

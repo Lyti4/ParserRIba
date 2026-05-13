@@ -65,6 +65,8 @@ def test_build_pyaterochka_smoke_report_products() -> None:
             "geoip_enabled": True,
             "persistent_profile": True,
             "profile_dir": "profiles/pyaterochka",
+            "manual_wait": True,
+            "manual_cards_ready": True,
             "fingerprint": {
                 "engine": "camoufox-browserforge",
                 "os": "windows",
@@ -108,6 +110,7 @@ def test_build_pyaterochka_smoke_report_products() -> None:
                 "responses": 3,
                 "status_counts": {"200": 2, "403": 1},
                 "error_samples": [{"status": 403, "url": "https://5ka.ru/xpvnsulc/"}],
+                "catalog_samples": [{"status": 200, "url": "https://5ka.ru/api/catalog"}],
             },
         }
     )
@@ -120,6 +123,10 @@ def test_build_pyaterochka_smoke_report_products() -> None:
     assert "Proxy enabled: True" in report
     assert "Browser external IP: 203.0.113.10" in report
     assert "Persistent profile: True" in report
+    assert "Manual wait: True" in report
+    assert "Manual cards ready: True" in report
     assert "Fingerprint OS: windows" in report
     assert "Behavior profile: fish-category" in report
+    assert "Catalog/API samples" in report
+    assert "https://5ka.ru/api/catalog" in report
     assert "Fish | 100 | https://5ka.ru/product" in report

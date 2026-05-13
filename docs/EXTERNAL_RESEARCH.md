@@ -30,10 +30,8 @@ Already implemented:
 - HTML dump;
 - status/final URL;
 - Markdown/JSON smoke report.
-
-Next:
-
-- add network response summary for the Pyaterochka smoke test.
+- network response summary for the Pyaterochka smoke test;
+- focused catalog/API response samples in the smoke report.
 
 ### daijro repositories
 
@@ -105,7 +103,15 @@ Supported path:
 - allow images;
 - keep browser open;
 - let the user solve captcha manually;
-- continue collecting diagnostics after the page is available.
+- continue collecting diagnostics after product cards are visible;
+- reuse a persistent local Camoufox profile so solved sessions can survive the next run.
+
+Current follow-up:
+
+- if the catalog shell opens but product cards remain empty, inspect the
+  Catalog/API samples section in `data/pyaterochka_camoufox_smoke.md`;
+- verify whether the saved session, address/store selection, or a product API
+  challenge is still preventing products from loading.
 
 Command:
 

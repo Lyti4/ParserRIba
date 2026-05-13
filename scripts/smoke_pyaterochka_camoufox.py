@@ -118,17 +118,44 @@ def _build_network_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
     """Build a compact network summary for smoke diagnostics."""
     status_counts: dict[str, int] = {}
     error_samples: list[dict[str, Any]] = []
+    catalog_samples: list[dict[str, Any]] = []
+    catalog_markers = ("api", "catalog", "product", "products", "search", "plu")
     for event in events:
         status = event.get("status")
         status_key = str(status) if status is not None else "unknown"
         status_counts[status_key] = status_counts.get(status_key, 0) + 1
         if isinstance(status, int) and status >= 400 and len(error_samples) < 10:
             error_samples.append(event)
+        url = str(event.get("url") or "").lower()
+        if any(marker in url for marker in catalog_markers) and len(catalog_samples) < 15:
+            catalog_samples.append(event)
     return {
         "responses": len(events),
         "status_counts": status_counts,
         "error_samples": error_samples,
+        "catalog_samples": catalog_samples,
     }
+
+
+async def _wait_for_cards_after_manual_challenge(
+    page: Any,
+    response: Any,
+    card_selectors: list[str],
+    timeout_ms: int = 45_000,
+) -> tuple[Any, list[Any], bool]:
+    """Wait after manual captcha solving until products appear or challenge remains."""
+    deadline = asyncio.get_running_loop().time() + timeout_ms / 1000
+    last_diagnostics = await collect_page_diagnostics(page, response)
+    last_cards: list[Any] = []
+    while asyncio.get_running_loop().time() < deadline:
+        last_diagnostics = await collect_page_diagnostics(page, response)
+        last_cards = await _find_cards(page, card_selectors)
+        if last_cards:
+            return last_diagnostics, last_cards, True
+        if last_diagnostics.blocked:
+            return last_diagnostics, [], False
+        await page.wait_for_timeout(1_000)
+    return last_diagnostics, last_cards, False
 
 
 async def smoke_parse_pyaterochka(
@@ -292,9 +319,24 @@ async def _run_smoke_attempt(
             diagnostics = await collect_page_diagnostics(page, response)
         if manual_wait:
             logger.info("Manual wait enabled; solve captcha in Camoufox, then press Enter here")
-            await asyncio.to_thread(input, "Press Enter after the catalog is visible in Camoufox...")
-            diagnostics = await collect_page_diagnostics(page, response)
+            await asyncio.to_thread(
+                input,
+                "Press Enter only after product cards are visible in Camoufox...",
+            )
+            diagnostics, manual_cards, manual_cards_ready = await _wait_for_cards_after_manual_challenge(
+                page=page,
+                response=response,
+                card_selectors=card_selectors,
+            )
+            logger.info(
+                "Post-manual wait finished: cards_ready={}, cards_found={}",
+                manual_cards_ready,
+                len(manual_cards),
+            )
             navigation_error = ""
+        else:
+            manual_cards = []
+            manual_cards_ready = False
 
         result = await _build_attempt_result(
             page=page,
@@ -314,6 +356,9 @@ async def _run_smoke_attempt(
             geoip_enabled=geoip_enabled,
             attempt=attempt,
             attempts=attempts,
+            cards_override=manual_cards,
+            manual_wait=manual_wait,
+            manual_cards_ready=manual_cards_ready,
         )
         if pause:
             output_path, report_path = _write_smoke_outputs(result)
@@ -343,6 +388,9 @@ async def _build_attempt_result(
     geoip_enabled: bool,
     attempt: int,
     attempts: int,
+    cards_override: list[Any] | None = None,
+    manual_wait: bool = False,
+    manual_cards_ready: bool = False,
 ) -> dict[str, Any]:
     """Collect the final smoke result from the current page state."""
     block_reason = diagnostics.reason
@@ -359,7 +407,12 @@ async def _build_attempt_result(
     await page.screenshot(path=str(screenshot_path), full_page=True)
     html_path.write_text(page_html, encoding="utf-8")
 
-    cards = [] if navigation_error else await _find_cards(page, card_selectors)
+    if navigation_error:
+        cards = []
+    elif cards_override is not None:
+        cards = cards_override
+    else:
+        cards = await _find_cards(page, card_selectors)
     if cards:
         await hover_product_cards(page, cards, behavior_profile)
     products = await _extract_sample_products(cards, name_selectors, price_selectors, link_selectors)
@@ -381,6 +434,8 @@ async def _build_attempt_result(
         "geoip_enabled": geoip_enabled,
         "persistent_profile": bool(launch_options.get("persistent_context")),
         "profile_dir": str(launch_options.get("user_data_dir", "")),
+        "manual_wait": manual_wait,
+        "manual_cards_ready": manual_cards_ready,
         "fingerprint": fingerprint_summary_from_options(launch_options),
         "behavior_profile": behavior_profile.summary(),
         "browser_external_ip": external_ip,

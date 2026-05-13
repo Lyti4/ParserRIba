@@ -39,6 +39,7 @@ dist\ParserRIba-windows-x64.zip.sha256
 - [ ] `.env` contains working RU proxy or proxy pool.
 - [ ] `PARSER_GEOIP=1` when `GeoLite2-City.mmdb` is present.
 - [ ] Visual mode loads captcha images.
+- [ ] Visual mode waits until product cards are visible before saving the final manual report.
 - [ ] Smoke report includes:
   - final URL;
   - HTTP status;
@@ -46,6 +47,7 @@ dist\ParserRIba-windows-x64.zip.sha256
   - browser external IP;
   - proxy mask;
   - network status counts;
+  - catalog/API response samples;
   - screenshot path.
 
 ## Privacy and secrets

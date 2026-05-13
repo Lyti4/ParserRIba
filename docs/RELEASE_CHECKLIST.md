@@ -47,6 +47,7 @@ dist\ParserRIba-windows-x64.zip.sha256
   - block reason;
   - browser external IP;
   - proxy mask;
+  - Proxy Diagnostics;
   - network status counts;
   - catalog/API response samples;
   - Product API Diagnostics;

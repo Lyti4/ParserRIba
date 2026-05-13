@@ -115,6 +115,8 @@ def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
                 "## Network",
                 f"- Responses: {network.get('responses', 0)}",
                 f"- Status counts: {network.get('status_counts', {})}",
+                f"- Failure counts: {network.get('failure_counts', {})}",
+                f"- Estimated response bytes: {network.get('estimated_body_bytes', 0)}",
             ]
         )
         error_samples = network.get("error_samples") or []
@@ -127,6 +129,31 @@ def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
             lines.append("- Catalog/API samples:")
             for item in catalog_samples[:8]:
                 lines.append(f"  - {item.get('status')}: {item.get('url', '')}")
+
+    proxy_diagnostics = result.get("proxy_diagnostics") or {}
+    if proxy_diagnostics:
+        preflight = proxy_diagnostics.get("preflight") or {}
+        health = proxy_diagnostics.get("health") or {}
+        lines.extend(["", "## Proxy Diagnostics"])
+        lines.extend(
+            [
+                f"- Preflight enabled: {preflight.get('enabled', False)}",
+                f"- Preflight ok: {preflight.get('ok')}",
+                f"- Preflight status: {preflight.get('status')}",
+                f"- Preflight duration ms: {preflight.get('duration_ms', '')}",
+                f"- Preflight response bytes: {preflight.get('response_bytes', '')}",
+                f"- Preflight IP: {preflight.get('ip', '')}",
+                f"- Proxy health: {health.get('status', '')}",
+                f"- Proxy traffic risk: {health.get('traffic_risk', '')}",
+            ]
+        )
+        if preflight.get("error"):
+            lines.append(f"- Preflight error: {preflight.get('error')}")
+        notes = health.get("notes") or []
+        if notes:
+            lines.append("- Proxy notes:")
+            for note in notes:
+                lines.append(f"  - {note}")
 
     product_api = result.get("product_api_diagnostics") or {}
     page_context = product_api.get("page_context") or {}

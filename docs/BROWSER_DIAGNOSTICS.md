@@ -49,8 +49,20 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_pyaterochk
      region/store selection first;
    - if `Empty product payload samples` exists, compare those API URLs in Chrome
      DevTools MCP.
-5. Only after the cause is clear, update `knowledge_base/pyaterochka.md` or the
+5. Check `Proxy Diagnostics`:
+   - `Preflight ok: False` means the browser could not complete a small proxy
+     request before opening Pyaterochka;
+   - `Proxy health: proxy_auth_failed` usually means bad credentials, expired
+     account or blocked proxy access;
+   - `Proxy traffic risk: high` means the run has symptoms compatible with
+     exhausted quota, broken route or proxy-side blocking.
+6. Only after the cause is clear, update `knowledge_base/pyaterochka.md` or the
    Camoufox smoke behavior. Do not add Chrome as a second parser runtime.
+
+The report cannot read the provider's exact remaining traffic without that
+provider's private API. It reports practical symptoms observed by the browser:
+preflight status, external IP, failed requests, 407/429/5xx responses and an
+estimated minimum response byte count from `Content-Length` headers.
 
 ## Local Codex MCP setup
 

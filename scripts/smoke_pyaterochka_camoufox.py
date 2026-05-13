@@ -15,6 +15,7 @@ import re
 import sys
 import warnings
 from datetime import datetime
+from time import perf_counter
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -48,6 +49,7 @@ OUTPUT_DIR = ROOT_DIR / "data"
 PROFILE_DIR = ROOT_DIR / "profiles" / "pyaterochka"
 DEFAULT_CATEGORY = "Рыба"
 PROXY_ENV = "PARSER_PROXY"
+PROXY_PREFLIGHT_URL = "https://api.ipify.org?format=json"
 PRODUCT_API_MARKERS = ("api", "catalog", "product", "products", "search", "plu")
 SENSITIVE_QUERY_KEYS = (
     "access",
@@ -135,14 +137,24 @@ async def _browser_external_ip(page: Any) -> str:
 def _build_network_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
     """Build a compact network summary for smoke diagnostics."""
     status_counts: dict[str, int] = {}
+    failure_counts: dict[str, int] = {}
     error_samples: list[dict[str, Any]] = []
     catalog_samples: list[dict[str, Any]] = []
     product_api_samples: list[dict[str, Any]] = []
     empty_product_api_samples: list[dict[str, Any]] = []
+    estimated_body_bytes = 0
     for event in events:
+        failure = event.get("failure")
+        if failure:
+            failure_key = str(failure)
+            failure_counts[failure_key] = failure_counts.get(failure_key, 0) + 1
+            if len(error_samples) < 10:
+                error_samples.append(event)
+            continue
         status = event.get("status")
         status_key = str(status) if status is not None else "unknown"
         status_counts[status_key] = status_counts.get(status_key, 0) + 1
+        estimated_body_bytes += int(event.get("content_length") or 0)
         if isinstance(status, int) and status >= 400 and len(error_samples) < 10:
             error_samples.append(event)
         if _is_product_api_url(event.get("url", "")):
@@ -154,10 +166,70 @@ def _build_network_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "responses": len(events),
         "status_counts": status_counts,
+        "failure_counts": failure_counts,
+        "estimated_body_bytes": estimated_body_bytes,
         "error_samples": error_samples,
         "catalog_samples": catalog_samples[:15],
         "product_api_samples": product_api_samples,
         "empty_product_api_samples": empty_product_api_samples,
+    }
+
+
+def _classify_proxy_health(
+    *,
+    proxy_enabled: bool,
+    preflight: dict[str, Any],
+    network: dict[str, Any],
+    browser_external_ip: str,
+) -> dict[str, Any]:
+    """Classify practical proxy health signals without provider API access."""
+    if not proxy_enabled:
+        return {
+            "status": "not_configured",
+            "traffic_risk": "unknown",
+            "notes": ["Proxy is not configured for this attempt."],
+        }
+
+    status_counts = network.get("status_counts") or {}
+    failure_counts = network.get("failure_counts") or {}
+    notes: list[str] = []
+    status = "ok"
+    traffic_risk = "low"
+
+    if not preflight.get("ok"):
+        status = "preflight_failed"
+        traffic_risk = "high"
+        notes.append("Proxy preflight failed before opening Pyaterochka.")
+    if int(status_counts.get("407", 0)) > 0:
+        status = "proxy_auth_failed"
+        traffic_risk = "high"
+        notes.append("HTTP 407 means proxy authentication or account access failed.")
+    if int(status_counts.get("429", 0)) > 0:
+        status = "rate_limited"
+        traffic_risk = "medium"
+        notes.append("HTTP 429 suggests rate limiting by the site or proxy route.")
+    server_errors = sum(int(status_counts.get(str(code), 0)) for code in range(500, 600))
+    if server_errors:
+        status = "upstream_errors" if status == "ok" else status
+        traffic_risk = "medium" if traffic_risk == "low" else traffic_risk
+        notes.append("5xx responses can indicate unstable proxy route or upstream blocking.")
+    if failure_counts:
+        status = "network_failures" if status == "ok" else status
+        traffic_risk = "medium" if traffic_risk == "low" else traffic_risk
+        notes.append("Browser reported failed network requests.")
+    if not browser_external_ip:
+        traffic_risk = "medium" if traffic_risk == "low" else traffic_risk
+        notes.append("Browser external IP check did not return an IP.")
+    if network.get("responses", 0) < 5:
+        traffic_risk = "medium" if traffic_risk == "low" else traffic_risk
+        notes.append("Very few responses were observed; proxy or page load may have stopped early.")
+    if not notes:
+        notes.append("No obvious proxy traffic/auth symptoms detected in this run.")
+
+    return {
+        "status": status,
+        "traffic_risk": traffic_risk,
+        "notes": notes,
     }
 
 
@@ -218,6 +290,9 @@ async def _record_network_response(item: Any, network_events: list[dict[str, Any
     content_type = str(headers.get("content-type", ""))
     if content_type:
         event["content_type"] = content_type.split(";")[0]
+    content_length = str(headers.get("content-length", ""))
+    if content_length.isdigit():
+        event["content_length"] = int(content_length)
     if _is_product_api_url(url) and "json" in content_type.lower():
         try:
             payload = await item.text()
@@ -227,6 +302,47 @@ async def _record_network_response(item: Any, network_events: list[dict[str, Any
             event["empty_products_payload"] = _payload_has_empty_products(payload)
             event["payload_preview"] = _payload_preview(payload)
     network_events.append(event)
+
+
+async def _record_network_failure(item: Any, network_events: list[dict[str, Any]]) -> None:
+    """Record failed requests without leaking query secrets."""
+    try:
+        failure = item.failure or ""
+    except Exception:
+        failure = ""
+    network_events.append(
+        {
+            "failure": str(failure or "unknown")[:180],
+            "url": _sanitize_diagnostic_url(str(item.url)),
+        }
+    )
+
+
+async def _run_proxy_preflight(page: Any, proxy_url: str) -> dict[str, Any]:
+    """Check that the browser can pass a small request through the proxy."""
+    if not proxy_url:
+        return {"enabled": False, "ok": None, "url": PROXY_PREFLIGHT_URL}
+    started = perf_counter()
+    result: dict[str, Any] = {
+        "enabled": True,
+        "ok": False,
+        "url": PROXY_PREFLIGHT_URL,
+        "proxy": mask_proxy_url(proxy_url),
+    }
+    try:
+        response = await page.goto(PROXY_PREFLIGHT_URL, wait_until="domcontentloaded", timeout=30_000)
+        body = await page.inner_text("body")
+    except Exception as exc:
+        result["error"] = str(exc).splitlines()[0][:240]
+    else:
+        result["status"] = response.status if response else None
+        result["response_bytes"] = len(body.encode("utf-8", errors="ignore"))
+        result["ok"] = bool(response and response.ok and '"ip"' in body)
+        match = re.search(r'"ip"\s*:\s*"([^"]+)"', body)
+        if match:
+            result["ip"] = match.group(1)
+    result["duration_ms"] = int((perf_counter() - started) * 1000)
+    return result
 
 
 def _extract_page_context(page_html: str) -> dict[str, Any]:
@@ -407,10 +523,20 @@ async def _run_smoke_attempt(
             network_tasks.add(task)
             task.add_done_callback(network_tasks.discard)
 
+        def track_request_failed(item: Any) -> None:
+            task = asyncio.create_task(_record_network_failure(item, network_events))
+            network_tasks.add(task)
+            task.add_done_callback(network_tasks.discard)
+
         page.on(
             "response",
             track_response,
         )
+        page.on(
+            "requestfailed",
+            track_request_failed,
+        )
+        proxy_preflight = await _run_proxy_preflight(page, proxy_url)
         if kb.headers.custom:
             await page.set_extra_http_headers(kb.headers.custom)
         navigation_error = ""
@@ -458,6 +584,7 @@ async def _run_smoke_attempt(
             diagnostics=diagnostics,
             navigation_error=navigation_error,
             network_events=network_events,
+            proxy_preflight=proxy_preflight,
             card_selectors=card_selectors,
             name_selectors=name_selectors,
             price_selectors=price_selectors,
@@ -492,6 +619,7 @@ async def _build_attempt_result(
     diagnostics: Any,
     navigation_error: str,
     network_events: list[dict[str, Any]],
+    proxy_preflight: dict[str, Any],
     card_selectors: list[str],
     name_selectors: list[str],
     price_selectors: list[str],
@@ -533,6 +661,13 @@ async def _build_attempt_result(
     if cards:
         await hover_product_cards(page, cards, behavior_profile)
     products = await _extract_sample_products(cards, name_selectors, price_selectors, link_selectors)
+    network_summary = _build_network_summary(network_events)
+    proxy_diagnostics = _classify_proxy_health(
+        proxy_enabled=bool(proxy_url),
+        preflight=proxy_preflight,
+        network=network_summary,
+        browser_external_ip=external_ip,
+    )
     return {
         "shop": "pyaterochka",
         "category": category_name,
@@ -560,7 +695,11 @@ async def _build_attempt_result(
         "html_path": str(html_path),
         "cards_found": len(cards),
         "products_sample": products,
-        "network": _build_network_summary(network_events),
+        "network": network_summary,
+        "proxy_diagnostics": {
+            "preflight": proxy_preflight,
+            "health": proxy_diagnostics,
+        },
         "product_api_diagnostics": {
             "page_context": page_context,
         },

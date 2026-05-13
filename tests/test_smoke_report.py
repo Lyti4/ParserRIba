@@ -109,6 +109,8 @@ def test_build_pyaterochka_smoke_report_products() -> None:
             "network": {
                 "responses": 3,
                 "status_counts": {"200": 2, "403": 1},
+                "failure_counts": {"timeout": 1},
+                "estimated_body_bytes": 12345,
                 "error_samples": [{"status": 403, "url": "https://5ka.ru/xpvnsulc/"}],
                 "catalog_samples": [{"status": 200, "url": "https://5ka.ru/api/catalog"}],
                 "product_api_samples": [
@@ -139,6 +141,21 @@ def test_build_pyaterochka_smoke_report_products() -> None:
                     "products_response_null": False,
                 }
             },
+            "proxy_diagnostics": {
+                "preflight": {
+                    "enabled": True,
+                    "ok": True,
+                    "status": 200,
+                    "duration_ms": 900,
+                    "response_bytes": 24,
+                    "ip": "203.0.113.10",
+                },
+                "health": {
+                    "status": "ok",
+                    "traffic_risk": "low",
+                    "notes": ["No obvious proxy traffic/auth symptoms detected in this run."],
+                },
+            },
         }
     )
 
@@ -146,6 +163,8 @@ def test_build_pyaterochka_smoke_report_products() -> None:
     assert "Attempt: 2 / 3" in report
     assert "#1: blocked=True" in report
     assert "Responses: 3" in report
+    assert "Failure counts: {'timeout': 1}" in report
+    assert "Estimated response bytes: 12345" in report
     assert "403" in report
     assert "Proxy enabled: True" in report
     assert "Browser external IP: 203.0.113.10" in report
@@ -156,6 +175,9 @@ def test_build_pyaterochka_smoke_report_products() -> None:
     assert "Behavior profile: fish-category" in report
     assert "Catalog/API samples" in report
     assert "https://5ka.ru/api/catalog" in report
+    assert "Proxy Diagnostics" in report
+    assert "Proxy health: ok" in report
+    assert "Proxy traffic risk: low" in report
     assert "Product API Diagnostics" in report
     assert "Selected store detected: True" in report
     assert "empty=False https://5ka.ru/api/catalog/products" in report

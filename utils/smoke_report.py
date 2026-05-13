@@ -128,6 +128,36 @@ def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
             for item in catalog_samples[:8]:
                 lines.append(f"  - {item.get('status')}: {item.get('url', '')}")
 
+    product_api = result.get("product_api_diagnostics") or {}
+    page_context = product_api.get("page_context") or {}
+    product_samples = network.get("product_api_samples") if network else []
+    empty_samples = network.get("empty_product_api_samples") if network else []
+    if product_api or product_samples or empty_samples:
+        lines.extend(["", "## Product API Diagnostics"])
+        if page_context:
+            lines.extend(
+                [
+                    f"- Next data present: {page_context.get('next_data_present', False)}",
+                    f"- Catalog store present: {page_context.get('catalog_store_present', False)}",
+                    f"- Selected store detected: {page_context.get('selected_store_detected', False)}",
+                    f"- Address detected: {page_context.get('address_detected', False)}",
+                    f"- Region hint detected: {page_context.get('region_hint_detected', False)}",
+                    f"- Products list empty: {page_context.get('products_list_empty', False)}",
+                    f"- Products empty: {page_context.get('products_empty', False)}",
+                    f"- Products response null: {page_context.get('products_response_null', False)}",
+                ]
+            )
+        if product_samples:
+            lines.append("- Product/API responses:")
+            for item in product_samples[:8]:
+                empty = item.get("empty_products_payload", "")
+                lines.append(f"  - {item.get('status')}: empty={empty} {item.get('url', '')}")
+        if empty_samples:
+            lines.append("- Empty product payload samples:")
+            for item in empty_samples[:3]:
+                preview = item.get("payload_preview", "")
+                lines.append(f"  - {item.get('status')}: {preview}")
+
     lines.extend(
         [
             f"- HTML path: {result.get('html_path', '')}",

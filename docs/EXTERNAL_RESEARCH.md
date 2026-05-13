@@ -32,6 +32,14 @@ Already implemented:
 - Markdown/JSON smoke report.
 - network response summary for the Pyaterochka smoke test;
 - focused catalog/API response samples in the smoke report.
+- a dedicated `Product API Diagnostics` report section with page context hints
+  for selected store, address/region and empty product payloads.
+
+Local MCP decision:
+
+- add `chrome-devtools` to the local Codex MCP config as an inspection tool;
+- keep `playwright` enabled for quick browser checks;
+- do not use Chrome as the ParserRIba runtime for Pyaterochka.
 
 ### daijro repositories
 
@@ -109,9 +117,13 @@ Supported path:
 Current follow-up:
 
 - if the catalog shell opens but product cards remain empty, inspect the
-  Catalog/API samples section in `data/pyaterochka_camoufox_smoke.md`;
+  Product API Diagnostics section in `data/pyaterochka_camoufox_smoke.md`;
 - verify whether the saved session, address/store selection, or a product API
   challenge is still preventing products from loading.
+
+Detailed workflow:
+
+- `docs/BROWSER_DIAGNOSTICS.md`
 
 Command:
 

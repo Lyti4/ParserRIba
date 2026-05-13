@@ -111,6 +111,33 @@ def test_build_pyaterochka_smoke_report_products() -> None:
                 "status_counts": {"200": 2, "403": 1},
                 "error_samples": [{"status": 403, "url": "https://5ka.ru/xpvnsulc/"}],
                 "catalog_samples": [{"status": 200, "url": "https://5ka.ru/api/catalog"}],
+                "product_api_samples": [
+                    {
+                        "status": 200,
+                        "url": "https://5ka.ru/api/catalog/products",
+                        "empty_products_payload": False,
+                    }
+                ],
+                "empty_product_api_samples": [
+                    {
+                        "status": 200,
+                        "url": "https://5ka.ru/api/catalog/products",
+                        "empty_products_payload": True,
+                        "payload_preview": '{"products":[]}',
+                    }
+                ],
+            },
+            "product_api_diagnostics": {
+                "page_context": {
+                    "next_data_present": True,
+                    "catalog_store_present": True,
+                    "selected_store_detected": True,
+                    "address_detected": True,
+                    "region_hint_detected": True,
+                    "products_list_empty": False,
+                    "products_empty": False,
+                    "products_response_null": False,
+                }
             },
         }
     )
@@ -129,4 +156,8 @@ def test_build_pyaterochka_smoke_report_products() -> None:
     assert "Behavior profile: fish-category" in report
     assert "Catalog/API samples" in report
     assert "https://5ka.ru/api/catalog" in report
+    assert "Product API Diagnostics" in report
+    assert "Selected store detected: True" in report
+    assert "empty=False https://5ka.ru/api/catalog/products" in report
+    assert '{"products":[]}' in report
     assert "Fish | 100 | https://5ka.ru/product" in report

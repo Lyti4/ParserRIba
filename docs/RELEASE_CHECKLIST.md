@@ -49,6 +49,7 @@ dist\ParserRIba-windows-x64.zip.sha256
   - proxy mask;
   - network status counts;
   - catalog/API response samples;
+  - Product API Diagnostics;
   - screenshot path.
 
 ## Privacy and secrets

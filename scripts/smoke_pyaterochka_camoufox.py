@@ -11,11 +11,13 @@ import asyncio
 import argparse
 import json
 import os
+import re
 import sys
 import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from camoufox.async_api import AsyncCamoufox
 from loguru import logger
@@ -46,6 +48,22 @@ OUTPUT_DIR = ROOT_DIR / "data"
 PROFILE_DIR = ROOT_DIR / "profiles" / "pyaterochka"
 DEFAULT_CATEGORY = "Рыба"
 PROXY_ENV = "PARSER_PROXY"
+PRODUCT_API_MARKERS = ("api", "catalog", "product", "products", "search", "plu")
+SENSITIVE_QUERY_KEYS = (
+    "access",
+    "auth",
+    "authorization",
+    "cookie",
+    "email",
+    "key",
+    "password",
+    "phone",
+    "refresh",
+    "secret",
+    "session",
+    "sid",
+    "token",
+)
 
 
 def _split_selectors(config: SelectorConfig | None) -> list[str]:
@@ -119,21 +137,112 @@ def _build_network_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
     status_counts: dict[str, int] = {}
     error_samples: list[dict[str, Any]] = []
     catalog_samples: list[dict[str, Any]] = []
-    catalog_markers = ("api", "catalog", "product", "products", "search", "plu")
+    product_api_samples: list[dict[str, Any]] = []
+    empty_product_api_samples: list[dict[str, Any]] = []
     for event in events:
         status = event.get("status")
         status_key = str(status) if status is not None else "unknown"
         status_counts[status_key] = status_counts.get(status_key, 0) + 1
         if isinstance(status, int) and status >= 400 and len(error_samples) < 10:
             error_samples.append(event)
-        url = str(event.get("url") or "").lower()
-        if any(marker in url for marker in catalog_markers) and len(catalog_samples) < 15:
+        if _is_product_api_url(event.get("url", "")):
             catalog_samples.append(event)
+            if len(product_api_samples) < 12:
+                product_api_samples.append(event)
+            if event.get("empty_products_payload") and len(empty_product_api_samples) < 8:
+                empty_product_api_samples.append(event)
     return {
         "responses": len(events),
         "status_counts": status_counts,
         "error_samples": error_samples,
-        "catalog_samples": catalog_samples,
+        "catalog_samples": catalog_samples[:15],
+        "product_api_samples": product_api_samples,
+        "empty_product_api_samples": empty_product_api_samples,
+    }
+
+
+def _is_product_api_url(url: Any) -> bool:
+    """Return True when a URL looks relevant to catalog/product diagnostics."""
+    lowered = str(url or "").lower()
+    return any(marker in lowered for marker in PRODUCT_API_MARKERS)
+
+
+def _sanitize_diagnostic_url(url: str, max_length: int = 260) -> str:
+    """Mask sensitive query values before writing diagnostic URLs."""
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return url[:max_length]
+    safe_query: list[tuple[str, str]] = []
+    for key, value in parse_qsl(parts.query, keep_blank_values=True):
+        lowered = key.lower()
+        if any(marker in lowered for marker in SENSITIVE_QUERY_KEYS):
+            safe_query.append((key, "***"))
+        else:
+            safe_query.append((key, value))
+    sanitized = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(safe_query), parts.fragment))
+    return sanitized[:max_length]
+
+
+def _payload_has_empty_products(payload: str) -> bool:
+    """Detect product API payloads that explicitly contain empty product lists."""
+    compact = re.sub(r"\s+", "", payload)
+    empty_markers = (
+        '"products":[]',
+        '"productsList":[]',
+        '"items":[]',
+        '"results":[]',
+        '"data":[]',
+        '"productsResponse":null',
+    )
+    return compact == "[]" or any(marker in compact for marker in empty_markers)
+
+
+def _payload_preview(payload: str, max_length: int = 500) -> str:
+    """Return a compact response preview for diagnostics."""
+    compact = re.sub(r"\s+", " ", payload).strip()
+    return compact[:max_length]
+
+
+async def _record_network_response(item: Any, network_events: list[dict[str, Any]]) -> None:
+    """Record a response and a small product API payload diagnostic when safe."""
+    url = _sanitize_diagnostic_url(str(item.url))
+    event: dict[str, Any] = {
+        "status": item.status,
+        "url": url,
+    }
+    try:
+        headers = await item.all_headers()
+    except Exception:
+        headers = {}
+    content_type = str(headers.get("content-type", ""))
+    if content_type:
+        event["content_type"] = content_type.split(";")[0]
+    if _is_product_api_url(url) and "json" in content_type.lower():
+        try:
+            payload = await item.text()
+        except Exception as exc:
+            event["payload_error"] = str(exc).splitlines()[0][:180]
+        else:
+            event["empty_products_payload"] = _payload_has_empty_products(payload)
+            event["payload_preview"] = _payload_preview(payload)
+    network_events.append(event)
+
+
+def _extract_page_context(page_html: str) -> dict[str, Any]:
+    """Extract store/region/product state hints from saved page HTML."""
+    compact = re.sub(r"\s+", "", page_html)
+    return {
+        "next_data_present": "__NEXT_DATA__" in page_html,
+        "catalog_store_present": "catalogStore" in page_html,
+        "selected_store_detected": bool(
+            re.search(r'"(?:selectedStore|currentStore|activeStore|store)"\s*:\s*\{', page_html)
+        ),
+        "address_detected": bool(re.search(r'"address"\s*:\s*"[^"]+', page_html)),
+        "region_hint_detected": any(marker in page_html.lower() for marker in ("москва", "moscow", "city")),
+        "products_list_empty": '"productsList":[]' in compact,
+        "products_empty": '"products":[]' in compact,
+        "products_response_null": '"productsResponse":null' in compact,
     }
 
 
@@ -291,14 +400,16 @@ async def _run_smoke_attempt(
     async with AsyncCamoufox(**launch_options) as browser:
         page = await browser.new_page()
         network_events: list[dict[str, Any]] = []
+        network_tasks: set[asyncio.Task[None]] = set()
+
+        def track_response(item: Any) -> None:
+            task = asyncio.create_task(_record_network_response(item, network_events))
+            network_tasks.add(task)
+            task.add_done_callback(network_tasks.discard)
+
         page.on(
             "response",
-            lambda item: network_events.append(
-                {
-                    "status": item.status,
-                    "url": item.url[:220],
-                }
-            ),
+            track_response,
         )
         if kb.headers.custom:
             await page.set_extra_http_headers(kb.headers.custom)
@@ -338,6 +449,9 @@ async def _run_smoke_attempt(
             manual_cards = []
             manual_cards_ready = False
 
+        if network_tasks:
+            await asyncio.gather(*network_tasks, return_exceptions=True)
+
         result = await _build_attempt_result(
             page=page,
             response=response,
@@ -361,6 +475,8 @@ async def _run_smoke_attempt(
             manual_cards_ready=manual_cards_ready,
         )
         if pause:
+            if network_tasks:
+                await asyncio.gather(*network_tasks, return_exceptions=True)
             output_path, report_path = _write_smoke_outputs(result)
             logger.info("Smoke result saved before pause: {}", output_path)
             logger.info("Smoke report saved before pause: {}", report_path)
@@ -401,6 +517,7 @@ async def _build_attempt_result(
         blocked = True
     external_ip = await _browser_external_ip(page)
     page_html = await page.content()
+    page_context = _extract_page_context(page_html)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     screenshot_path = OUTPUT_DIR / "pyaterochka_camoufox_smoke.png"
     html_path = OUTPUT_DIR / "pyaterochka_camoufox_smoke.html"
@@ -444,6 +561,9 @@ async def _build_attempt_result(
         "cards_found": len(cards),
         "products_sample": products,
         "network": _build_network_summary(network_events),
+        "product_api_diagnostics": {
+            "page_context": page_context,
+        },
         "parsed_at": datetime.now().isoformat(timespec="seconds"),
     }
 

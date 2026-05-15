@@ -13,6 +13,7 @@ def test_build_api_product_candidate_marks_ready_sample() -> None:
             "price": {"current": "199.90"},
             "link": "https://5ka.ru/product/123",
             "image": {"url": "https://img.example/123.webp"},
+            "availability": True,
             "keys": ["id", "name", "price"],
         },
         source_url="https://5d.5ka.ru/api/catalog/products",
@@ -21,6 +22,7 @@ def test_build_api_product_candidate_marks_ready_sample() -> None:
     assert candidate.source_id == "123"
     assert candidate.price == 199.90
     assert candidate.image == "https://img.example/123.webp"
+    assert candidate.availability is True
     assert candidate.ready_for_product_model is True
     assert candidate.missing_fields == ()
 
@@ -58,3 +60,33 @@ def test_summarize_api_first_candidates_reports_missing_fields() -> None:
     assert summary["candidate_count"] == 2
     assert summary["ready_count"] == 1
     assert summary["missing_field_counts"] == {"price": 1, "link": 1}
+    assert summary["field_coverage"] == {
+        "source_id": 2,
+        "name": 2,
+        "price": 1,
+        "image": 0,
+        "link": 1,
+        "availability": 0,
+    }
+
+
+def test_summarize_api_first_candidates_reports_availability_coverage() -> None:
+    summary = summarize_api_first_candidates(
+        [
+            {
+                "url": "https://5d.5ka.ru/api/catalog/products",
+                "sample_products": [
+                    {
+                        "id": "123",
+                        "name": "Forel",
+                        "price": 100,
+                        "link": "https://5ka.ru/p/123",
+                        "availability": False,
+                    }
+                ],
+            }
+        ]
+    )
+
+    assert summary["field_coverage"]["availability"] == 1
+    assert summary["samples"][0]["availability"] is False

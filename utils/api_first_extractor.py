@@ -17,6 +17,7 @@ class ApiProductCandidate:
     price: float | None
     image: str
     link: str
+    availability: bool | None
     source_url: str
     dedupe_key: str
     ready_for_product_model: bool
@@ -66,6 +67,7 @@ def summarize_api_first_candidates(events: list[dict[str, Any]]) -> dict[str, An
         "candidate_count": len(candidates),
         "ready_count": len(ready),
         "missing_field_counts": missing_counts,
+        "field_coverage": _field_coverage(candidates),
         "samples": [item.as_report_dict() for item in candidates[:10]],
     }
 
@@ -77,6 +79,7 @@ def build_api_product_candidate(sample: dict[str, Any], *, source_url: str) -> A
     image = _first_string(sample, ("image", "image_url", "imageUrl"))
     link = _first_string(sample, ("link", "url", "href", "productUrl", "webUrl"))
     price = _extract_price(sample.get("price"))
+    availability = _extract_availability(sample.get("availability"))
     missing = _missing_fields(name=name, price=price, link=link)
     dedupe_key = _dedupe_key(source_id=source_id, name=name, link=link)
     raw_keys = tuple(str(key) for key in sample.get("keys") or sorted(sample))
@@ -86,6 +89,7 @@ def build_api_product_candidate(sample: dict[str, Any], *, source_url: str) -> A
         price=price,
         image=image,
         link=link,
+        availability=availability,
         source_url=source_url,
         dedupe_key=dedupe_key,
         ready_for_product_model=not missing,
@@ -103,6 +107,17 @@ def _missing_fields(*, name: str, price: float | None, link: str) -> tuple[str, 
     if not link:
         missing.append("link")
     return tuple(missing)
+
+
+def _field_coverage(candidates: list[ApiProductCandidate]) -> dict[str, int]:
+    return {
+        "source_id": sum(1 for item in candidates if item.source_id),
+        "name": sum(1 for item in candidates if item.name),
+        "price": sum(1 for item in candidates if item.price is not None),
+        "image": sum(1 for item in candidates if item.image),
+        "link": sum(1 for item in candidates if item.link),
+        "availability": sum(1 for item in candidates if item.availability is not None),
+    }
 
 
 def _dedupe_key(*, source_id: str, name: str, link: str) -> str:
@@ -182,4 +197,24 @@ def _extract_price(value: Any) -> float | None:
             price = _extract_price(item)
             if price is not None:
                 return price
+    return None
+
+
+def _extract_availability(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return value > 0
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "yes", "available", "in_stock", "instock", "1"}:
+            return True
+        if normalized in {"false", "no", "unavailable", "out_of_stock", "outofstock", "0"}:
+            return False
+    if isinstance(value, dict):
+        for key in ("available", "in_stock", "inStock", "isAvailable", "stock", "quantity"):
+            if key in value:
+                found = _extract_availability(value[key])
+                if found is not None:
+                    return found
     return None

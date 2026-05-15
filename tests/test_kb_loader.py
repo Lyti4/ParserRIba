@@ -68,6 +68,14 @@ class TestKnowledgeBase:
         # Проверяем через anti_bot.recommended_tool
         assert kb.anti_bot.recommended_tool == "playwright", "Перекресток должен использовать Playwright"
 
+    def test_pyaterochka_has_interception_profile(self, loader):
+        """Pyaterochka KB should expose safe interception route markers."""
+        kb = loader.load_shop("pyaterochka")
+
+        assert "5ka.ru" in kb.interception.allowed_hosts
+        assert "/api/catalog" in kb.interception.product_api_path_markers
+        assert "xpvnsulc" in kb.interception.challenge_markers
+
     def test_lenta_requires_region_header(self, loader):
         """Проверка требования X-Region для Ленты."""
         kb = loader.load_shop("lenta")

@@ -10,25 +10,25 @@ the parser can reliably capture and normalize product data.
 
 ## Immediate Plan
 
-1. Move Pyaterochka API route classification from the temporary store profile
-   into `knowledge_base/` after KB loader cleanup.
-2. Continue saving compact safe interception reports under `data/interception/`:
+1. Continue saving compact safe interception reports under `data/interception/`:
    masked URLs, route type, status, response size, payload preview, schema
    hints and sample products only.
-3. Run visual/discovery with working RU proxy and manual captcha solving.
-4. Inspect `Interception`, `Site Error Tracking`, `Proxy Diagnostics` and
+2. Run visual/discovery with working RU proxy and manual captcha solving.
+3. Inspect `Interception`, `Site Error Tracking`, `Proxy Diagnostics` and
    `Proxy History` report blocks.
-5. Use the API-first candidate report to confirm real Pyaterochka product
+4. Use the API-first candidate report to confirm real Pyaterochka product
    fields: id, name, price, product link, image and availability.
-6. Build the final Pyaterochka `Product` mapper only after those fields are
+5. Build the final Pyaterochka `Product` mapper only after those fields are
    confirmed from real reports.
-7. Keep DOM/card extraction as fallback for cases where API discovery fails.
-8. Add local SQLite product and price-history storage after API payloads are
+6. Keep DOM/card extraction as fallback for cases where API discovery fails.
+7. Add local SQLite product and price-history storage after API payloads are
    understood.
 
 ## Next Refactors
 
 - Split `scripts/smoke_pyaterochka_camoufox.py` into smaller modules.
+- Move more store-specific route and API markers into each store KB file as
+  those stores are stabilized.
 - Replace legacy `utils/session_manager.py` with `utils.session_pool`.
 - Pick one canonical parser base contract and fix `ParserFactory` import
   warnings for non-Pyaterochka stores.

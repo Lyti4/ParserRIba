@@ -28,7 +28,7 @@ from utils.env import load_dotenv_file  # noqa: E402
 from utils.kb_loader import KBLoader  # noqa: E402
 from utils.network_capture import record_api_discovery_response  # noqa: E402
 from utils.interception_archive import write_interception_archive  # noqa: E402
-from utils.interception_profiles import get_interception_profile  # noqa: E402
+from utils.interception_profiles import InterceptionProfile, get_interception_profile  # noqa: E402
 from utils.proxy import choose_proxy_for_attempt, load_proxy_urls, mask_proxy_url  # noqa: E402
 from utils.proxy_history import ProxyHistoryStore, build_proxy_attempt_record  # noqa: E402
 from utils.rate_profile import protected_store_rate_profile  # noqa: E402
@@ -40,12 +40,12 @@ OUTPUT_DIR = ROOT_DIR / "data"
 PROXY_ENV = "PARSER_PROXY"
 
 
-async def _record_response(response: Any, events: list[dict[str, Any]]) -> None:
+async def _record_response(response: Any, events: list[dict[str, Any]], profile: InterceptionProfile) -> None:
     """Capture safe response diagnostics for interesting API calls."""
     captured = await record_api_discovery_response(
         response,
         events,
-        profile=get_interception_profile("pyaterochka"),
+        profile=profile,
     )
     if captured:
         logger.info("Captured API response {}", response.url)
@@ -60,6 +60,7 @@ async def discover_pyaterochka_api(
     configure_windows_console()
     load_dotenv_file(ROOT_DIR / ".env")
     kb = KBLoader(str(ROOT_DIR / "knowledge_base")).load_shop("pyaterochka")
+    interception_profile = get_interception_profile("pyaterochka", knowledge=kb)
     category_url = kb.categories.get(category_name)
     if not category_url:
         category_name, category_url = next(iter(kb.categories.items()))
@@ -86,7 +87,7 @@ async def discover_pyaterochka_api(
         user_data_dir=PROFILE_DIR,
     )
     try:
-        events = await _capture_events(category_url, kb.headers.custom, launch_options, listen_seconds)
+        events = await _capture_events(category_url, kb.headers.custom, launch_options, listen_seconds, interception_profile)
     except Exception as exc:
         reason = str(exc).splitlines()[0][:200]
         attempt.finish("failed", reason)
@@ -133,6 +134,7 @@ async def _capture_events(
     headers: dict[str, str],
     launch_options: dict[str, Any],
     listen_seconds: int,
+    interception_profile: InterceptionProfile,
 ) -> list[dict[str, Any]]:
     """Open a browser and passively collect relevant API responses."""
     events: list[dict[str, Any]] = []
@@ -141,7 +143,7 @@ async def _capture_events(
         page = await browser.new_page()
 
         def track_response(response: Any) -> None:
-            task = asyncio.create_task(_record_response(response, events))
+            task = asyncio.create_task(_record_response(response, events, interception_profile))
             tasks.add(task)
             task.add_done_callback(tasks.discard)
 

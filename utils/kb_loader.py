@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field, validator, ConfigDict
 
+from utils.kb_interception import InterceptionConfig, parse_interception_section
+
 
 class SelectorConfig(BaseModel):
     """Конфигурация селекторов для одного элемента."""
@@ -44,6 +46,7 @@ class ShopKnowledge(BaseModel):
     selectors: Dict[str, SelectorConfig] = Field(default_factory=dict)
     headers: HeadersConfig = Field(default_factory=HeadersConfig)
     anti_bot: AntiBotConfig = Field(default_factory=AntiBotConfig)
+    interception: InterceptionConfig = Field(default_factory=InterceptionConfig)
     notes: List[str] = Field(default_factory=list)
     technical_details: Dict[str, Any] = Field(default_factory=dict)
 
@@ -209,6 +212,8 @@ class KBLoader:
             if "только playwright" in ab_section.lower() or "only playwright" in ab_section.lower():
                 anti_bot.recommended_tool = "playwright"
 
+        interception = parse_interception_section(content)
+
         # Заметки - ищем списки в секции 📝
         notes = []
         note_section = self._extract_section(content, "📝")
@@ -225,6 +230,7 @@ class KBLoader:
             selectors=selectors,
             headers=headers,
             anti_bot=anti_bot,
+            interception=interception,
             notes=notes
         )
 

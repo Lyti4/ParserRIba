@@ -30,6 +30,35 @@
 
 ---
 
+## API Interception
+
+- **allowed_hosts**:
+  - `5ka.ru`
+  - `5d.5ka.ru`
+- **product_api_path_markers**:
+  - `/api/catalog`
+  - `/api/orders`
+  - `/api/products`
+  - `/api/search`
+- **api_path_markers**:
+  - `/api/`
+- **challenge_markers**:
+  - `xpvnsulc`
+  - `captcha`
+  - `challenge`
+  - `antibot`
+- **image_markers**:
+  - `image/`
+  - `.png`
+  - `.jpg`
+  - `.jpeg`
+  - `.webp`
+  - `.svg`
+- **script_markers**:
+  - `.js`
+
+---
+
 ## 🎯 CSS Селекторы
 
 ### Карточка товара (Product Card)

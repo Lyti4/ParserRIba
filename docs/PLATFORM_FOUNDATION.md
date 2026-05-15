@@ -32,9 +32,9 @@ safe base for the next refactor step.
 - Store-neutral interception event helpers live in `utils.interception`,
   covering route classification, payload kind, response size, product samples,
   schema hints and replay-candidate markers for safe API discovery.
-- Store-specific interception route rules live in `utils.interception_profiles`.
-  They keep Pyaterochka route classification out of generic capture code until
-  these rules can move into `knowledge_base/`.
+- Store-specific interception route rules are now loaded from the
+  `API Interception` section in `knowledge_base/pyaterochka.md` through
+  `utils.kb_interception`, with code defaults kept as fallback.
 - API-first candidate extraction lives in `utils.api_first_extractor`. It
   deduplicates safe intercepted product samples and reports whether each sample
   has enough fields for the final `Product` model.
@@ -62,9 +62,7 @@ safe base for the next refactor step.
    tests cover the behavior that is still needed.
 2. Choose one canonical parser base contract and make `main.ParserFactory`
    import checks clean for all stores.
-3. Move temporary interception profile values into `knowledge_base/` after the
-   KB loader is ready for them.
-4. After Pyaterochka product API discovery captures real product payloads,
+3. After Pyaterochka product API discovery captures real product payloads,
    promote API-first candidates into the final `Product` mapper and leave DOM
    extraction as fallback.
 

@@ -16,9 +16,9 @@ captcha tokens.
 - `utils.interception` now provides the store-neutral interception event shape:
   route type, payload kind, response size, product samples, schema hints and
   replay-candidate markers.
-- `utils.interception_profiles` now contains store-specific route classifiers.
-  Pyaterochka API classification is isolated there instead of being embedded in
-  network capture code.
+- `knowledge_base/pyaterochka.md` now contains an `API Interception` section.
+  `utils.kb_interception` parses it and `utils.interception_profiles` can build
+  route classifiers from the loaded KB with code defaults as fallback.
 - `utils.interception_archive` writes compact safe JSON archives under
   `data/interception/` for later extractor work.
 - `utils.api_first_extractor` now turns safe product samples from intercepted
@@ -35,13 +35,11 @@ captcha tokens.
 
 ## Implementation Order
 
-1. Move interception profile values into `knowledge_base/` after the KB loader
-   is cleaned up.
-2. Add replay-candidate diagnostics only after confirming no secret headers are
+1. Add replay-candidate diagnostics only after confirming no secret headers are
    needed. Do not replay protected requests automatically.
-3. Feed successful product payloads into the final `Product` model once real
+2. Feed successful product payloads into the final `Product` model once real
    Pyaterochka product links and price fields are confirmed from reports.
-4. Keep DOM/card extraction as a fallback after the API-first path is stable.
+3. Keep DOM/card extraction as a fallback after the API-first path is stable.
 
 ## Acceptance Rules
 

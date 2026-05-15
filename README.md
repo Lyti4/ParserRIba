@@ -60,6 +60,7 @@ Important current modules:
 - `utils.interception`: structured API/network interception events.
 - `utils.api_first_extractor`: deduplicated product candidates from safe
   intercepted samples.
+- `utils.kb_interception`: KB-backed route markers for interception profiles.
 - `utils.proxy_history`: local SQLite proxy outcome history.
 - `utils.site_error_tracking`: unified report error events.
 - `utils.run_context`, `utils.session_pool`, `utils.rate_profile`: platform
@@ -273,15 +274,13 @@ runtime remains Python + Camoufox.
 Current order:
 
 1. Stabilize Pyaterochka visual smoke and API discovery.
-2. Move Pyaterochka route/API detection from the temporary store profile into
-   the KB-backed classifier after KB loader cleanup.
-3. Keep saving compact safe interception reports.
-4. Promote API-first candidates into the final Pyaterochka product mapper after
+2. Keep saving compact safe interception reports.
+3. Promote API-first candidates into the final Pyaterochka product mapper after
    real payload fields are confirmed.
-5. Keep DOM/card extraction as fallback.
-6. Add local SQLite product and price history.
-7. Add normalization and deduplication.
-8. Move to FastAPI/Postgres/workers/dashboard only after useful data is stable.
+4. Keep DOM/card extraction as fallback.
+5. Add local SQLite product and price history.
+6. Add normalization and deduplication.
+7. Move to FastAPI/Postgres/workers/dashboard only after useful data is stable.
 
 ## Safety Rules
 

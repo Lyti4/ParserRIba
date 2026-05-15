@@ -1,5 +1,6 @@
 from utils.interception import build_interception_event, classify_route
 from utils.interception_profiles import get_interception_profile
+from types import SimpleNamespace
 
 
 def test_pyaterochka_profile_classifies_allowed_product_api() -> None:
@@ -30,3 +31,21 @@ def test_interception_event_uses_store_profile() -> None:
 
     assert event.route_type == "external"
     assert event.replay_candidate is False
+
+
+def test_profile_can_be_built_from_knowledge_config() -> None:
+    knowledge = SimpleNamespace(
+        interception=SimpleNamespace(
+            allowed_hosts=["example.com"],
+            product_api_path_markers=["/custom/products"],
+            api_path_markers=["/api/"],
+            challenge_markers=["custom-challenge"],
+            image_markers=[".webp"],
+            script_markers=[".mjs"],
+        )
+    )
+
+    profile = get_interception_profile("demo", knowledge=knowledge)
+
+    assert classify_route("https://example.com/custom/products", profile=profile) == "product_api"
+    assert classify_route("https://example.com/custom-challenge", profile=profile) == "challenge"

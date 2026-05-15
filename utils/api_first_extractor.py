@@ -7,6 +7,8 @@ import re
 from dataclasses import asdict, dataclass
 from typing import Any
 
+PRODUCT_MAPPER_REQUIRED_FIELDS = ("source_id", "name", "price", "link", "image", "availability")
+
 
 @dataclass(frozen=True)
 class ApiProductCandidate:
@@ -68,6 +70,7 @@ def summarize_api_first_candidates(events: list[dict[str, Any]]) -> dict[str, An
         "ready_count": len(ready),
         "missing_field_counts": missing_counts,
         "field_coverage": _field_coverage(candidates),
+        "mapper_readiness": _mapper_readiness(candidates),
         "samples": [item.as_report_dict() for item in candidates[:10]],
     }
 
@@ -117,6 +120,16 @@ def _field_coverage(candidates: list[ApiProductCandidate]) -> dict[str, int]:
         "image": sum(1 for item in candidates if item.image),
         "link": sum(1 for item in candidates if item.link),
         "availability": sum(1 for item in candidates if item.availability is not None),
+    }
+
+
+def _mapper_readiness(candidates: list[ApiProductCandidate]) -> dict[str, Any]:
+    coverage = _field_coverage(candidates)
+    missing = [field for field in PRODUCT_MAPPER_REQUIRED_FIELDS if coverage.get(field, 0) == 0]
+    return {
+        "ready": bool(candidates) and not missing,
+        "required_fields": list(PRODUCT_MAPPER_REQUIRED_FIELDS),
+        "missing_fields": missing,
     }
 
 

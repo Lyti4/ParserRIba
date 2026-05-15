@@ -68,6 +68,11 @@ def test_summarize_api_first_candidates_reports_missing_fields() -> None:
         "link": 1,
         "availability": 0,
     }
+    assert summary["mapper_readiness"] == {
+        "ready": False,
+        "required_fields": ["source_id", "name", "price", "link", "image", "availability"],
+        "missing_fields": ["image", "availability"],
+    }
 
 
 def test_summarize_api_first_candidates_reports_availability_coverage() -> None:
@@ -90,3 +95,26 @@ def test_summarize_api_first_candidates_reports_availability_coverage() -> None:
 
     assert summary["field_coverage"]["availability"] == 1
     assert summary["samples"][0]["availability"] is False
+
+
+def test_summarize_api_first_candidates_marks_mapper_ready_when_all_fields_exist() -> None:
+    summary = summarize_api_first_candidates(
+        [
+            {
+                "url": "https://5d.5ka.ru/api/catalog/products",
+                "sample_products": [
+                    {
+                        "id": "123",
+                        "name": "Forel",
+                        "price": 100,
+                        "link": "https://5ka.ru/p/123",
+                        "image": "https://img.example/123.webp",
+                        "availability": True,
+                    }
+                ],
+            }
+        ]
+    )
+
+    assert summary["mapper_readiness"]["ready"] is True
+    assert summary["mapper_readiness"]["missing_fields"] == []

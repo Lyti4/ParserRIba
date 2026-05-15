@@ -120,6 +120,11 @@ def test_build_markdown_report_mentions_product_candidates() -> None:
                     "link": 1,
                     "availability": 1,
                 },
+                "mapper_readiness": {
+                    "ready": True,
+                    "required_fields": ["source_id", "name", "price", "link", "image", "availability"],
+                    "missing_fields": [],
+                },
                 "samples": [
                     {
                         "source_id": "123",
@@ -151,6 +156,7 @@ def test_build_markdown_report_mentions_product_candidates() -> None:
     assert "API-first Extraction" in report
     assert "Field coverage" in report
     assert "availability=1" in report
+    assert "Mapper readiness: ready=True" in report
     assert "Site Error Tracking" in report
     assert "available=True" in report
     assert "123 | Форель | 100" in report

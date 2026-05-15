@@ -61,6 +61,7 @@ def _compact_api_first(api_first: dict[str, Any]) -> dict[str, Any]:
         "ready_count": api_first.get("ready_count", 0),
         "missing_field_counts": api_first.get("missing_field_counts", {}),
         "field_coverage": api_first.get("field_coverage", {}),
+        "mapper_readiness": api_first.get("mapper_readiness", {}),
         "samples": [_compact_api_first_sample(item) for item in (api_first.get("samples") or [])[:10]],
     }
 

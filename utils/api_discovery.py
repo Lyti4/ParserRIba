@@ -239,6 +239,14 @@ def build_markdown_report(result: dict[str, Any]) -> str:
                 "- Field coverage: "
                 + ", ".join(f"{field}={count}" for field, count in coverage.items())
             )
+        mapper_readiness = api_first.get("mapper_readiness") or {}
+        if mapper_readiness:
+            lines.append(
+                "- Mapper readiness: ready={ready}, missing={missing}".format(
+                    ready=mapper_readiness.get("ready", False),
+                    missing=mapper_readiness.get("missing_fields", []),
+                )
+            )
         for item in (api_first.get("samples") or [])[:5]:
             lines.append(
                 "- {id} | {name} | price={price} | available={available} | missing={missing}".format(

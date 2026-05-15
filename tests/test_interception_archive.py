@@ -8,6 +8,13 @@ def test_build_interception_archive_keeps_only_safe_compact_fields() -> None:
         {
             "shop": "pyaterochka",
             "category": "Fish",
+            "api_first": {
+                "candidate_count": 1,
+                "ready_count": 0,
+                "missing_field_counts": {"link": 1},
+                "field_coverage": {"name": 1, "price": 1, "link": 0},
+                "samples": [{"name": "Fish", "price": 100, "token": "secret"}],
+            },
             "events": [
                 {
                     "method": "GET",
@@ -22,6 +29,8 @@ def test_build_interception_archive_keeps_only_safe_compact_fields() -> None:
     )
 
     assert archive["events"][0]["route_type"] == "product_api"
+    assert archive["api_first"]["candidate_count"] == 1
+    assert archive["api_first"]["samples"] == [{"name": "Fish", "price": 100}]
     assert "extra_raw_headers" not in archive["events"][0]
     assert "secret" not in str(archive)
 

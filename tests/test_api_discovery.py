@@ -112,11 +112,20 @@ def test_build_markdown_report_mentions_product_candidates() -> None:
                 "candidate_count": 1,
                 "ready_count": 1,
                 "missing_field_counts": {},
+                "field_coverage": {
+                    "source_id": 1,
+                    "name": 1,
+                    "price": 1,
+                    "image": 1,
+                    "link": 1,
+                    "availability": 1,
+                },
                 "samples": [
                     {
                         "source_id": "123",
                         "name": "Р¤РѕСЂРµР»СЊ",
                         "price": 100.0,
+                        "availability": True,
                         "missing_fields": [],
                     }
                 ],
@@ -140,5 +149,8 @@ def test_build_markdown_report_mentions_product_candidates() -> None:
 
     assert "Product Payload Candidates" in report
     assert "API-first Extraction" in report
+    assert "Field coverage" in report
+    assert "availability=1" in report
     assert "Site Error Tracking" in report
+    assert "available=True" in report
     assert "123 | Форель | 100" in report

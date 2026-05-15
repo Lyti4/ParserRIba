@@ -15,21 +15,10 @@ PRODUCT_ID_KEYS = {"id", "plu", "product_id", "productId", "sku", "slug"}
 PRODUCT_PRICE_KEYS = {"price", "regular_price", "current_price", "price_current", "prices"}
 PRODUCT_IMAGE_KEYS = {"image", "image_url", "imageUrl", "images", "picture", "pictures"}
 PRODUCT_LINK_KEYS = {"url", "link", "href", "productUrl", "webUrl"}
+PRODUCT_AVAILABILITY_KEYS = {"available", "availability", "in_stock", "inStock", "isAvailable", "stock"}
 JSON_CONTENT_MARKERS = ("json", "javascript")
-SENSITIVE_QUERY_KEYS = (
-    "access",
-    "auth",
-    "authorization",
-    "cookie",
-    "email",
-    "key",
-    "password",
-    "phone",
-    "refresh",
-    "secret",
-    "session",
-    "sid",
-    "token",
+SENSITIVE_QUERY_KEYS = tuple(
+    "access auth authorization captcha cookie email hcheck key oirut password phone refresh request_ secret session sid token".split()
 )
 
 
@@ -144,7 +133,14 @@ def payload_has_empty_products(payload: str) -> bool:
 
 def payload_preview(payload: str, max_length: int = 500) -> str:
     """Return a compact response preview for diagnostics."""
+    parsed = safe_json_loads(payload)
+    if parsed is not None:
+        redacted, changed = _redact_sensitive_payload_value(parsed)
+        if changed:
+            safe_payload = json.dumps(redacted, ensure_ascii=False)
+            return safe_payload[:max_length]
     compact = re.sub(r"\s+", " ", payload).strip()
+    compact = _redact_sensitive_text_fields(compact)
     return compact[:max_length]
 
 
@@ -178,6 +174,7 @@ def extract_product_candidates(payload: Any, limit: int = 10) -> list[dict[str, 
                 "price": _first_value(item, PRODUCT_PRICE_KEYS),
                 "image": _first_value(item, PRODUCT_IMAGE_KEYS),
                 "link": _first_value(item, PRODUCT_LINK_KEYS),
+                "availability": _first_value(item, PRODUCT_AVAILABILITY_KEYS),
                 "keys": sorted(str(key) for key in keys)[:25],
             }
         )
@@ -203,6 +200,7 @@ def infer_schema_hints(payload: Any, limit: int = 20) -> dict[str, Any]:
         "has_price_key": any(key in key_counts for key in PRODUCT_PRICE_KEYS),
         "has_image_key": any(key in key_counts for key in PRODUCT_IMAGE_KEYS),
         "has_link_key": any(key in key_counts for key in PRODUCT_LINK_KEYS),
+        "has_availability_key": any(key in key_counts for key in PRODUCT_AVAILABILITY_KEYS),
     }
 
 
@@ -230,6 +228,43 @@ def _first_value(item: dict[str, Any], keys: set[str]) -> Any:
         if key in item:
             return item[key]
     return ""
+
+
+def _is_sensitive_key(key: Any) -> bool:
+    lowered = str(key).lower()
+    return any(marker in lowered for marker in SENSITIVE_QUERY_KEYS)
+
+
+def _redact_sensitive_payload_value(value: Any) -> tuple[Any, bool]:
+    if isinstance(value, dict):
+        changed = False
+        result: dict[str, Any] = {}
+        for key, nested in value.items():
+            if _is_sensitive_key(key):
+                result[str(key)] = "***"
+                changed = True
+                continue
+            redacted, nested_changed = _redact_sensitive_payload_value(nested)
+            result[str(key)] = redacted
+            changed = changed or nested_changed
+        return result, changed
+    if isinstance(value, list):
+        changed = False
+        result: list[Any] = []
+        for item in value:
+            redacted, nested_changed = _redact_sensitive_payload_value(item)
+            result.append(redacted)
+            changed = changed or nested_changed
+        return result, changed
+    return value, False
+
+
+def _redact_sensitive_text_fields(value: str) -> str:
+    redacted = value
+    for marker in SENSITIVE_QUERY_KEYS:
+        pattern = re.compile(rf'("{re.escape(marker)}[^"]*"\s*:\s*)"[^"]*"', re.IGNORECASE)
+        redacted = pattern.sub(r'\1"***"', redacted)
+    return redacted
 
 
 def _is_replay_candidate(event: InterceptionEvent) -> bool:

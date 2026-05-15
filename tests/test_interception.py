@@ -2,6 +2,7 @@ from utils.interception import (
     build_interception_event,
     classify_route,
     infer_schema_hints,
+    payload_preview,
     sanitize_diagnostic_url,
     summarize_interception_events,
 )
@@ -13,7 +14,7 @@ def test_build_interception_event_extracts_product_schema() -> None:
         status=200,
         url="https://5d.5ka.ru/api/catalog/v3/products?token=abc",
         content_type="application/json; charset=utf-8",
-        payload_text='{"items":[{"id":"1","name":"Fish","price":100,"image":"img.webp","url":"/p/1"}]}',
+        payload_text='{"items":[{"id":"1","name":"Fish","price":100,"image":"img.webp","url":"/p/1","available":true}]}',
     )
     payload = event.as_report_dict()
 
@@ -21,7 +22,9 @@ def test_build_interception_event_extracts_product_schema() -> None:
     assert payload["payload_kind"] == "json"
     assert payload["candidate_product_count"] == 1
     assert payload["sample_products"][0]["name"] == "Fish"
+    assert payload["sample_products"][0]["availability"] is True
     assert payload["schema_hints"]["has_price_key"] is True
+    assert payload["schema_hints"]["has_availability_key"] is True
     assert payload["replay_candidate"] is True
     assert "abc" not in payload["url"]
 
@@ -61,3 +64,25 @@ def test_sanitize_diagnostic_url_masks_sensitive_query_values() -> None:
 
     assert "secret" not in sanitized
     assert "city=moscow" in sanitized
+
+
+def test_sanitize_diagnostic_url_masks_challenge_query_values() -> None:
+    sanitized = sanitize_diagnostic_url(
+        "https://5ka.ru/xpvnsulc/?hcheck=abc&request_id=rid&oirutpspca=token&city=moscow"
+    )
+
+    assert "abc" not in sanitized
+    assert "rid" not in sanitized
+    assert "token" not in sanitized
+    assert "city=moscow" in sanitized
+
+
+def test_payload_preview_redacts_sensitive_json_fields() -> None:
+    preview = payload_preview(
+        '{"products":[{"id":"1","name":"Fish","price":100}],"accessToken":"secret","cookie":"raw"}'
+    )
+
+    assert "Fish" in preview
+    assert "secret" not in preview
+    assert "raw" not in preview
+    assert '"accessToken": "***"' in preview

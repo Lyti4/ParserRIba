@@ -233,12 +233,19 @@ def build_markdown_report(result: dict[str, Any]) -> str:
         lines.append(f"- Candidate products: {api_first.get('candidate_count', 0)}")
         lines.append(f"- Ready for product model: {api_first.get('ready_count', 0)}")
         lines.append(f"- Missing fields: {api_first.get('missing_field_counts', {})}")
+        coverage = api_first.get("field_coverage") or {}
+        if coverage:
+            lines.append(
+                "- Field coverage: "
+                + ", ".join(f"{field}={count}" for field, count in coverage.items())
+            )
         for item in (api_first.get("samples") or [])[:5]:
             lines.append(
-                "- {id} | {name} | price={price} | missing={missing}".format(
+                "- {id} | {name} | price={price} | available={available} | missing={missing}".format(
                     id=item.get("source_id", ""),
                     name=item.get("name", ""),
                     price=item.get("price"),
+                    available=item.get("availability"),
                     missing=item.get("missing_fields", []),
                 )
             )

@@ -5,65 +5,18 @@ from __future__ import annotations
 import re
 from time import perf_counter
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from utils.interception import build_interception_event, classify_route
+from utils.interception import (
+    build_interception_event,
+    classify_route,
+    payload_has_empty_products,
+    payload_preview,
+    sanitize_diagnostic_url,
+)
 from utils.interception_profiles import InterceptionProfile
 from utils.proxy import mask_proxy_url
 
 DEFAULT_PROXY_PREFLIGHT_URL = "https://api.ipify.org?format=json"
-SENSITIVE_QUERY_KEYS = (
-    "access",
-    "auth",
-    "authorization",
-    "cookie",
-    "email",
-    "key",
-    "password",
-    "phone",
-    "refresh",
-    "secret",
-    "session",
-    "sid",
-    "token",
-)
-
-
-def sanitize_diagnostic_url(url: str, max_length: int = 260) -> str:
-    """Mask sensitive query values before writing diagnostic URLs."""
-    try:
-        parts = urlsplit(url)
-    except ValueError:
-        return url[:max_length]
-    safe_query: list[tuple[str, str]] = []
-    for key, value in parse_qsl(parts.query, keep_blank_values=True):
-        lowered = key.lower()
-        if any(marker in lowered for marker in SENSITIVE_QUERY_KEYS):
-            safe_query.append((key, "***"))
-        else:
-            safe_query.append((key, value))
-    sanitized = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(safe_query), parts.fragment))
-    return sanitized[:max_length]
-
-
-def payload_has_empty_products(payload: str) -> bool:
-    """Detect product API payloads that explicitly contain empty product lists."""
-    compact = re.sub(r"\s+", "", payload)
-    empty_markers = (
-        '"products":[]',
-        '"productsList":[]',
-        '"items":[]',
-        '"results":[]',
-        '"data":[]',
-        '"productsResponse":null',
-    )
-    return compact == "[]" or any(marker in compact for marker in empty_markers)
-
-
-def payload_preview(payload: str, max_length: int = 500) -> str:
-    """Return a compact response preview for diagnostics."""
-    compact = re.sub(r"\s+", " ", payload).strip()
-    return compact[:max_length]
 
 
 async def record_network_response(

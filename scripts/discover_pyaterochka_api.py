@@ -18,25 +18,21 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from scripts.smoke_pyaterochka_camoufox import (  # noqa: E402
-    DEFAULT_CATEGORY,
-    PROFILE_DIR,
-    _payload_has_empty_products,
-    _payload_preview,
-    _sanitize_diagnostic_url,
-)
+from scripts.smoke_pyaterochka_camoufox import DEFAULT_CATEGORY, PROFILE_DIR  # noqa: E402
 from utils.api_discovery import (  # noqa: E402
     build_discovery_result,
     build_markdown_report,
-    extract_product_candidates,
-    is_interesting_api_url,
-    safe_json_loads,
-    summarize_event,
 )
 from utils.camoufox_launcher import build_camoufox_options, configure_windows_console  # noqa: E402
 from utils.env import load_dotenv_file  # noqa: E402
 from utils.kb_loader import KBLoader  # noqa: E402
+from utils.network_capture import record_api_discovery_response  # noqa: E402
 from utils.proxy import choose_proxy_for_attempt, load_proxy_urls, mask_proxy_url  # noqa: E402
+from utils.proxy_history import ProxyHistoryStore, build_proxy_attempt_record  # noqa: E402
+from utils.rate_profile import protected_store_rate_profile  # noqa: E402
+from utils.run_context import RunContext  # noqa: E402
+from utils.session_pool import SessionPool  # noqa: E402
+from utils.site_error_tracking import attach_site_error_summary  # noqa: E402
 
 OUTPUT_DIR = ROOT_DIR / "data"
 PROXY_ENV = "PARSER_PROXY"
@@ -44,35 +40,9 @@ PROXY_ENV = "PARSER_PROXY"
 
 async def _record_response(response: Any, events: list[dict[str, Any]]) -> None:
     """Capture safe response diagnostics for interesting API calls."""
-    url = _sanitize_diagnostic_url(str(response.url), max_length=420)
-    if not is_interesting_api_url(url):
-        return
-    event: dict[str, Any] = {
-        "method": response.request.method,
-        "status": response.status,
-        "url": url,
-    }
-    try:
-        headers = await response.all_headers()
-    except Exception:
-        headers = {}
-    content_type = str(headers.get("content-type", ""))
-    event["content_type"] = content_type.split(";")[0] if content_type else ""
-    if "json" in content_type.lower():
-        try:
-            payload_text = await response.text()
-        except Exception as exc:
-            event["error"] = str(exc).splitlines()[0][:200]
-        else:
-            payload = safe_json_loads(payload_text)
-            event["empty_products_payload"] = _payload_has_empty_products(payload_text)
-            event["payload_preview"] = _payload_preview(payload_text, max_length=700)
-            if payload is not None:
-                products = extract_product_candidates(payload)
-                event["candidate_product_count"] = len(products)
-                event["sample_products"] = products
-    events.append(summarize_event(event))
-    logger.info("Captured API response {} {}", event.get("status"), url)
+    captured = await record_api_discovery_response(response, events)
+    if captured:
+        logger.info("Captured API response {}", response.url)
 
 
 async def discover_pyaterochka_api(
@@ -88,10 +58,15 @@ async def discover_pyaterochka_api(
     if not category_url:
         category_name, category_url = next(iter(kb.categories.items()))
 
-    proxy_url = choose_proxy_for_attempt(
-        load_proxy_urls(primary=os.environ.get(PROXY_ENV, ""), pool=os.environ.get("PARSER_PROXIES", "")),
-        1,
-    )
+    proxy_urls = load_proxy_urls(primary=os.environ.get(PROXY_ENV, ""), pool=os.environ.get("PARSER_PROXIES", ""))
+    proxy_history = ProxyHistoryStore(OUTPUT_DIR / "proxy_history.db")
+    proxy_urls = proxy_history.rank_proxy_urls("pyaterochka", proxy_urls)
+    rate_profile = protected_store_rate_profile("pyaterochka-discovery")
+    run_context = RunContext(store="pyaterochka", mode="api-discovery", rate_profile=rate_profile.name)
+    session_pool = SessionPool("pyaterochka", proxy_urls=proxy_urls)
+    session = session_pool.acquire()
+    proxy_url = session.proxy_url or choose_proxy_for_attempt(proxy_urls, 1)
+    attempt = run_context.start_attempt(attempt=1, proxy=mask_proxy_url(proxy_url) if proxy_url else "", session_id=session.session_id)
     geoip_enabled = os.environ.get("PARSER_GEOIP", "").lower() in {"1", "true", "yes"}
     browser_headless = headless if headless is not None else (False if sys.platform == "win32" else "virtual")
     launch_options = build_camoufox_options(
@@ -104,15 +79,47 @@ async def discover_pyaterochka_api(
         fingerprint_os="windows",
         user_data_dir=PROFILE_DIR,
     )
-    events = await _capture_events(category_url, kb.headers.custom, launch_options, listen_seconds)
-    return build_discovery_result(
+    try:
+        events = await _capture_events(category_url, kb.headers.custom, launch_options, listen_seconds)
+    except Exception as exc:
+        reason = str(exc).splitlines()[0][:200]
+        attempt.finish("failed", reason)
+        session_pool.record_failure(session.session_id, reason, rate_profile.cooldown_for_reason(reason))
+        raise
+    if any(event.get("candidate_product_count", 0) > 0 for event in events):
+        attempt.finish("ok", "product_payload_captured")
+        session_pool.record_success(session.session_id)
+    elif any(event.get("empty_products_payload") for event in events):
+        attempt.finish("empty", "empty_product_payload")
+        session_pool.record_failure(session.session_id, "empty_product_payload", rate_profile.cooldown_for_reason("empty_product_payload"))
+    else:
+        attempt.finish("empty", "no_product_payload")
+        session_pool.record_failure(session.session_id, "no_product_payload", rate_profile.cooldown_for_reason("no_product_payload"))
+    result = build_discovery_result(
         category_name=category_name,
         category_url=category_url,
         proxy_url=proxy_url,
         geoip_enabled=geoip_enabled,
         listen_seconds=listen_seconds,
         events=events,
+        run=run_context.summary(),
+        attempt=attempt.summary(),
+        session=session.summary(),
+        rate_profile=rate_profile.summary(),
     )
+    if proxy_url:
+        proxy_history.record_attempt(
+            build_proxy_attempt_record(
+                store="pyaterochka",
+                proxy_url=proxy_url,
+                session_id=session.session_id,
+                run_id=run_context.run_id,
+                result=result,
+            )
+        )
+    result["proxy_history"] = proxy_history.summary("pyaterochka", proxy_urls)
+    attach_site_error_summary(result)
+    return result
 
 
 async def _capture_events(

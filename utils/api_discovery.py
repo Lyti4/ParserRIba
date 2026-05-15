@@ -92,12 +92,16 @@ def build_discovery_result(
     geoip_enabled: bool,
     listen_seconds: int,
     events: list[dict[str, Any]],
+    run: dict[str, Any] | None = None,
+    attempt: dict[str, Any] | None = None,
+    session: dict[str, Any] | None = None,
+    rate_profile: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the discovery report payload."""
     status_counts = Counter(str(event.get("status")) for event in events)
     product_events = [event for event in events if event.get("candidate_product_count", 0) > 0]
     empty_events = [event for event in events if event.get("empty_products_payload")]
-    return {
+    result = {
         "shop": "pyaterochka",
         "category": category_name,
         "category_url": category_url,
@@ -114,6 +118,15 @@ def build_discovery_result(
         "empty_events": empty_events[:10],
         "parsed_at": datetime.now().isoformat(timespec="seconds"),
     }
+    if run:
+        result["run"] = run
+    if attempt:
+        result["attempt"] = attempt
+    if session:
+        result["session"] = session
+    if rate_profile:
+        result["rate_profile"] = rate_profile
+    return result
 
 
 def build_markdown_report(result: dict[str, Any]) -> str:
@@ -131,9 +144,58 @@ def build_markdown_report(result: dict[str, Any]) -> str:
         f"- Status counts: {result.get('status_counts', {})}",
         f"- Product events: {result.get('product_events_count', 0)}",
         f"- Empty events: {result.get('empty_events_count', 0)}",
-        "",
-        "## Product Payload Candidates",
     ]
+    run = result.get("run") or {}
+    attempt = result.get("attempt") or {}
+    session = result.get("session") or {}
+    rate_profile = result.get("rate_profile") or {}
+    if run or attempt or session or rate_profile:
+        lines.extend(["", "## Run Context"])
+        if run:
+            lines.append(f"- Run ID: {run.get('run_id', '')}")
+            lines.append(f"- Mode: {run.get('mode', '')}")
+        if attempt:
+            lines.append(f"- Attempt status: {attempt.get('status', '')}")
+            lines.append(f"- Attempt reason: {attempt.get('reason', '')}")
+        if session:
+            lines.append(f"- Session ID: {session.get('session_id', '')}")
+            lines.append(f"- Session proxy: {session.get('proxy_url', '')}")
+            lines.append(f"- Session success rate: {session.get('success_rate', '')}")
+        if rate_profile:
+            lines.append(f"- Rate profile: {rate_profile.get('name', '')}")
+            lines.append(f"- Max concurrency: {rate_profile.get('max_concurrency', '')}")
+    proxy_history = result.get("proxy_history") or {}
+    if proxy_history:
+        lines.extend(["", "## Proxy History"])
+        lines.append(f"- Known proxies: {proxy_history.get('known_proxies', 0)}")
+        lines.append(f"- Ranked proxies: {proxy_history.get('ranked_proxies', [])}")
+        for item in (proxy_history.get("stats") or [])[:5]:
+            lines.append(
+                "- {proxy}: attempts={attempts}, success_rate={rate}, avg_responses={responses}, high_risk={risk}".format(
+                    proxy=item.get("proxy", ""),
+                    attempts=item.get("attempts", 0),
+                    rate=item.get("success_rate", 0),
+                    responses=item.get("avg_responses", 0),
+                    risk=item.get("high_risk_attempts", 0),
+                )
+            )
+    site_errors = result.get("site_errors") or {}
+    if site_errors:
+        lines.extend(["", "## Site Error Tracking"])
+        lines.append(f"- Total tracked errors: {site_errors.get('total', 0)}")
+        lines.append(f"- Severity counts: {site_errors.get('severity_counts', {})}")
+        lines.append(f"- Source counts: {site_errors.get('source_counts', {})}")
+        for event in (site_errors.get("events") or [])[:10]:
+            lines.append(
+                "- {severity} {source}/{code}: {message} (x{count})".format(
+                    severity=event.get("severity", ""),
+                    source=event.get("source", ""),
+                    code=event.get("code", ""),
+                    message=event.get("message", ""),
+                    count=event.get("count", 1),
+                )
+            )
+    lines.extend(["", "## Product Payload Candidates"])
     product_events = result.get("product_events") or []
     if not product_events:
         lines.append("")

@@ -65,6 +65,25 @@ def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
                 f"- Behavior hover cards: {behavior_profile.get('hover_cards', '')}",
             ]
         )
+    run = result.get("run") or {}
+    attempt_context = result.get("attempt_context") or {}
+    session = result.get("session") or {}
+    rate_profile = result.get("rate_profile") or {}
+    if run or attempt_context or session or rate_profile:
+        lines.extend(["", "## Run Context"])
+        if run:
+            lines.append(f"- Run ID: {run.get('run_id', '')}")
+            lines.append(f"- Mode: {run.get('mode', '')}")
+        if attempt_context:
+            lines.append(f"- Attempt status: {attempt_context.get('status', '')}")
+            lines.append(f"- Attempt reason: {attempt_context.get('reason', '')}")
+            lines.append(f"- Session ID: {attempt_context.get('session_id', '')}")
+        if session:
+            lines.append(f"- Session proxy: {session.get('proxy_url', '')}")
+            lines.append(f"- Session success rate: {session.get('success_rate', '')}")
+        if rate_profile:
+            lines.append(f"- Rate profile: {rate_profile.get('name', '')}")
+            lines.append(f"- Max concurrency: {rate_profile.get('max_concurrency', '')}")
 
     navigation_error = result.get("navigation_error")
     if navigation_error:
@@ -154,6 +173,49 @@ def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
             lines.append("- Proxy notes:")
             for note in notes:
                 lines.append(f"  - {note}")
+
+    proxy_history = result.get("proxy_history") or {}
+    if proxy_history:
+        lines.extend(["", "## Proxy History"])
+        lines.extend(
+            [
+                f"- History enabled: {proxy_history.get('enabled', False)}",
+                f"- Known proxies: {proxy_history.get('known_proxies', 0)}",
+                f"- Ranked proxies: {proxy_history.get('ranked_proxies', [])}",
+            ]
+        )
+        for item in (proxy_history.get("stats") or [])[:5]:
+            lines.append(
+                "- {proxy}: attempts={attempts}, success_rate={rate}, avg_responses={responses}, high_risk={risk}".format(
+                    proxy=item.get("proxy", ""),
+                    attempts=item.get("attempts", 0),
+                    rate=item.get("success_rate", 0),
+                    responses=item.get("avg_responses", 0),
+                    risk=item.get("high_risk_attempts", 0),
+                )
+            )
+
+    site_errors = result.get("site_errors") or {}
+    if site_errors:
+        lines.extend(["", "## Site Error Tracking"])
+        lines.extend(
+            [
+                f"- Total tracked errors: {site_errors.get('total', 0)}",
+                f"- Severity counts: {site_errors.get('severity_counts', {})}",
+                f"- Source counts: {site_errors.get('source_counts', {})}",
+                f"- Code counts: {site_errors.get('code_counts', {})}",
+            ]
+        )
+        for event in (site_errors.get("events") or [])[:10]:
+            lines.append(
+                "- {severity} {source}/{code}: {message} (x{count})".format(
+                    severity=event.get("severity", ""),
+                    source=event.get("source", ""),
+                    code=event.get("code", ""),
+                    message=event.get("message", ""),
+                    count=event.get("count", 1),
+                )
+            )
 
     product_api = result.get("product_api_diagnostics") or {}
     page_context = product_api.get("page_context") or {}

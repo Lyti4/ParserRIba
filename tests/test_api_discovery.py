@@ -86,8 +86,23 @@ def test_build_markdown_report_mentions_product_candidates() -> None:
                 }
             ],
             "empty_events": [],
+            "site_errors": {
+                "total": 1,
+                "severity_counts": {"warning": 1},
+                "source_counts": {"discovery": 1},
+                "events": [
+                    {
+                        "severity": "warning",
+                        "source": "discovery",
+                        "code": "api_discovery_no_product_payload",
+                        "message": "No product payload candidates were captured.",
+                        "count": 1,
+                    }
+                ],
+            },
         }
     )
 
     assert "Product Payload Candidates" in report
+    assert "Site Error Tracking" in report
     assert "123 | Форель | 100" in report

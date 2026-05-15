@@ -81,6 +81,10 @@ def test_build_pyaterochka_smoke_report_products() -> None:
                 "scroll_delta_max": 760,
                 "hover_cards": 6,
             },
+            "run": {"run_id": "run-1", "mode": "visual-smoke"},
+            "attempt_context": {"status": "ok", "reason": "cards_found", "session_id": "session-1"},
+            "session": {"proxy_url": "http://***:***@proxy.example:1000", "success_rate": 1.0},
+            "rate_profile": {"name": "pyaterochka-smoke", "max_concurrency": 1},
             "html_path": "data/page.html",
             "screenshot_path": "data/page.png",
             "products_sample": [
@@ -156,6 +160,21 @@ def test_build_pyaterochka_smoke_report_products() -> None:
                     "notes": ["No obvious proxy traffic/auth symptoms detected in this run."],
                 },
             },
+            "site_errors": {
+                "total": 2,
+                "severity_counts": {"warning": 2},
+                "source_counts": {"network": 1, "product_api": 1},
+                "code_counts": {"http_403_forbidden_or_challenge": 1, "product_api_empty_payload": 1},
+                "events": [
+                    {
+                        "severity": "warning",
+                        "source": "network",
+                        "code": "http_403_forbidden_or_challenge",
+                        "message": "HTTP 403 responses observed: 1",
+                        "count": 1,
+                    }
+                ],
+            },
         }
     )
 
@@ -173,11 +192,15 @@ def test_build_pyaterochka_smoke_report_products() -> None:
     assert "Manual cards ready: True" in report
     assert "Fingerprint OS: windows" in report
     assert "Behavior profile: fish-category" in report
+    assert "Run Context" in report
+    assert "pyaterochka-smoke" in report
     assert "Catalog/API samples" in report
     assert "https://5ka.ru/api/catalog" in report
     assert "Proxy Diagnostics" in report
     assert "Proxy health: ok" in report
     assert "Proxy traffic risk: low" in report
+    assert "Site Error Tracking" in report
+    assert "http_403_forbidden_or_challenge" in report
     assert "Product API Diagnostics" in report
     assert "Selected store detected: True" in report
     assert "empty=False https://5ka.ru/api/catalog/products" in report

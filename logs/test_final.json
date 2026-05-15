@@ -1,2 +1,0 @@
-{"timestamp": "2026-05-06T13:16:29.054005Z", "level": "INFO", "logger": "test_final", "message": "JSON логи включены: logs/test_final.json", "module": "logger", "function": "setup_logger", "line": 132}
-{"timestamp": "2026-05-06T13:16:29.054145Z", "level": "INFO", "logger": "test_final", "message": "Final test", "module": "<string>", "function": "<module>", "line": 45}

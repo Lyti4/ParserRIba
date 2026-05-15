@@ -15,10 +15,8 @@ import re
 import sys
 import warnings
 from datetime import datetime
-from time import perf_counter
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from camoufox.async_api import AsyncCamoufox
 from loguru import logger
@@ -42,7 +40,38 @@ from utils.human_behavior import (
     hover_product_cards,
 )
 from utils.kb_loader import KBLoader, SelectorConfig
+from utils.network_capture import (
+    payload_has_empty_products,
+    payload_preview,
+    record_network_failure,
+    record_network_response,
+    run_proxy_preflight,
+    sanitize_diagnostic_url,
+)
+from utils.network_diagnostics import (
+    build_network_summary,
+    classify_proxy_health,
+    is_catalog_diagnostic_url,
+    is_product_api_url,
+)
+from utils.page_context import extract_pyaterochka_page_context
+from utils.platform_reporting import (
+    attach_platform_context,
+    finish_attempt_from_result,
+    record_session_outcome,
+)
+from utils.product_sampling import (
+    extract_sample_products,
+    find_cards,
+    query_first_attribute,
+    query_first_text,
+)
 from utils.proxy import choose_proxy_for_attempt, load_proxy_urls, mask_proxy_url
+from utils.proxy_history import ProxyHistoryStore, build_proxy_attempt_record
+from utils.rate_profile import protected_store_rate_profile
+from utils.run_context import AttemptContext, RunContext
+from utils.session_pool import ParserSession, SessionPool
+from utils.site_error_tracking import attach_site_error_summary
 from utils.smoke_report import write_smoke_report
 
 OUTPUT_DIR = ROOT_DIR / "data"
@@ -50,9 +79,6 @@ PROFILE_DIR = ROOT_DIR / "profiles" / "pyaterochka"
 DEFAULT_CATEGORY = "Рыба"
 PROXY_ENV = "PARSER_PROXY"
 PROXY_PREFLIGHT_URL = "https://api.ipify.org?format=json"
-CATALOG_DIAGNOSTIC_MARKERS = ("api", "catalog", "product", "products", "search", "plu", "xpvnsulc")
-PRODUCT_API_HOSTS = ("5ka.ru", "5d.5ka.ru")
-PRODUCT_API_PATH_MARKERS = ("/api/catalog", "/api/orders", "/api/products", "/api/search")
 SENSITIVE_QUERY_KEYS = (
     "access",
     "auth",
@@ -79,43 +105,17 @@ def _split_selectors(config: SelectorConfig | None) -> list[str]:
 
 async def _query_first_text(root: Any, selectors: list[str]) -> str:
     """Return text from the first matching selector."""
-    for selector in selectors:
-        try:
-            element = await root.query_selector(selector)
-            if element:
-                text = await element.inner_text()
-                if text.strip():
-                    return text.strip()
-        except Exception as exc:
-            logger.debug("Selector failed: {} ({})", selector, exc)
-    return ""
+    return await query_first_text(root, selectors)
 
 
 async def _query_first_attribute(root: Any, selectors: list[str], attr: str) -> str:
     """Return attribute from the first matching selector."""
-    for selector in selectors:
-        try:
-            element = await root.query_selector(selector)
-            if element:
-                value = await element.get_attribute(attr)
-                if value:
-                    return value
-        except Exception as exc:
-            logger.debug("Selector failed: {} ({})", selector, exc)
-    return ""
+    return await query_first_attribute(root, selectors, attr)
 
 
 async def _find_cards(page: Any, selectors: list[str]) -> list[Any]:
     """Find product cards using KB selectors."""
-    for selector in selectors:
-        try:
-            cards = await page.query_selector_all(selector)
-            if cards:
-                logger.info("Product cards found by selector '{}': {}", selector, len(cards))
-                return cards
-        except Exception as exc:
-            logger.debug("Card selector failed: {} ({})", selector, exc)
-    return []
+    return await find_cards(page, selectors)
 
 
 async def _browser_external_ip(page: Any) -> str:
@@ -138,50 +138,12 @@ async def _browser_external_ip(page: Any) -> str:
 
 def _build_network_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
     """Build a compact network summary for smoke diagnostics."""
-    status_counts: dict[str, int] = {}
-    failure_counts: dict[str, int] = {}
-    error_samples: list[dict[str, Any]] = []
-    catalog_samples: list[dict[str, Any]] = []
-    product_api_samples: list[dict[str, Any]] = []
-    empty_product_api_samples: list[dict[str, Any]] = []
-    estimated_body_bytes = 0
-    for event in events:
-        failure = event.get("failure")
-        if failure:
-            failure_key = str(failure)
-            failure_counts[failure_key] = failure_counts.get(failure_key, 0) + 1
-            if len(error_samples) < 10:
-                error_samples.append(event)
-            continue
-        status = event.get("status")
-        status_key = str(status) if status is not None else "unknown"
-        status_counts[status_key] = status_counts.get(status_key, 0) + 1
-        estimated_body_bytes += int(event.get("content_length") or 0)
-        if isinstance(status, int) and status >= 400 and len(error_samples) < 10:
-            error_samples.append(event)
-        if _is_catalog_diagnostic_url(event.get("url", "")):
-            catalog_samples.append(event)
-        if _is_product_api_url(event.get("url", "")):
-            if len(product_api_samples) < 12:
-                product_api_samples.append(event)
-            if event.get("empty_products_payload") and len(empty_product_api_samples) < 8:
-                empty_product_api_samples.append(event)
-    return {
-        "responses": len(events),
-        "status_counts": status_counts,
-        "failure_counts": failure_counts,
-        "estimated_body_bytes": estimated_body_bytes,
-        "error_samples": error_samples,
-        "catalog_samples": catalog_samples[:15],
-        "product_api_samples": product_api_samples,
-        "empty_product_api_samples": empty_product_api_samples,
-    }
+    return build_network_summary(events)
 
 
 def _is_catalog_diagnostic_url(url: Any) -> bool:
     """Return True when a URL is useful for catalog/network diagnostics."""
-    lowered = str(url or "").lower()
-    return any(marker in lowered for marker in CATALOG_DIAGNOSTIC_MARKERS)
+    return is_catalog_diagnostic_url(url)
 
 
 def _classify_proxy_health(
@@ -192,195 +154,52 @@ def _classify_proxy_health(
     browser_external_ip: str,
 ) -> dict[str, Any]:
     """Classify practical proxy health signals without provider API access."""
-    if not proxy_enabled:
-        return {
-            "status": "not_configured",
-            "traffic_risk": "unknown",
-            "notes": ["Proxy is not configured for this attempt."],
-        }
-
-    status_counts = network.get("status_counts") or {}
-    failure_counts = network.get("failure_counts") or {}
-    notes: list[str] = []
-    status = "ok"
-    traffic_risk = "low"
-
-    if not preflight.get("ok"):
-        status = "preflight_failed"
-        traffic_risk = "high"
-        notes.append("Proxy preflight failed before opening Pyaterochka.")
-    auth_challenges = int(status_counts.get("407", 0))
-    if auth_challenges > 0 and not preflight.get("ok"):
-        status = "proxy_auth_failed"
-        traffic_risk = "high"
-        notes.append("HTTP 407 means proxy authentication or account access failed.")
-    elif auth_challenges > 0:
-        traffic_risk = "medium" if traffic_risk == "low" else traffic_risk
-        notes.append("A transient HTTP 407 appeared, but proxy preflight later succeeded.")
-    if int(status_counts.get("429", 0)) > 0:
-        status = "rate_limited"
-        traffic_risk = "medium"
-        notes.append("HTTP 429 suggests rate limiting by the site or proxy route.")
-    server_errors = sum(int(status_counts.get(str(code), 0)) for code in range(500, 600))
-    if server_errors:
-        status = "upstream_errors" if status == "ok" else status
-        traffic_risk = "medium" if traffic_risk == "low" else traffic_risk
-        notes.append("5xx responses can indicate unstable proxy route or upstream blocking.")
-    if failure_counts:
-        status = "network_failures" if status == "ok" else status
-        traffic_risk = "medium" if traffic_risk == "low" else traffic_risk
-        notes.append("Browser reported failed network requests.")
-    if not browser_external_ip:
-        traffic_risk = "medium" if traffic_risk == "low" else traffic_risk
-        notes.append("Browser external IP check did not return an IP.")
-    if network.get("responses", 0) < 5:
-        traffic_risk = "medium" if traffic_risk == "low" else traffic_risk
-        notes.append("Very few responses were observed; proxy or page load may have stopped early.")
-    if not notes:
-        notes.append("No obvious proxy traffic/auth symptoms detected in this run.")
-
-    return {
-        "status": status,
-        "traffic_risk": traffic_risk,
-        "notes": notes,
-    }
+    return classify_proxy_health(
+        proxy_enabled=proxy_enabled,
+        preflight=preflight,
+        network=network,
+        browser_external_ip=browser_external_ip,
+    )
 
 
 def _is_product_api_url(url: Any) -> bool:
     """Return True when a URL looks relevant to catalog/product diagnostics."""
-    try:
-        parts = urlsplit(str(url or ""))
-    except ValueError:
-        return False
-    host = parts.netloc.lower()
-    path = parts.path.lower()
-    return any(host.endswith(item) for item in PRODUCT_API_HOSTS) and any(
-        marker in path for marker in PRODUCT_API_PATH_MARKERS
-    )
+    return is_product_api_url(url)
 
 
 def _sanitize_diagnostic_url(url: str, max_length: int = 260) -> str:
     """Mask sensitive query values before writing diagnostic URLs."""
-    try:
-        parts = urlsplit(url)
-    except ValueError:
-        return url[:max_length]
-    safe_query: list[tuple[str, str]] = []
-    for key, value in parse_qsl(parts.query, keep_blank_values=True):
-        lowered = key.lower()
-        if any(marker in lowered for marker in SENSITIVE_QUERY_KEYS):
-            safe_query.append((key, "***"))
-        else:
-            safe_query.append((key, value))
-    sanitized = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(safe_query), parts.fragment))
-    return sanitized[:max_length]
+    return sanitize_diagnostic_url(url, max_length=max_length)
 
 
 def _payload_has_empty_products(payload: str) -> bool:
     """Detect product API payloads that explicitly contain empty product lists."""
-    compact = re.sub(r"\s+", "", payload)
-    empty_markers = (
-        '"products":[]',
-        '"productsList":[]',
-        '"items":[]',
-        '"results":[]',
-        '"data":[]',
-        '"productsResponse":null',
-    )
-    return compact == "[]" or any(marker in compact for marker in empty_markers)
+    return payload_has_empty_products(payload)
 
 
 def _payload_preview(payload: str, max_length: int = 500) -> str:
     """Return a compact response preview for diagnostics."""
-    compact = re.sub(r"\s+", " ", payload).strip()
-    return compact[:max_length]
+    return payload_preview(payload, max_length=max_length)
 
 
 async def _record_network_response(item: Any, network_events: list[dict[str, Any]]) -> None:
     """Record a response and a small product API payload diagnostic when safe."""
-    url = _sanitize_diagnostic_url(str(item.url))
-    event: dict[str, Any] = {
-        "status": item.status,
-        "url": url,
-    }
-    try:
-        headers = await item.all_headers()
-    except Exception:
-        headers = {}
-    content_type = str(headers.get("content-type", ""))
-    if content_type:
-        event["content_type"] = content_type.split(";")[0]
-    content_length = str(headers.get("content-length", ""))
-    if content_length.isdigit():
-        event["content_length"] = int(content_length)
-    if _is_product_api_url(url) and "json" in content_type.lower():
-        try:
-            payload = await item.text()
-        except Exception as exc:
-            event["payload_error"] = str(exc).splitlines()[0][:180]
-        else:
-            event["empty_products_payload"] = _payload_has_empty_products(payload)
-            event["payload_preview"] = _payload_preview(payload)
-    network_events.append(event)
+    await record_network_response(item, network_events, product_api_checker=_is_product_api_url)
 
 
 async def _record_network_failure(item: Any, network_events: list[dict[str, Any]]) -> None:
     """Record failed requests without leaking query secrets."""
-    try:
-        failure = item.failure or ""
-    except Exception:
-        failure = ""
-    network_events.append(
-        {
-            "failure": str(failure or "unknown")[:180],
-            "url": _sanitize_diagnostic_url(str(item.url)),
-        }
-    )
+    await record_network_failure(item, network_events)
 
 
 async def _run_proxy_preflight(page: Any, proxy_url: str) -> dict[str, Any]:
     """Check that the browser can pass a small request through the proxy."""
-    if not proxy_url:
-        return {"enabled": False, "ok": None, "url": PROXY_PREFLIGHT_URL}
-    started = perf_counter()
-    result: dict[str, Any] = {
-        "enabled": True,
-        "ok": False,
-        "url": PROXY_PREFLIGHT_URL,
-        "proxy": mask_proxy_url(proxy_url),
-    }
-    try:
-        response = await page.goto(PROXY_PREFLIGHT_URL, wait_until="domcontentloaded", timeout=30_000)
-        body = await page.inner_text("body")
-    except Exception as exc:
-        result["error"] = str(exc).splitlines()[0][:240]
-    else:
-        result["status"] = response.status if response else None
-        result["response_bytes"] = len(body.encode("utf-8", errors="ignore"))
-        result["ok"] = bool(response and response.ok and '"ip"' in body)
-        match = re.search(r'"ip"\s*:\s*"([^"]+)"', body)
-        if match:
-            result["ip"] = match.group(1)
-    result["duration_ms"] = int((perf_counter() - started) * 1000)
-    return result
+    return await run_proxy_preflight(page, proxy_url, preflight_url=PROXY_PREFLIGHT_URL)
 
 
 def _extract_page_context(page_html: str) -> dict[str, Any]:
     """Extract store/region/product state hints from saved page HTML."""
-    compact = re.sub(r"\s+", "", page_html)
-    return {
-        "next_data_present": "__NEXT_DATA__" in page_html,
-        "catalog_store_present": "catalogStore" in page_html,
-        "selected_store_detected": bool(
-            re.search(r'"(?:selectedStore|currentStore|activeStore|store)"\s*:\s*\{', page_html)
-            or re.search(r'"storeId"\s*:\s*"[^"]+', page_html)
-        ),
-        "address_detected": bool(re.search(r'"address"\s*:\s*"[^"]+', page_html)),
-        "region_hint_detected": any(marker in page_html.lower() for marker in ("москва", "moscow", "city")),
-        "products_list_empty": '"productsList":[]' in compact,
-        "products_empty": '"products":[]' in compact,
-        "products_response_null": '"productsResponse":null' in compact,
-    }
+    return extract_pyaterochka_page_context(page_html)
 
 
 async def _wait_for_cards_after_manual_challenge(
@@ -434,6 +253,8 @@ async def smoke_parse_pyaterochka(
         primary=os.environ.get(PROXY_ENV, ""),
         pool=os.environ.get("PARSER_PROXIES", ""),
     )
+    proxy_history = ProxyHistoryStore(OUTPUT_DIR / "proxy_history.db")
+    proxy_urls = proxy_history.rank_proxy_urls("pyaterochka", proxy_urls)
     geoip_enabled = os.environ.get("PARSER_GEOIP", "").lower() in {"1", "true", "yes"}
     browser_headless = headless
     if browser_headless is None:
@@ -441,8 +262,17 @@ async def smoke_parse_pyaterochka(
 
     final_result: dict[str, Any] | None = None
     attempt_results: list[dict[str, Any]] = []
+    rate_profile = protected_store_rate_profile("pyaterochka-smoke")
+    run_context = RunContext(store="pyaterochka", mode="visual-smoke", rate_profile=rate_profile.name)
+    session_pool = SessionPool("pyaterochka", proxy_urls=proxy_urls)
     for attempt in range(1, attempts + 1):
-        proxy_url = choose_proxy_for_attempt(proxy_urls, attempt)
+        session = session_pool.acquire()
+        proxy_url = session.proxy_url or choose_proxy_for_attempt(proxy_urls, attempt)
+        attempt_context = run_context.start_attempt(
+            attempt=attempt,
+            proxy=mask_proxy_url(proxy_url) if proxy_url else "",
+            session_id=session.session_id,
+        )
         if proxy_url:
             logger.info("Smoke attempt {} uses proxy {}", attempt, mask_proxy_url(proxy_url))
         else:
@@ -470,10 +300,33 @@ async def smoke_parse_pyaterochka(
                 attempts=attempts,
                 pause=pause,
                 manual_wait=manual_wait,
+                run_context=run_context,
+                attempt_context=attempt_context,
+                session=session,
+                rate_profile=rate_profile.summary(),
             )
         except Exception as exc:
             logger.warning("Smoke attempt {} failed: {}", attempt, exc)
             final_result = _failed_attempt_result(category_name, category_url, attempt, attempts, exc)
+            finish_attempt_from_result(attempt_context, final_result, success_reason="cards_found")
+            attach_platform_context(
+                final_result,
+                run_context=run_context,
+                attempt_context=attempt_context,
+                session=session,
+                rate_profile=rate_profile.summary(),
+            )
+        record_session_outcome(session_pool, session, final_result, rate_profile)
+        if proxy_url:
+            proxy_history.record_attempt(
+                build_proxy_attempt_record(
+                    store="pyaterochka",
+                    proxy_url=proxy_url,
+                    session_id=session.session_id,
+                    run_id=run_context.run_id,
+                    result=final_result,
+                )
+            )
         attempt_results.append(
             {
                 "attempt": attempt,
@@ -481,6 +334,7 @@ async def smoke_parse_pyaterochka(
                 "block_reason": final_result.get("block_reason"),
                 "cards_found": final_result.get("cards_found", 0),
                 "proxy": final_result.get("proxy", ""),
+                "session_id": session.session_id,
             }
         )
         if final_result.get("cards_found", 0) > 0 and not final_result.get("blocked"):
@@ -493,6 +347,7 @@ async def smoke_parse_pyaterochka(
         category_name, category_url, 0, attempts, RuntimeError("no attempts executed")
     )
     result["attempts"] = attempt_results
+    result["proxy_history"] = proxy_history.summary("pyaterochka", proxy_urls)
 
     output_path, report_path = _write_smoke_outputs(result)
     logger.info("Smoke result saved: {}", output_path)
@@ -527,6 +382,10 @@ async def _run_smoke_attempt(
     attempts: int,
     pause: bool,
     manual_wait: bool,
+    run_context: RunContext,
+    attempt_context: AttemptContext,
+    session: ParserSession,
+    rate_profile: dict[str, Any],
 ) -> dict[str, Any]:
     """Run one browser/proxy smoke attempt."""
     card_selectors = _split_selectors(kb.selectors.get("product_card"))
@@ -622,6 +481,14 @@ async def _run_smoke_attempt(
             manual_wait=manual_wait,
             manual_cards_ready=manual_cards_ready,
         )
+        finish_attempt_from_result(attempt_context, result, success_reason="cards_found")
+        attach_platform_context(
+            result,
+            run_context=run_context,
+            attempt_context=attempt_context,
+            session=session,
+            rate_profile=rate_profile,
+        )
         if pause:
             if network_tasks:
                 await asyncio.gather(*network_tasks, return_exceptions=True)
@@ -689,7 +556,7 @@ async def _build_attempt_result(
         network=network_summary,
         browser_external_ip=external_ip,
     )
-    return {
+    result = {
         "shop": "pyaterochka",
         "category": category_name,
         "category_url": category_url,
@@ -726,6 +593,8 @@ async def _build_attempt_result(
         },
         "parsed_at": datetime.now().isoformat(timespec="seconds"),
     }
+    attach_site_error_summary(result)
+    return result
 
 
 async def _extract_sample_products(
@@ -735,16 +604,7 @@ async def _extract_sample_products(
     link_selectors: list[str],
 ) -> list[dict[str, str]]:
     """Extract a small product sample from cards."""
-    products: list[dict[str, str]] = []
-    for index, card in enumerate(cards[:10], start=1):
-        name = await _query_first_text(card, name_selectors)
-        price = await _query_first_text(card, price_selectors)
-        link = await _query_first_attribute(card, link_selectors, "href")
-        if link and link.startswith("/"):
-            link = f"https://5ka.ru{link}"
-        if name or price:
-            products.append({"index": str(index), "name": name, "price": price, "link": link})
-    return products
+    return await extract_sample_products(cards, name_selectors, price_selectors, link_selectors)
 
 
 def _failed_attempt_result(
@@ -755,7 +615,7 @@ def _failed_attempt_result(
     exc: Exception,
 ) -> dict[str, Any]:
     """Build a smoke result for a failed attempt."""
-    return {
+    result = {
         "shop": "pyaterochka",
         "category": category_name,
         "category_url": category_url,
@@ -768,6 +628,8 @@ def _failed_attempt_result(
         "products_sample": [],
         "parsed_at": datetime.now().isoformat(timespec="seconds"),
     }
+    attach_site_error_summary(result)
+    return result
 
 
 def _parse_args() -> argparse.Namespace:

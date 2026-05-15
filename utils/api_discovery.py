@@ -7,6 +7,8 @@ from collections import Counter
 from datetime import datetime
 from typing import Any
 
+from utils.api_first_extractor import summarize_api_first_candidates
+from utils.interception import summarize_interception_events
 from utils.proxy import mask_proxy_url
 
 API_HOST_MARKERS = ("//5d.5ka.ru/", "//5ka.ru/")
@@ -101,6 +103,8 @@ def build_discovery_result(
     status_counts = Counter(str(event.get("status")) for event in events)
     product_events = [event for event in events if event.get("candidate_product_count", 0) > 0]
     empty_events = [event for event in events if event.get("empty_products_payload")]
+    interception_summary = summarize_interception_events(events)
+    api_first_summary = summarize_api_first_candidates(events)
     result = {
         "shop": "pyaterochka",
         "category": category_name,
@@ -116,6 +120,8 @@ def build_discovery_result(
         "events": events,
         "product_events": product_events[:10],
         "empty_events": empty_events[:10],
+        "interception": interception_summary,
+        "api_first": api_first_summary,
         "parsed_at": datetime.now().isoformat(timespec="seconds"),
     }
     if run:
@@ -193,6 +199,47 @@ def build_markdown_report(result: dict[str, Any]) -> str:
                     code=event.get("code", ""),
                     message=event.get("message", ""),
                     count=event.get("count", 1),
+                )
+            )
+    interception = result.get("interception") or {}
+    if interception:
+        lines.extend(["", "## Interception"])
+        lines.append(f"- Route counts: {interception.get('route_counts', {})}")
+        replay_candidates = interception.get("replay_candidates") or []
+        if replay_candidates:
+            lines.append("- Replay candidates:")
+            for item in replay_candidates[:5]:
+                lines.append(
+                    "  - {status}: products={count} {url}".format(
+                        status=item.get("status"),
+                        count=item.get("candidate_product_count", 0),
+                        url=item.get("url", ""),
+                    )
+                )
+        schema_candidates = interception.get("schema_candidates") or []
+        if schema_candidates:
+            lines.append("- Schema candidates:")
+            for item in schema_candidates[:5]:
+                hints = item.get("schema_hints") or {}
+                lines.append(
+                    "  - products={count}, keys={keys}".format(
+                        count=item.get("candidate_product_count", 0),
+                        keys=hints.get("top_keys", [])[:8],
+                    )
+                )
+    api_first = result.get("api_first") or {}
+    if api_first:
+        lines.extend(["", "## API-first Extraction"])
+        lines.append(f"- Candidate products: {api_first.get('candidate_count', 0)}")
+        lines.append(f"- Ready for product model: {api_first.get('ready_count', 0)}")
+        lines.append(f"- Missing fields: {api_first.get('missing_field_counts', {})}")
+        for item in (api_first.get("samples") or [])[:5]:
+            lines.append(
+                "- {id} | {name} | price={price} | missing={missing}".format(
+                    id=item.get("source_id", ""),
+                    name=item.get("name", ""),
+                    price=item.get("price"),
+                    missing=item.get("missing_fields", []),
                 )
             )
     lines.extend(["", "## Product Payload Candidates"])

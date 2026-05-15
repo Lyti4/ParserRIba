@@ -13,6 +13,16 @@ captcha tokens.
 
 - `utils.network_capture` already records safe response/failure events.
 - `utils.api_discovery` already detects likely product JSON payloads.
+- `utils.interception` now provides the store-neutral interception event shape:
+  route type, payload kind, response size, product samples, schema hints and
+  replay-candidate markers.
+- `utils.interception_profiles` now contains store-specific route classifiers.
+  Pyaterochka API classification is isolated there instead of being embedded in
+  network capture code.
+- `utils.interception_archive` writes compact safe JSON archives under
+  `data/interception/` for later extractor work.
+- `utils.api_first_extractor` now turns safe product samples from intercepted
+  responses into deduplicated API-first candidates with readiness diagnostics.
 - `utils.site_error_tracking` normalizes browser, proxy, network, challenge,
   product API and discovery errors into one report block.
 - `utils.site_error_tracking.build_browser_observations` accepts normalized
@@ -25,17 +35,13 @@ captcha tokens.
 
 ## Implementation Order
 
-1. Add `utils.interception` with a store-neutral interception result model:
-   route type, method, status, masked URL, content type, response size, payload
-   preview, candidate product count and sample products.
-2. Move Pyaterochka-specific URL/API detection into a KB-backed or store-profile
-   classifier instead of keeping it only in discovery helpers.
-3. Save a compact `data/interception/*.json` report per run with safe samples.
-4. Add schema hints for captured product payloads: id/name/price/image/link keys.
-5. Add replay-candidate diagnostics only after confirming no secret headers are
+1. Move interception profile values into `knowledge_base/` after the KB loader
+   is cleaned up.
+2. Add replay-candidate diagnostics only after confirming no secret headers are
    needed. Do not replay protected requests automatically.
-6. Feed successful product payloads into API-first extraction, with DOM/card
-   extraction as a fallback.
+3. Feed successful product payloads into the final `Product` model once real
+   Pyaterochka product links and price fields are confirmed from reports.
+4. Keep DOM/card extraction as a fallback after the API-first path is stable.
 
 ## Acceptance Rules
 

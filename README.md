@@ -1,451 +1,309 @@
-# 🐟 ParserRiba: Парсер цен на рыбные товары
+# ParserRIba
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+ParserRIba is a Windows-focused Python project for parsing fish and seafood
+prices from Russian retail stores.
 
-Профессиональная система парсинга цен на рыбные товары для крупнейших российских ритейлеров с архитектурой на основе Knowledge Base.
+The current development focus is Pyaterochka: Camoufox launch stability, proxy
+diagnostics, anti-bot/challenge visibility, safe network interception and
+API-first product extraction.
 
-## 🏪 Поддерживаемые магазины
+This repository is not yet a polished end-user release. It is a working parser
+lab moving toward a downloadable desktop app.
 
-| Магазин | Статус | Инструмент | Особенности |
-|---------|--------|------------|-------------|
-| Пятерочка | ✅ | Camoufox/Playwright | data-testid селекторы, скроллинг |
-| Магнит | ✅ | Playwright | reCAPTCHA v2, X-City-Id header |
-| Лента | ✅ | Playwright | Cloudflare Turnstile, X-Region header |
-| Перекресток | ✅ | Playwright | Cookies + X-Client-Id обязательны |
-| Ашан | ✅ | Playwright | X-Region + X-Shop-Id headers |
-| О'Кей | ✅ | Playwright | X-Store-Id header |
+## Current Status
 
-## ✨ Ключевые особенности
+What is already in place:
 
-### 🧠 Архитектура на основе Knowledge Base
-Конфигурация магазинов хранится в Markdown-файлах (`knowledge_base/*.md`), а не в коде:
-- URL категорий
-- CSS/XPath селекторы
-- HTTP заголовки
-- Стратегии обхода анти-бот защиты
+- Python 3.11 local development flow on Windows.
+- Camoufox-based visual smoke test for Pyaterochka.
+- Persistent Camoufox profile support for Pyaterochka.
+- RU proxy support through `.env`, including proxy masking in reports.
+- GeoIP support through local `GeoLite2-City.mmdb`.
+- Manual captcha workflow for visual investigation.
+- Passive API discovery for Pyaterochka catalog/network responses.
+- Safe network diagnostics with masked URLs and no cookies/auth headers saved.
+- Proxy health classification and local proxy history in SQLite.
+- Site error tracking for browser, proxy, network, challenge and product API
+  problems.
+- Store-neutral interception events with route type, schema hints, product
+  samples and replay-candidate markers.
+- API-first product candidate diagnostics from safe intercepted samples.
+- Architecture/project-state docs for future chats and automations.
 
-Это позволяет добавлять новые магазины **без изменения кода парсера**.
+Known limitations:
 
-### 🔄 Гибридный движок
-Автоматическое переключение между:
-- **curl-cffi** — быстрый запрос с impersonation (Chrome/Firefox профили)
-- **Playwright** — полноценный браузер для сложных случаев с JS и капчей
+- Pyaterochka can still show rotate-image captcha/challenge pages.
+- Product API extraction now has a safe candidate layer, but it is not yet the
+  main parser path until real Pyaterochka payload fields are confirmed.
+- Other store parsers still need cleanup and contract alignment.
+- GUI, installer, backend, Postgres and dashboard are planned later.
 
-### 🛡 Система стратегий
-Встроенные модули для обхода защит:
-- `ScrollStrategy` — эмуляция человеческого скроллинга
-- `LazyLoadStrategy` — ожидание подгрузки контента
-- `PaginationStrategy` — обработка пагинации
-- `CaptchaHandler` — обработка капчи
+## Project Layout
 
-### 📋 Policy Engine
-Автоматическая реакция на ошибки через конфигурируемые политики:
-| Ошибка | Действие |
-|--------|----------|
-| 403 Forbidden | Смена прокси + User-Agent + ожидание |
-| 429 Rate Limited | Увеличение задержки + ожидание |
-| CAPTCHA | Попытка решения + длительное ожидание |
-| Timeout | Смена прокси + повтор |
-| Selector Not Found | Переключение на Playwright |
-
-### 🌍 Региональность
-Поддержка региональных заголовков для корректного получения цен:
-- `X-Region` (Лента)
-- `X-City-Id` (Магнит)
-- `X-Store-Id` (О'Кей)
-- `X-Client-Id` (Перекресток)
-
-### 📊 Валидация данных
-Строгая типизация через **Pydantic V2**:
-```python
-class Product(BaseModel):
-    name: str
-    price: ProductPrice
-    dimensions: Optional[ProductDimensions]
-    product_link: HttpUrl
-    in_stock: bool
+```text
+knowledge_base/                 Store URLs, selectors and strategy notes
+models/                         Pydantic data models
+parsers/                        Store parser implementations and legacy parser layers
+policies/                       Error/action policy engine
+scripts/                        Smoke, discovery, build and architecture scripts
+strategies/                     Scroll, lazy-load, pagination and captcha helpers
+tests/                          Unit and smoke tests
+utils/                          Shared runtime and diagnostics helpers
+docs/                           Project state, plans, release and diagnostics docs
 ```
 
-## 📁 Структура проекта
+Important current modules:
 
-```
-ParserRiba/
-├── main.py                    # Точка входа, CLI интерфейс
-├── config.yaml                # Конфигурация (магазины, категории)
-├── requirements.txt           # Зависимости Python
-├── docker-compose.yml         # Docker оркестрация
-│
-├── parsers/                   # Парсеры магазинов
-│   ├── base_parser.py         # Базовый класс с KB интеграцией
-│   ├── pyaterochka.py         # Пятерочка (Camoufox)
-│   ├── magnit.py              # Магнит
-│   ├── lenta.py               # Лента
-│   ├── perekrestok.py         # Перекресток
-│   ├── auchan.py              # Ашан
-│   ├── okey.py                # О'Кей
-│   ├── camoufox_parser.py     # Базовый Camoufox парсер
-│   └── playwright_parser.py   # Базовый Playwright парсер
-│
-├── knowledge_base/            # Конфигурация магазинов (Markdown)
-│   ├── pyaterochka.md
-│   ├── magnit.md
-│   ├── lenta.md
-│   ├── perekrestok.md
-│   ├── auchan.md
-│   ├── okey.md
-│   └── template.md            # Шаблон для нового магазина
-│
-├── models/                    # Pydantic схемы данных
-│   ├── schemas.py             # Product, ParseResult, CategoryInfo
-│   └── product.py             # FishProduct (обратная совместимость)
-│
-├── utils/                     # Утилиты
-│   ├── kb_loader.py           # Загрузчик Knowledge Base
-│   ├── logger.py              # Настройка логирования
-│   ├── session_manager.py     # Управление сессиями браузера
-│   └── export.py              # Экспорт в JSON/CSV/Excel
-│
-├── strategies/                # Стратегии обхода защит
-│   ├── base_strategy.py       # Базовый класс стратегии
-│   ├── scroll_strategy.py     # Эмуляция скроллинга
-│   ├── lazy_load_strategy.py  # Ожидание lazy-loading
-│   ├── pagination_strategy.py # Обработка пагинации
-│   └── captcha_handler.py     # Обработка капчи
-│
-├── policies/                  # Policy Engine
-│   └── engine.py              # Движок обработки ошибок
-│
-├── tests/                     # Тесты
-│   ├── test_kb_loader.py      # Тесты загрузчика KB
-│   ├── test_models.py         # Тесты моделей
-│   └── test_parsers_smoke.py  # Smoke-тесты парсеров
-│
-└── logs/                      # Логи приложения
+- `utils.camoufox_launcher`: shared Camoufox launch options.
+- `utils.network_capture`: safe response/failure capture.
+- `utils.network_diagnostics`: network summary and proxy health.
+- `utils.interception`: structured API/network interception events.
+- `utils.api_first_extractor`: deduplicated product candidates from safe
+  intercepted samples.
+- `utils.proxy_history`: local SQLite proxy outcome history.
+- `utils.site_error_tracking`: unified report error events.
+- `utils.run_context`, `utils.session_pool`, `utils.rate_profile`: platform
+  foundation for attempts, sessions and conservative timing.
+
+## Requirements
+
+- Windows 10/11
+- Python 3.11 recommended
+- Git
+- Node.js only for optional MCP/dev tooling
+- Working RU proxy recommended for Pyaterochka investigation
+
+Python is expected at:
+
+```powershell
+C:\Python311\python.exe
 ```
 
-## 🚀 Быстрый старт
+## Setup
 
-### 1. Установка зависимостей
+From the repository root:
 
-```bash
-# Клонирование репозитория
-git clone https://github.com/Lyti4/ParserRIba.git
-cd ParserRiba
-
-# Установка Python зависимостей
-pip install -r requirements.txt
-
-# Установка браузеров Playwright
-playwright install chromium
-playwright install firefox
+```powershell
+C:\Python311\python.exe -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-### 2. Базовый запуск
+Optional Camoufox browser fetch:
 
-```bash
-# Парсинг всех включенных магазинов из конфига
-python main.py
-
-# Парсинг конкретного магазина
-python main.py --store pyaterochka
-
-# Несколько магазинов
-python main.py --store magnit lenta
-
-# Список доступных магазинов
-python main.py --list-stores
-
-# С указанием категорий
-python main.py --store pyaterochka --category "Рыба" "Морепродукты"
-
-# Запуск с видимым браузером (для отладки)
-python main.py --store pyaterochka --no-headless
-
-# Изменение уровня логирования
-python main.py --store pyaterochka --log-level DEBUG
+```powershell
+.\.venv\Scripts\python.exe -m camoufox fetch
 ```
 
-### 3. Использование как библиотеки
+## Environment
 
-```python
-import asyncio
-from parsers.pyaterochka import PyaterochkaParser
-from utils.kb_loader import KBLoader
+Create a local `.env` file if you need proxy/GeoIP settings. Do not commit it.
 
-async def main():
-    # Инициализация парсера
-    parser = PyaterochkaParser(
-        shop_name="pyaterochka",
-        region="77",  # Москва
-        headless=True
-    )
-    
-    # Загрузка Knowledge Base
-    kb = KBLoader().load_shop("pyaterochka")
-    
-    # Парсинг категории
-    category_url = kb.categories.get("Рыба")
-    result = await parser.parse_category(category_url)
-    
-    # Обработка результатов
-    print(f"Найдено товаров: {result.total_products}")
-    for product in result.products:
-        print(f"{product.name}: {product.price.current} ₽")
+Useful variables:
 
-asyncio.run(main())
+```dotenv
+PARSER_PROXY=http://user:password@host:port
+PARSER_PROXIES=http://user:password@host1:port;http://user:password@host2:port
+PARSER_GEOIP=true
 ```
 
-## ⚙️ Конфигурация
+Generated local files are intentionally ignored:
 
-### config.yaml
+- `.env`
+- `data/`
+- `profiles/`
+- `logs/`
+- `GeoLite2-*.mmdb`
+- `build/`
+- `dist/`
+- `__pycache__/`
 
-```yaml
-stores:
-  pyaterochka:
-    enabled: true
-    categories:
-      - "Рыба"
-      - "Морепродукты"
-    region: "77"
-  
-  magnit:
-    enabled: true
-    categories:
-      - "Рыба и морепродукты"
-    city_id: "1"
+## Basic Commands
 
-browser:
-  headless: true
-  timeout: 30000
-  proxy: null
+Check environment:
 
-logging:
-  level: INFO
-  file: logs/parser_riba.log
+```powershell
+.\.venv\Scripts\python.exe main.py --check-env
 ```
 
-### Переменные окружения
+List configured stores:
 
-| Переменная | Описание | По умолчанию |
-|------------|----------|--------------|
-| `OUTPUT_FILE` | Файл для экспорта | `fish_products.xlsx` |
-| `REQUEST_DELAY` | Задержка между запросами (сек) | `3` |
-| `REQUEST_TIMEOUT` | Таймаут запроса (сек) | `30` |
-| `PROXY_LIST` | Список прокси (JSON) | `[]` |
-
-## 🐳 Docker
-
-### Запуск через docker-compose
-
-```bash
-docker-compose up --build
+```powershell
+.\.venv\Scripts\python.exe main.py --list-stores
 ```
 
-### Ручной запуск
+Run tests:
 
-```bash
-# Сборка образа
-docker build -t parser-riba .
-
-# Запуск
-docker run --rm \
-  -v $(pwd)/output:/app/output \
-  -e STORES=pyaterochka,magnit \
-  parser-riba
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
 ```
 
-## 🧪 Тестирование
+Run architecture check:
 
-```bash
-# Все тесты
-pytest tests/ -v
-
-# Только тесты конфигурации
-pytest tests/test_kb_loader.py -v
-
-# Smoke-тесты парсеров (требуют сеть)
-pytest tests/test_parsers_smoke.py -v
-
-# С покрытием
-pytest --cov=parsers --cov-report=html
+```powershell
+.\.venv\Scripts\python.exe scripts\architecture_check.py
 ```
 
-## 📖 Добавление нового магазина
+Compile check:
 
-### Шаг 1: Создайте файл Knowledge Base
-
-Скопируйте `knowledge_base/template.md` в `knowledge_base/newstore.md`:
-
-```markdown
-# 📘 Knowledge Base: Новый Магазин
-
-## ℹ️ Общая информация
-- **Базовый URL**: `https://newstore.ru`
-- **Тип защиты**: [описание]
-
-## 🔗 URLs категорий
-| Категория | URL |
-|-----------|-----|
-| Рыба | `https://newstore.ru/catalog/fish` |
-
-## 🎯 CSS Селекторы
-### Карточка товара
-```css
-div.product-card
+```powershell
+.\.venv\Scripts\python.exe -m compileall -q main.py models parsers policies strategies utils scripts tests
 ```
 
-### Название
-```css
-h3.product-title
+## Pyaterochka Visual Smoke
+
+Use this when checking the real browser flow, captcha behavior and product
+visibility:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_pyaterochka_visual.ps1
 ```
 
-## 🌐 Заголовки
-```python
-{'X-Custom-Header': 'value'}
+If a captcha appears, solve it manually in the Camoufox window. Press Enter in
+PowerShell only after the catalog/product cards are visible.
+
+Reports are written to:
+
+```text
+data/pyaterochka_camoufox_smoke.json
+data/pyaterochka_camoufox_smoke.md
 ```
 
-## 🛡 Анти-бот защита
-- [ ] Требуется скроллинг
-- [ ] Есть капча
-- [ ] Нужен Playwright
+Useful report sections:
+
+- `Run Context`
+- `Network`
+- `Proxy Diagnostics`
+- `Proxy History`
+- `Site Error Tracking`
+- `Product API Diagnostics`
+- `Sample Products`
+
+## Pyaterochka API Discovery
+
+Use passive discovery after the browser is open and the challenge is solved:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\discover_pyaterochka_api.py --listen-seconds 180
 ```
 
-### Шаг 2: Создайте парсер
+Reports are written to:
 
-```python
-# parsers/newstore.py
-from parsers.base_parser import BaseParser
-from models.schemas import Product, ParseResult
-
-class NewStoreParser(BaseParser):
-    async def _fetch_page(self, url: str, page: int) -> str:
-        # Реализация загрузки страницы
-        
-    async def _parse_products(self, html: str, category_url: str) -> List[Product]:
-        # Реализация парсинга
-        
-    async def _has_next_page(self, html: str, page: int) -> bool:
-        # Проверка пагинации
-        
-    async def _get_next_page_url(self, html: str, category_url: str, page: int) -> Optional[str]:
-        # Получение URL следующей страницы
+```text
+data/pyaterochka_api_discovery.json
+data/pyaterochka_api_discovery.md
 ```
 
-### Шаг 3: Зарегистрируйте парсер
+The discovery report includes an `Interception` section with:
 
-Добавьте в `main.py` в `ParserFactory.PARSERS`:
+- route counts;
+- product payload candidates;
+- schema hints;
+- replay-candidate markers.
 
-```python
-PARSERS = {
-    "newstore": NewStoreParser,
-    # ...
-}
+It also includes an `API-first Extraction` section. This tells us how many safe
+product candidates were found, how many already have the fields needed for the
+final product model, and which fields are still missing.
+
+Replay candidates are diagnostics only. The project does not automatically
+replay protected requests until the safe API path is understood.
+
+## Project Memory For New Chats
+
+The repository now contains project-state files so new chats and automations can
+continue without hidden chat history.
+
+Read these first:
+
+```text
+AGENTS.md
+docs/PROJECT_STATE.md
+docs/NEXT_STEPS.md
+docs/AUTOMATIONS.md
+docs/ARCHITECTURE_STEWARD.md
+docs/DECISIONS.md
 ```
 
-## 🔧 Расширенные возможности
+Suggested prompt for a new Codex chat:
 
-### Кастомные политики
-
-```python
-from policies.engine import PoliciesEngine, PolicyRule, ErrorType, ActionType
-
-engine = PoliciesEngine()
-
-# Добавить свою политику
-engine.add_policy(PolicyRule(
-    error_types=[ErrorType.HTTP_403],
-    actions=[ActionType.CHANGE_PROXY, ActionType.WAIT_AND_RETRY],
-    max_retries=5,
-    delay_between_retries=3.0,
-    priority=10
-))
+```text
+Continue ParserRIba in C:\tmp\ParserRIba-clean. First read AGENTS.md,
+docs/PROJECT_STATE.md, docs/NEXT_STEPS.md, docs/AUTOMATIONS.md and
+docs/ARCHITECTURE_STEWARD.md. Then run git status, run the relevant tests, and
+continue the active plan without adding paid services or committing secrets.
 ```
 
-### Стратегии
+## Local Codex Skills
 
-```python
-from strategies.scroll_strategy import ScrollStrategy
-from strategies.lazy_load_strategy import LazyLoadStrategy
+Local project skills are stored under:
 
-strategy = ScrollStrategy(
-    scroll_pause=0.5,
-    max_scrolls=10,
-    human_like=True
-)
-
-await strategy.apply(page)
+```text
+C:\Users\Дима\.codex\skills
 ```
 
-## 📊 Выходные данные
+Current project skills:
 
-### JSON формат
+- `parserriba-architecture-steward`
+- `parserriba-parser-contract-check`
+- `parserriba-camoufox-smoke-diagnostics`
+- `parserriba-proxy-diagnostics`
+- `parserriba-site-error-diagnostics`
 
-```json
-{
-  "shop": "pyaterochka",
-  "category": {
-    "name": "Рыба",
-    "url": "https://5ka.ru/catalog/ryba/"
-  },
-  "products": [
-    {
-      "name": "Лосось филе",
-      "price": {
-        "current": 1299.99,
-        "old": 1599.99,
-        "currency": "RUB",
-        "discount_percent": 19
-      },
-      "dimensions": {
-        "weight": 1000,
-        "unit_type": "g"
-      },
-      "product_link": "https://5ka.ru/prod/12345",
-      "in_stock": true,
-      "parsed_at": "2024-01-15T10:30:00"
-    }
-  ],
-  "total_products": 1,
-  "page": 1,
-  "parse_duration_ms": 2345
-}
+They are helper instructions for Codex. They are not runtime dependencies for
+end users.
+
+## MCP Tooling
+
+Configured local MCP servers include:
+
+- `filesystem`
+- `git`
+- `sqlite`
+- `context7`
+- `playwright`
+- `chrome-devtools`
+- `memory`
+- `sequential-thinking`
+
+Chrome DevTools MCP and Playwright MCP are diagnostics tools only. ParserRIba
+runtime remains Python + Camoufox.
+
+## Development Priorities
+
+Current order:
+
+1. Stabilize Pyaterochka visual smoke and API discovery.
+2. Move Pyaterochka route/API detection from the temporary store profile into
+   the KB-backed classifier after KB loader cleanup.
+3. Keep saving compact safe interception reports.
+4. Promote API-first candidates into the final Pyaterochka product mapper after
+   real payload fields are confirmed.
+5. Keep DOM/card extraction as fallback.
+6. Add local SQLite product and price history.
+7. Add normalization and deduplication.
+8. Move to FastAPI/Postgres/workers/dashboard only after useful data is stable.
+
+## Safety Rules
+
+- Do not commit `.env`, proxy credentials, cookies, auth headers, captcha
+  tokens, browser profiles, generated reports or local databases.
+- Do not add paid scraping APIs, captcha-solving services, hosted LLMs or cloud
+  services without explicit approval.
+- Do not treat Chrome/Playwright MCP as the production parser runtime.
+- Keep store-specific URLs and selectors in `knowledge_base/`.
+- Keep tests green before pushing.
+
+## Build Notes
+
+Portable Windows build support exists, but public release work should wait until
+the parser path is stable:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_windows.ps1 -Clean
 ```
 
-## 🆘 Решение проблем
+Release planning lives in:
 
-### Частые ошибки
-
-| Проблема | Решение |
-|----------|---------|
-| 403 Forbidden | Используйте `--no-headless`, увеличьте задержки |
-| CAPTCHA | Решите вручную первый раз, сохраните cookies |
-| Timeout | Проверьте прокси, увеличьте `REQUEST_TIMEOUT` |
-| Нет товаров | Обновите селекторы в Knowledge Base |
-
-### Отладка
-
-```bash
-# Режим отладки с видимым браузером
-python main.py --store pyaterochka --no-headless --log-level DEBUG
-
-# Просмотр логов
-tail -f logs/parser_riba.log
-```
-
-## 🤝 Вклад в проект
-
-1. Форкните репозиторий
-2. Создайте ветку (`git checkout -b feature/amazing-feature`)
-3. Закоммитьте изменения (`git commit -m 'Add amazing feature'`)
-4. Пушните (`git push origin feature/amazing-feature`)
-5. Откройте Pull Request
-
-## 📄 Лицензия
-
-MIT License — см. файл [LICENSE](LICENSE)
-
-## 📞 Контакты
-
-- GitHub: [@Lyti4](https://github.com/Lyti4)
-- Issues: [GitHub Issues](https://github.com/Lyti4/ParserRIba/issues)
+- `docs/DISTRIBUTION_PLAN.md`
+- `docs/INSTALLER_ROADMAP.md`
+- `docs/RELEASE_CHECKLIST.md`

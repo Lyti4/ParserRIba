@@ -29,6 +29,15 @@ safe base for the next refactor step.
 - Shared safe network capture helpers live in `utils.network_capture`, covering
   diagnostic URL masking, empty product payload detection, API discovery
   response capture, request failure capture, and proxy preflight.
+- Store-neutral interception event helpers live in `utils.interception`,
+  covering route classification, payload kind, response size, product samples,
+  schema hints and replay-candidate markers for safe API discovery.
+- Store-specific interception route rules live in `utils.interception_profiles`.
+  They keep Pyaterochka route classification out of generic capture code until
+  these rules can move into `knowledge_base/`.
+- API-first candidate extraction lives in `utils.api_first_extractor`. It
+  deduplicates safe intercepted product samples and reports whether each sample
+  has enough fields for the final `Product` model.
 - Shared network summary and proxy health classification helpers live in
   `utils.network_diagnostics`, covering response status groups, request failure
   groups, product API samples, empty product payload samples, estimated response
@@ -53,11 +62,11 @@ safe base for the next refactor step.
    tests cover the behavior that is still needed.
 2. Choose one canonical parser base contract and make `main.ParserFactory`
    import checks clean for all stores.
-3. Build a dedicated data interception layer from the current passive discovery
-   helpers: route/API classifier, response sampler, schema detector, request
-   replay candidate collector, and safe product payload archive.
+3. Move temporary interception profile values into `knowledge_base/` after the
+   KB loader is ready for them.
 4. After Pyaterochka product API discovery captures real product payloads,
-   build API-first extraction and leave DOM extraction as fallback.
+   promote API-first candidates into the final `Product` mapper and leave DOM
+   extraction as fallback.
 
 ## Acceptance Gates
 

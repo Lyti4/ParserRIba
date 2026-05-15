@@ -27,6 +27,8 @@ from utils.camoufox_launcher import build_camoufox_options, configure_windows_co
 from utils.env import load_dotenv_file  # noqa: E402
 from utils.kb_loader import KBLoader  # noqa: E402
 from utils.network_capture import record_api_discovery_response  # noqa: E402
+from utils.interception_archive import write_interception_archive  # noqa: E402
+from utils.interception_profiles import get_interception_profile  # noqa: E402
 from utils.proxy import choose_proxy_for_attempt, load_proxy_urls, mask_proxy_url  # noqa: E402
 from utils.proxy_history import ProxyHistoryStore, build_proxy_attempt_record  # noqa: E402
 from utils.rate_profile import protected_store_rate_profile  # noqa: E402
@@ -40,7 +42,11 @@ PROXY_ENV = "PARSER_PROXY"
 
 async def _record_response(response: Any, events: list[dict[str, Any]]) -> None:
     """Capture safe response diagnostics for interesting API calls."""
-    captured = await record_api_discovery_response(response, events)
+    captured = await record_api_discovery_response(
+        response,
+        events,
+        profile=get_interception_profile("pyaterochka"),
+    )
     if captured:
         logger.info("Captured API response {}", response.url)
 
@@ -155,14 +161,15 @@ async def _capture_events(
     return events
 
 
-def _write_outputs(result: dict[str, Any]) -> tuple[Path, Path]:
+def _write_outputs(result: dict[str, Any]) -> tuple[Path, Path, Path]:
     """Write JSON and Markdown discovery reports."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     json_path = OUTPUT_DIR / "pyaterochka_api_discovery.json"
     md_path = OUTPUT_DIR / "pyaterochka_api_discovery.md"
     json_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     md_path.write_text(build_markdown_report(result), encoding="utf-8")
-    return json_path, md_path
+    archive_path = write_interception_archive(result, OUTPUT_DIR / "interception")
+    return json_path, md_path, archive_path
 
 
 def _parse_args() -> argparse.Namespace:
@@ -186,6 +193,7 @@ if __name__ == "__main__":
             headless=args.headless,
         )
     )
-    output_path, report_path = _write_outputs(result_payload)
+    output_path, report_path, archive_path = _write_outputs(result_payload)
     logger.info("Discovery JSON saved: {}", output_path)
     logger.info("Discovery report saved: {}", report_path)
+    logger.info("Interception archive saved: {}", archive_path)

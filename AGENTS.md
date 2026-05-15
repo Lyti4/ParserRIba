@@ -1,0 +1,56 @@
+# ParserRIba Agent Guide
+
+You are working on ParserRIba in `C:\tmp\ParserRIba-clean`.
+
+Read these files first in any new chat or automation:
+
+1. `AGENTS.md`
+2. `docs/PROJECT_STATE.md`
+3. `docs/NEXT_STEPS.md`
+4. `docs/AUTOMATIONS.md`
+5. `docs/ARCHITECTURE_STEWARD.md`
+
+## Project Rules
+
+- Python 3.10+, asyncio-first.
+- Browser runtime is Camoufox through async Playwright-compatible APIs.
+- Keep URLs, selectors and store rules in `knowledge_base/`.
+- Use Pydantic v2 models and loguru logging.
+- Do not add paid services, cloud LLMs, captcha-solving services or external
+  APIs without explicit user approval.
+- Do not commit secrets, `.env`, proxy credentials, browser profiles, cookies,
+  captcha tokens, `GeoLite2-City.mmdb`, logs, `data/`, `dist/`, `build/`,
+  `__pycache__/` or `.pyc`.
+
+## Hard Constraints
+
+- Do not call `.get()` on Pydantic model instances. Use attributes,
+  `getattr(...)`, or `model_dump(...)`.
+- Do not call `.close()` on `AsyncCamoufox` / `Camoufox`. Use `async with` or
+  `__aexit__`.
+- Do not use `time.sleep()`. Use `asyncio.sleep()` or browser wait APIs.
+- Do not use `print()` for logs in runtime code. Use loguru.
+- Keep new Python files below 300 lines when practical.
+
+## Current Focus
+
+The current work is not GUI or installer. The current focus is:
+
+1. Stabilize Pyaterochka Camoufox discovery.
+2. Build the safe network interception layer.
+3. Capture product API payload candidates.
+4. Build API-first extraction with DOM/card fallback.
+5. Persist products and price history locally before moving to backend work.
+
+## Validation
+
+Run from `C:\tmp\ParserRIba-clean`:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m compileall -q main.py models parsers policies strategies utils scripts tests
+.\.venv\Scripts\python.exe scripts\architecture_check.py
+```
+
+Expected current state: tests pass, compile succeeds, architecture check has no
+errors but still reports known legacy warnings.

@@ -7,12 +7,8 @@ from time import perf_counter
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from utils.api_discovery import (
-    extract_product_candidates,
-    is_interesting_api_url,
-    safe_json_loads,
-    summarize_event,
-)
+from utils.interception import build_interception_event, classify_route
+from utils.interception_profiles import InterceptionProfile
 from utils.proxy import mask_proxy_url
 
 DEFAULT_PROXY_PREFLIGHT_URL = "https://api.ipify.org?format=json"
@@ -117,36 +113,38 @@ async def record_network_failure(request: Any, network_events: list[dict[str, An
     )
 
 
-async def record_api_discovery_response(response: Any, events: list[dict[str, Any]]) -> bool:
+async def record_api_discovery_response(
+    response: Any,
+    events: list[dict[str, Any]],
+    *,
+    profile: InterceptionProfile | None = None,
+) -> bool:
     """Capture safe response diagnostics for interesting catalog API calls."""
     url = sanitize_diagnostic_url(str(response.url), max_length=420)
-    if not is_interesting_api_url(url):
+    if classify_route(url, profile=profile) != "product_api":
         return False
-    event: dict[str, Any] = {
-        "method": response.request.method,
-        "status": response.status,
-        "url": url,
-    }
     try:
         headers = await response.all_headers()
     except Exception:
         headers = {}
     content_type = str(headers.get("content-type", ""))
-    event["content_type"] = content_type.split(";")[0] if content_type else ""
+    payload_text = ""
+    error = ""
     if "json" in content_type.lower():
         try:
             payload_text = await response.text()
         except Exception as exc:
-            event["error"] = str(exc).splitlines()[0][:200]
-        else:
-            payload = safe_json_loads(payload_text)
-            event["empty_products_payload"] = payload_has_empty_products(payload_text)
-            event["payload_preview"] = payload_preview(payload_text, max_length=700)
-            if payload is not None:
-                products = extract_product_candidates(payload)
-                event["candidate_product_count"] = len(products)
-                event["sample_products"] = products
-    events.append(summarize_event(event))
+            error = str(exc).splitlines()[0][:200]
+    event = build_interception_event(
+        method=str(response.request.method),
+        status=response.status,
+        url=url,
+        content_type=content_type,
+        payload_text=payload_text,
+        error=error,
+        profile=profile,
+    )
+    events.append(event.as_report_dict())
     return True
 
 

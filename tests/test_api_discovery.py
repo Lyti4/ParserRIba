@@ -49,7 +49,10 @@ def test_build_discovery_result_groups_product_and_empty_events() -> None:
             {
                 "status": 200,
                 "url": "https://5d.5ka.ru/api/catalog/products",
+                "route_type": "product_api",
                 "candidate_product_count": 1,
+                "replay_candidate": True,
+                "schema_hints": {"top_keys": ["id", "name", "price"]},
             },
             {
                 "status": 200,
@@ -63,6 +66,9 @@ def test_build_discovery_result_groups_product_and_empty_events() -> None:
     assert result["product_events_count"] == 1
     assert result["empty_events_count"] == 1
     assert result["proxy"] == "http://***:***@example.com:1000"
+    assert result["interception"]["route_counts"] == {"product_api": 1, "unknown": 1}
+    assert result["interception"]["replay_candidates"][0]["candidate_product_count"] == 1
+    assert result["api_first"]["candidate_count"] == 0
 
 
 def test_build_markdown_report_mentions_product_candidates() -> None:
@@ -86,6 +92,35 @@ def test_build_markdown_report_mentions_product_candidates() -> None:
                 }
             ],
             "empty_events": [],
+            "interception": {
+                "route_counts": {"product_api": 1},
+                "replay_candidates": [
+                    {
+                        "status": 200,
+                        "url": "https://5d.5ka.ru/api/catalog/products",
+                        "candidate_product_count": 1,
+                    }
+                ],
+                "schema_candidates": [
+                    {
+                        "candidate_product_count": 1,
+                        "schema_hints": {"top_keys": ["id", "name", "price"]},
+                    }
+                ],
+            },
+            "api_first": {
+                "candidate_count": 1,
+                "ready_count": 1,
+                "missing_field_counts": {},
+                "samples": [
+                    {
+                        "source_id": "123",
+                        "name": "Р¤РѕСЂРµР»СЊ",
+                        "price": 100.0,
+                        "missing_fields": [],
+                    }
+                ],
+            },
             "site_errors": {
                 "total": 1,
                 "severity_counts": {"warning": 1},
@@ -104,5 +139,6 @@ def test_build_markdown_report_mentions_product_candidates() -> None:
     )
 
     assert "Product Payload Candidates" in report
+    assert "API-first Extraction" in report
     assert "Site Error Tracking" in report
     assert "123 | Форель | 100" in report

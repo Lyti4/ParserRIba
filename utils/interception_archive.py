@@ -74,6 +74,7 @@ def _compact_api_first_sample(sample: dict[str, Any]) -> dict[str, Any]:
         "image": sample.get("image", ""),
         "link": sample.get("link", ""),
         "availability": sample.get("availability"),
+        "field_sources": sample.get("field_sources", {}),
         "missing_fields": sample.get("missing_fields", []),
     }
     return {key: value for key, value in compact.items() if value not in ("", None, [])}

@@ -18,7 +18,7 @@ def test_build_interception_archive_keeps_only_safe_compact_fields() -> None:
                     "required_fields": ["source_id", "name", "price", "link", "image", "availability"],
                     "missing_fields": ["source_id", "link", "image", "availability"],
                 },
-                "samples": [{"name": "Fish", "price": 100, "token": "secret"}],
+                "samples": [{"name": "Fish", "price": 100, "field_sources": {"name": "title"}, "token": "secret"}],
             },
             "events": [
                 {
@@ -41,7 +41,7 @@ def test_build_interception_archive_keeps_only_safe_compact_fields() -> None:
         "image",
         "availability",
     ]
-    assert archive["api_first"]["samples"] == [{"name": "Fish", "price": 100}]
+    assert archive["api_first"]["samples"] == [{"name": "Fish", "price": 100, "field_sources": {"name": "title"}}]
     assert "extra_raw_headers" not in archive["events"][0]
     assert "secret" not in str(archive)
 

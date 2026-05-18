@@ -27,6 +27,36 @@ def test_build_api_product_candidate_marks_ready_sample() -> None:
     assert candidate.missing_fields == ()
 
 
+def test_build_api_product_candidate_reads_pyaterochka_alias_fields() -> None:
+    candidate = build_api_product_candidate(
+        {
+            "productId": "123",
+            "title": "Forel",
+            "current_price": 199,
+            "product_url": "https://5ka.ru/product/123",
+            "image_link": "https://img.example/123.webp",
+            "inStock": 1,
+        },
+        source_url="https://5d.5ka.ru/api/catalog/products",
+    )
+
+    assert candidate.source_id == "123"
+    assert candidate.name == "Forel"
+    assert candidate.price == 199.0
+    assert candidate.image == "https://img.example/123.webp"
+    assert candidate.link == "https://5ka.ru/product/123"
+    assert candidate.availability is True
+    assert candidate.field_sources == {
+        "source_id": "productId",
+        "name": "title",
+        "price": "current_price",
+        "image": "image_link",
+        "link": "product_url",
+        "availability": "inStock",
+    }
+    assert candidate.ready_for_product_model is True
+
+
 def test_extract_api_product_candidates_deduplicates_samples() -> None:
     events = [
         {

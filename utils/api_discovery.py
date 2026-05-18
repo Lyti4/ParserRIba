@@ -248,13 +248,15 @@ def build_markdown_report(result: dict[str, Any]) -> str:
                 )
             )
         for item in (api_first.get("samples") or [])[:5]:
+            sources = item.get("field_sources")
             lines.append(
-                "- {id} | {name} | price={price} | available={available} | missing={missing}".format(
+                "- {id} | {name} | price={price} | available={available} | missing={missing}{sources}".format(
                     id=item.get("source_id", ""),
                     name=item.get("name", ""),
                     price=item.get("price"),
                     available=item.get("availability"),
                     missing=item.get("missing_fields", []),
+                    sources=f" | sources={sources}" if sources else "",
                 )
             )
     lines.extend(["", "## Product Payload Candidates"])

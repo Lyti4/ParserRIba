@@ -8,6 +8,12 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 PRODUCT_MAPPER_REQUIRED_FIELDS = ("source_id", "name", "price", "link", "image", "availability")
+PRODUCT_ID_KEYS = ("id", "plu", "product_id", "productId", "sku", "slug")
+PRODUCT_NAME_KEYS = ("name", "title")
+PRODUCT_PRICE_KEYS = ("price", "current_price", "price_current", "regular_price", "prices")
+PRODUCT_IMAGE_KEYS = ("image", "image_link", "image_url", "imageUrl")
+PRODUCT_LINK_KEYS = ("link", "url", "href", "product_url", "productUrl", "webUrl")
+PRODUCT_AVAILABILITY_KEYS = ("availability", "available", "in_stock", "inStock", "isAvailable", "stock")
 
 
 @dataclass(frozen=True)
@@ -25,6 +31,7 @@ class ApiProductCandidate:
     ready_for_product_model: bool
     missing_fields: tuple[str, ...]
     raw_keys: tuple[str, ...]
+    field_sources: dict[str, str]
 
     def as_report_dict(self) -> dict[str, Any]:
         """Return a JSON-safe report shape."""
@@ -77,12 +84,21 @@ def summarize_api_first_candidates(events: list[dict[str, Any]]) -> dict[str, An
 
 def build_api_product_candidate(sample: dict[str, Any], *, source_url: str) -> ApiProductCandidate:
     """Normalize one intercepted sample into a stable candidate shape."""
-    source_id = _string_value(sample, "id")
-    name = _string_value(sample, "name")
-    image = _first_string(sample, ("image", "image_url", "imageUrl"))
-    link = _first_string(sample, ("link", "url", "href", "productUrl", "webUrl"))
-    price = _extract_price(sample.get("price"))
-    availability = _extract_availability(sample.get("availability"))
+    source_id = _first_string(sample, PRODUCT_ID_KEYS)
+    name = _first_string(sample, PRODUCT_NAME_KEYS)
+    image = _first_string(sample, PRODUCT_IMAGE_KEYS)
+    link = _first_string(sample, PRODUCT_LINK_KEYS)
+    price = _first_price(sample, PRODUCT_PRICE_KEYS)
+    availability = _first_availability(sample, PRODUCT_AVAILABILITY_KEYS)
+    field_sources = {
+        "source_id": _first_present_key(sample, PRODUCT_ID_KEYS),
+        "name": _first_present_key(sample, PRODUCT_NAME_KEYS),
+        "price": _first_present_key(sample, PRODUCT_PRICE_KEYS),
+        "image": _first_present_key(sample, PRODUCT_IMAGE_KEYS),
+        "link": _first_present_key(sample, PRODUCT_LINK_KEYS),
+        "availability": _first_present_key(sample, PRODUCT_AVAILABILITY_KEYS),
+    }
+    field_sources = {key: value for key, value in field_sources.items() if value}
     missing = _missing_fields(name=name, price=price, link=link)
     dedupe_key = _dedupe_key(source_id=source_id, name=name, link=link)
     raw_keys = tuple(str(key) for key in sample.get("keys") or sorted(sample))
@@ -98,6 +114,7 @@ def build_api_product_candidate(sample: dict[str, Any], *, source_url: str) -> A
         ready_for_product_model=not missing,
         missing_fields=missing,
         raw_keys=raw_keys[:30],
+        field_sources=field_sources,
     )
 
 
@@ -166,6 +183,31 @@ def _first_string(sample: dict[str, Any], keys: tuple[str, ...]) -> str:
             if nested:
                 return nested
     return ""
+
+
+def _first_present_key(sample: dict[str, Any], keys: tuple[str, ...]) -> str:
+    for key in keys:
+        if key in sample:
+            return key
+    return ""
+
+
+def _first_price(sample: dict[str, Any], keys: tuple[str, ...]) -> float | None:
+    for key in keys:
+        if key in sample:
+            price = _extract_price(sample[key])
+            if price is not None:
+                return price
+    return None
+
+
+def _first_availability(sample: dict[str, Any], keys: tuple[str, ...]) -> bool | None:
+    for key in keys:
+        if key in sample:
+            found = _extract_availability(sample[key])
+            if found is not None:
+                return found
+    return None
 
 
 def _first_nested_url(value: Any) -> str:

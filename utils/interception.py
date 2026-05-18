@@ -10,12 +10,12 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from utils.interception_profiles import GENERIC_INTERCEPTION_PROFILE, InterceptionProfile
 
-PRODUCT_NAME_KEYS = {"name", "title"}
-PRODUCT_ID_KEYS = {"id", "plu", "product_id", "productId", "sku", "slug"}
-PRODUCT_PRICE_KEYS = {"price", "regular_price", "current_price", "price_current", "prices"}
-PRODUCT_IMAGE_KEYS = {"image", "image_url", "imageUrl", "images", "picture", "pictures"}
-PRODUCT_LINK_KEYS = {"url", "link", "href", "productUrl", "webUrl"}
-PRODUCT_AVAILABILITY_KEYS = {"available", "availability", "in_stock", "inStock", "isAvailable", "stock"}
+PRODUCT_NAME_KEYS = ("name", "title")
+PRODUCT_ID_KEYS = ("id", "plu", "product_id", "productId", "sku", "slug")
+PRODUCT_PRICE_KEYS = ("price", "current_price", "price_current", "regular_price", "prices")
+PRODUCT_IMAGE_KEYS = ("image", "image_link", "image_url", "imageUrl", "images", "picture", "pictures")
+PRODUCT_LINK_KEYS = ("link", "url", "href", "product_url", "productUrl", "webUrl")
+PRODUCT_AVAILABILITY_KEYS = ("availability", "available", "in_stock", "inStock", "isAvailable", "stock")
 JSON_CONTENT_MARKERS = ("json", "javascript")
 SENSITIVE_QUERY_KEYS = tuple(
     "access auth authorization captcha cookie email hcheck key oirut password phone refresh request_ secret session sid token".split()
@@ -162,9 +162,9 @@ def extract_product_candidates(payload: Any, limit: int = 10) -> list[dict[str, 
     candidates: list[dict[str, Any]] = []
     for item in iter_dicts(payload):
         keys = set(item)
-        has_name = bool(keys & PRODUCT_NAME_KEYS)
-        has_identity = bool(keys & PRODUCT_ID_KEYS)
-        has_price = bool(keys & PRODUCT_PRICE_KEYS)
+        has_name = _has_any(item, PRODUCT_NAME_KEYS)
+        has_identity = _has_any(item, PRODUCT_ID_KEYS)
+        has_price = _has_any(item, PRODUCT_PRICE_KEYS)
         if not has_name or not (has_identity or has_price):
             continue
         candidates.append(
@@ -191,7 +191,7 @@ def infer_schema_hints(payload: Any, limit: int = 20) -> dict[str, Any]:
         keys = set(str(key) for key in item)
         for key in keys:
             key_counts[key] = key_counts.get(key, 0) + 1
-        if keys & PRODUCT_NAME_KEYS and (keys & PRODUCT_ID_KEYS or keys & PRODUCT_PRICE_KEYS):
+        if _has_any(item, PRODUCT_NAME_KEYS) and (_has_any(item, PRODUCT_ID_KEYS) or _has_any(item, PRODUCT_PRICE_KEYS)):
             product_like += 1
     return {
         "product_like_objects": product_like,
@@ -223,7 +223,11 @@ def summarize_interception_events(events: list[dict[str, Any]]) -> dict[str, Any
     }
 
 
-def _first_value(item: dict[str, Any], keys: set[str]) -> Any:
+def _has_any(item: dict[str, Any], keys: tuple[str, ...]) -> bool:
+    return any(key in item for key in keys)
+
+
+def _first_value(item: dict[str, Any], keys: tuple[str, ...]) -> Any:
     for key in keys:
         if key in item:
             return item[key]

@@ -131,6 +131,7 @@ def test_build_markdown_report_mentions_product_candidates() -> None:
                         "name": "Р¤РѕСЂРµР»СЊ",
                         "price": 100.0,
                         "availability": True,
+                        "field_sources": {"source_id": "productId", "price": "current_price"},
                         "missing_fields": [],
                     }
                 ],
@@ -157,6 +158,7 @@ def test_build_markdown_report_mentions_product_candidates() -> None:
     assert "Field coverage" in report
     assert "availability=1" in report
     assert "Mapper readiness: ready=True" in report
+    assert "sources={'source_id': 'productId', 'price': 'current_price'}" in report
     assert "Site Error Tracking" in report
     assert "available=True" in report
     assert "123 | Форель | 100" in report

@@ -29,6 +29,28 @@ def test_build_interception_event_extracts_product_schema() -> None:
     assert "abc" not in payload["url"]
 
 
+def test_build_interception_event_normalizes_pyaterochka_alias_fields() -> None:
+    event = build_interception_event(
+        method="GET",
+        status=200,
+        url="https://5d.5ka.ru/api/catalog/v3/products",
+        content_type="application/json",
+        payload_text=(
+            '{"items":[{"id":"123","slug":"fish-slug","title":"Fish",'
+            '"current_price":199,"image_link":"img.webp","product_url":"/p/123","inStock":1}]}'
+        ),
+    )
+
+    product = event.as_report_dict()["sample_products"][0]
+
+    assert product["id"] == "123"
+    assert product["name"] == "Fish"
+    assert product["price"] == 199
+    assert product["image"] == "img.webp"
+    assert product["link"] == "/p/123"
+    assert product["availability"] == 1
+
+
 def test_classify_route_detects_challenge_and_assets() -> None:
     assert classify_route("https://5ka.ru/xpvnsulc/") == "challenge"
     assert classify_route("https://5ka.ru/api/orders/v1/cart") == "product_api"

@@ -49,6 +49,41 @@ def test_build_interception_event_normalizes_pyaterochka_alias_fields() -> None:
     assert product["image"] == "img.webp"
     assert product["link"] == "/p/123"
     assert product["availability"] == 1
+    assert product["field_sources"] == {
+        "id": "id",
+        "name": "title",
+        "price": "current_price",
+        "image": "image_link",
+        "link": "product_url",
+        "availability": "inStock",
+    }
+
+
+def test_build_interception_event_reads_confirmed_live_payload_fields() -> None:
+    event = build_interception_event(
+        method="GET",
+        status=200,
+        url="https://5d.5ka.ru/api/catalog/v2/stores/35XY/categories/251C13077/products",
+        content_type="application/json",
+        payload_text=(
+            '{"items":[{"plu":4023639,"name":"Forel","prices":{"regular":"999.99"},'
+            '"image_links":[{"url":"https://img.example/4023639.webp"}],"is_available":true}]}'
+        ),
+    )
+
+    product = event.as_report_dict()["sample_products"][0]
+
+    assert product["id"] == 4023639
+    assert product["name"] == "Forel"
+    assert product["image"] == "https://img.example/4023639.webp"
+    assert product["availability"] is True
+    assert product["field_sources"] == {
+        "id": "plu",
+        "name": "name",
+        "price": "prices",
+        "image": "image_links",
+        "availability": "is_available",
+    }
 
 
 def test_classify_route_detects_challenge_and_assets() -> None:
@@ -72,6 +107,15 @@ def test_interception_summary_collects_replay_candidates() -> None:
     assert summary["route_counts"] == {"product_api": 1}
     assert summary["replay_candidates"][0]["candidate_product_count"] == 1
     assert summary["schema_candidates"][0]["schema_hints"]["has_price_key"] is True
+    assert summary["schema_candidates"][0]["sample_products"] == [
+        {
+            "id": "10",
+            "name": "Salmon",
+            "price": {"regular": 200},
+            "field_sources": {"id": "plu", "name": "title", "price": "prices"},
+            "keys": ["plu", "prices", "title"],
+        }
+    ]
 
 
 def test_schema_hints_handles_non_product_json() -> None:

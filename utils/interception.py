@@ -13,9 +13,9 @@ from utils.interception_profiles import GENERIC_INTERCEPTION_PROFILE, Intercepti
 PRODUCT_NAME_KEYS = ("name", "title")
 PRODUCT_ID_KEYS = ("id", "plu", "product_id", "productId", "sku", "slug")
 PRODUCT_PRICE_KEYS = ("price", "current_price", "price_current", "regular_price", "prices")
-PRODUCT_IMAGE_KEYS = ("image", "image_link", "image_url", "imageUrl", "images", "picture", "pictures")
+PRODUCT_IMAGE_KEYS = ("image", "image_link", "image_links", "image_url", "imageUrl", "images", "picture", "pictures")
 PRODUCT_LINK_KEYS = ("link", "url", "href", "product_url", "productUrl", "webUrl")
-PRODUCT_AVAILABILITY_KEYS = ("availability", "available", "in_stock", "inStock", "isAvailable", "stock")
+PRODUCT_AVAILABILITY_KEYS = ("availability", "available", "in_stock", "inStock", "is_available", "isAvailable", "stock")
 JSON_CONTENT_MARKERS = ("json", "javascript")
 SENSITIVE_QUERY_KEYS = tuple(
     "access auth authorization captcha cookie email hcheck key oirut password phone refresh request_ secret session sid token".split()
@@ -167,17 +167,7 @@ def extract_product_candidates(payload: Any, limit: int = 10) -> list[dict[str, 
         has_price = _has_any(item, PRODUCT_PRICE_KEYS)
         if not has_name or not (has_identity or has_price):
             continue
-        candidates.append(
-            {
-                "id": _first_value(item, PRODUCT_ID_KEYS),
-                "name": _first_value(item, PRODUCT_NAME_KEYS),
-                "price": _first_value(item, PRODUCT_PRICE_KEYS),
-                "image": _first_value(item, PRODUCT_IMAGE_KEYS),
-                "link": _first_value(item, PRODUCT_LINK_KEYS),
-                "availability": _first_value(item, PRODUCT_AVAILABILITY_KEYS),
-                "keys": sorted(str(key) for key in keys)[:25],
-            }
-        )
+        candidates.append(build_product_candidate(item, keys=keys))
         if len(candidates) >= limit:
             break
     return candidates
@@ -234,6 +224,73 @@ def _first_value(item: dict[str, Any], keys: tuple[str, ...]) -> Any:
     return ""
 
 
+def _field_sources(item: dict[str, Any]) -> dict[str, str]:
+    return {
+        name: key
+        for name, key in {
+            "id": _first_present_key(item, PRODUCT_ID_KEYS),
+            "name": _first_present_key(item, PRODUCT_NAME_KEYS),
+            "price": _first_present_key(item, PRODUCT_PRICE_KEYS),
+            "image": _first_present_key(item, PRODUCT_IMAGE_KEYS),
+            "link": _first_present_key(item, PRODUCT_LINK_KEYS),
+            "availability": _first_present_key(item, PRODUCT_AVAILABILITY_KEYS),
+        }.items()
+        if key
+    }
+
+
+def _first_present_key(item: dict[str, Any], keys: tuple[str, ...]) -> str:
+    for key in keys:
+        if key in item:
+            return key
+    return ""
+
+
+def build_product_candidate(item: dict[str, Any], *, keys: set[Any] | None = None) -> dict[str, Any]:
+    """Build one normalized product candidate from a raw payload object."""
+    candidate_keys = keys or set(item)
+    return {
+        "id": _first_value(item, PRODUCT_ID_KEYS),
+        "name": _first_value(item, PRODUCT_NAME_KEYS),
+        "price": _first_value(item, PRODUCT_PRICE_KEYS),
+        "image": _first_nested_value(item, PRODUCT_IMAGE_KEYS),
+        "link": _first_nested_value(item, PRODUCT_LINK_KEYS),
+        "availability": _first_value(item, PRODUCT_AVAILABILITY_KEYS),
+        "field_sources": _field_sources(item),
+        "keys": sorted(str(key) for key in candidate_keys)[:25],
+    }
+
+
+def _first_nested_value(item: dict[str, Any], keys: tuple[str, ...]) -> Any:
+    for key in keys:
+        if key not in item:
+            continue
+        value = item[key]
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            return value
+        nested = _first_nested_text(value)
+        if nested:
+            return nested
+        return value
+    return ""
+
+
+def _first_nested_text(value: Any) -> str:
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        for nested in value.values():
+            found = _first_nested_text(nested)
+            if found:
+                return found
+    if isinstance(value, list):
+        for item in value:
+            found = _first_nested_text(item)
+            if found:
+                return found
+    return ""
+
+
 def _is_sensitive_key(key: Any) -> bool:
     lowered = str(key).lower()
     return any(marker in lowered for marker in SENSITIVE_QUERY_KEYS)
@@ -282,10 +339,27 @@ def _is_replay_candidate(event: InterceptionEvent) -> bool:
 
 
 def _event_sample(event: dict[str, Any]) -> dict[str, Any]:
+    sample_products = event.get("sample_products") or []
     return {
         "method": event.get("method", ""),
         "status": event.get("status"),
         "url": event.get("url", ""),
         "candidate_product_count": event.get("candidate_product_count", 0),
         "schema_hints": event.get("schema_hints", {}),
+        "sample_products": [compact_sample_product(item) for item in sample_products[:2] if isinstance(item, dict)],
     }
+
+
+def compact_sample_product(sample: dict[str, Any]) -> dict[str, Any]:
+    """Return a report-safe compact product sample."""
+    compact = {
+        "id": sample.get("id", ""),
+        "name": sample.get("name", ""),
+        "price": sample.get("price"),
+        "image": sample.get("image", ""),
+        "link": sample.get("link", ""),
+        "availability": sample.get("availability"),
+        "field_sources": sample.get("field_sources", {}),
+        "keys": sample.get("keys", []),
+    }
+    return {key: value for key, value in compact.items() if value not in ("", None, [], {})}

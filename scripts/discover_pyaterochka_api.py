@@ -6,10 +6,11 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import sys
 import warnings
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from camoufox.async_api import AsyncCamoufox
 from loguru import logger
@@ -38,6 +39,7 @@ from utils.site_error_tracking import attach_site_error_summary  # noqa: E402
 
 OUTPUT_DIR = ROOT_DIR / "data"
 PROXY_ENV = "PARSER_PROXY"
+MANUAL_DISCOVERY_PROMPT = "Solve captcha if needed, then press Enter. After that, scroll/open catalog pages..."
 
 
 async def _record_response(response: Any, events: list[dict[str, Any]], profile: InterceptionProfile) -> None:
@@ -55,6 +57,7 @@ async def discover_pyaterochka_api(
     category_name: str = DEFAULT_CATEGORY,
     listen_seconds: int = 180,
     headless: bool | str | None = None,
+    manual_wait: bool = True,
 ) -> dict[str, Any]:
     """Open Pyaterochka and passively capture catalog API responses."""
     configure_windows_console()
@@ -87,7 +90,14 @@ async def discover_pyaterochka_api(
         user_data_dir=PROFILE_DIR,
     )
     try:
-        events = await _capture_events(category_url, kb.headers.custom, launch_options, listen_seconds, interception_profile)
+        events, dom_link_evidence = await _capture_events(
+            category_url,
+            kb.headers.custom,
+            launch_options,
+            listen_seconds,
+            interception_profile,
+            manual_wait=manual_wait,
+        )
     except Exception as exc:
         reason = str(exc).splitlines()[0][:200]
         attempt.finish("failed", reason)
@@ -109,6 +119,7 @@ async def discover_pyaterochka_api(
         geoip_enabled=geoip_enabled,
         listen_seconds=listen_seconds,
         events=events,
+        dom_link_evidence=dom_link_evidence,
         run=run_context.summary(),
         attempt=attempt.summary(),
         session=session.summary(),
@@ -135,9 +146,12 @@ async def _capture_events(
     launch_options: dict[str, Any],
     listen_seconds: int,
     interception_profile: InterceptionProfile,
-) -> list[dict[str, Any]]:
+    *,
+    manual_wait: bool,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Open a browser and passively collect relevant API responses."""
     events: list[dict[str, Any]] = []
+    dom_link_evidence: dict[str, Any] = {}
     tasks: set[asyncio.Task[None]] = set()
     async with AsyncCamoufox(**launch_options) as browser:
         page = await browser.new_page()
@@ -152,15 +166,73 @@ async def _capture_events(
             await page.set_extra_http_headers(headers)
         logger.info("Opening {}", category_url)
         await page.goto(category_url, wait_until="domcontentloaded", timeout=60_000)
-        await asyncio.to_thread(
-            input,
-            "Solve captcha if needed, then press Enter. After that, scroll/open catalog pages...",
-        )
+        await _wait_for_manual_ready(manual_wait=manual_wait)
         logger.info("Listening for catalog API responses for {} seconds", listen_seconds)
         await page.wait_for_timeout(listen_seconds * 1000)
+        dom_link_evidence = await _collect_dom_product_links(page)
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
-    return events
+    return events, dom_link_evidence
+
+
+async def _wait_for_manual_ready(
+    *,
+    manual_wait: bool,
+    prompt_func: Callable[[str], Any] = input,
+) -> None:
+    """Wait for manual captcha/user confirmation when enabled."""
+    if not manual_wait:
+        logger.info("Skipping manual discovery prompt; listening starts immediately")
+        return
+    await asyncio.to_thread(prompt_func, MANUAL_DISCOVERY_PROMPT)
+
+
+async def _collect_dom_product_links(page: Any, *, limit: int = 10) -> dict[str, Any]:
+    """Collect visible DOM product links for later comparison with API ids."""
+    raw_links = await page.evaluate(
+        """
+        (limit) => {
+          const anchors = Array.from(document.querySelectorAll('a[href*="/product/"]'));
+          return anchors.slice(0, Math.max(limit * 3, limit)).map((anchor) => ({
+            href: String(anchor.href || '').trim(),
+            title: String(anchor.textContent || '').replace(/\\s+/g, ' ').trim(),
+          }));
+        }
+        """,
+        limit,
+    )
+    unique_links: list[dict[str, str]] = []
+    seen: set[str] = set()
+    product_ids: list[str] = []
+    links_by_id: dict[str, str] = {}
+    for item in raw_links:
+        if not isinstance(item, dict):
+            continue
+        href = str(item.get("href") or "").strip()
+        if not href or href in seen or "/product/" not in href:
+            continue
+        seen.add(href)
+        unique_links.append({"href": href, "title": str(item.get("title") or "").strip()})
+        product_id = _extract_product_id_from_href(href)
+        if product_id:
+            product_ids.append(product_id)
+            links_by_id[product_id] = href
+        if len(unique_links) >= limit:
+            break
+    return {
+        "count": len(unique_links),
+        "sample_links": unique_links,
+        "product_ids": product_ids,
+        "links_by_id": links_by_id,
+    }
+
+
+def _extract_product_id_from_href(href: str) -> str:
+    """Extract numeric product id from a public 5ka product URL."""
+    match = re.search(r"/product/[^/]*--(\d+)/?$", href)
+    if match:
+        return match.group(1)
+    return ""
 
 
 def _write_outputs(result: dict[str, Any]) -> tuple[Path, Path, Path]:
@@ -174,14 +246,17 @@ def _write_outputs(result: dict[str, Any]) -> tuple[Path, Path, Path]:
     return json_path, md_path, archive_path
 
 
-def _parse_args() -> argparse.Namespace:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse CLI arguments."""
     parser = argparse.ArgumentParser(description="Discover Pyaterochka catalog API responses")
     parser.add_argument("--category", default=DEFAULT_CATEGORY)
     parser.add_argument("--listen-seconds", type=int, default=180)
     parser.add_argument("--headless", action="store_true", default=None)
     parser.add_argument("--no-headless", action="store_false", dest="headless")
-    return parser.parse_args()
+    parser.set_defaults(manual_wait=True)
+    parser.add_argument("--manual-wait", action="store_true", dest="manual_wait")
+    parser.add_argument("--no-manual-wait", action="store_false", dest="manual_wait")
+    return parser.parse_args(argv)
 
 
 if __name__ == "__main__":
@@ -193,6 +268,7 @@ if __name__ == "__main__":
             category_name=args.category,
             listen_seconds=args.listen_seconds,
             headless=args.headless,
+            manual_wait=args.manual_wait,
         )
     )
     output_path, report_path, archive_path = _write_outputs(result_payload)

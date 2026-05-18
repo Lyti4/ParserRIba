@@ -7,6 +7,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from utils.interception import compact_sample_product
+
 
 def build_interception_archive(result: dict[str, Any]) -> dict[str, Any]:
     """Build compact safe interception archive payload."""
@@ -47,7 +49,7 @@ def _compact_event(event: dict[str, Any]) -> dict[str, Any]:
         "payload_kind": event.get("payload_kind", ""),
         "empty_products_payload": event.get("empty_products_payload"),
         "candidate_product_count": event.get("candidate_product_count", 0),
-        "sample_products": event.get("sample_products", [])[:5],
+        "sample_products": [compact_sample_product(item) for item in (event.get("sample_products") or [])[:5]],
         "schema_hints": event.get("schema_hints", {}),
         "payload_preview": event.get("payload_preview", ""),
         "replay_candidate": event.get("replay_candidate", False),

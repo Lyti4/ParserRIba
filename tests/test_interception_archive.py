@@ -26,7 +26,10 @@ def test_build_interception_archive_keeps_only_safe_compact_fields() -> None:
                     "status": 200,
                     "url": "https://5ka.ru/api/catalog?token=%2A%2A%2A",
                     "route_type": "product_api",
-                    "sample_products": [{"name": "Fish"}, {"name": "Other"}],
+                    "sample_products": [
+                        {"name": "Fish", "field_sources": {"name": "title"}, "token": "secret"},
+                        {"name": "Other"},
+                    ],
                     "extra_raw_headers": {"cookie": "secret"},
                 }
             ],
@@ -42,6 +45,10 @@ def test_build_interception_archive_keeps_only_safe_compact_fields() -> None:
         "availability",
     ]
     assert archive["api_first"]["samples"] == [{"name": "Fish", "price": 100, "field_sources": {"name": "title"}}]
+    assert archive["events"][0]["sample_products"] == [
+        {"name": "Fish", "field_sources": {"name": "title"}},
+        {"name": "Other"},
+    ]
     assert "extra_raw_headers" not in archive["events"][0]
     assert "secret" not in str(archive)
 

@@ -2,70 +2,38 @@
 
 from __future__ import annotations
 
-import json
 from collections import Counter
 from datetime import datetime
 from typing import Any
 
 from utils.api_first_extractor import summarize_api_first_candidates
-from utils.interception import summarize_interception_events
+from utils.interception import (PRODUCT_ID_KEYS, PRODUCT_NAME_KEYS, PRODUCT_PRICE_KEYS,
+                                build_product_candidate, iter_dicts, safe_json_loads,
+                                summarize_interception_events)
 from utils.proxy import mask_proxy_url
 
 API_HOST_MARKERS = ("//5d.5ka.ru/", "//5ka.ru/")
 API_PATH_MARKERS = ("/api/catalog", "/api/products", "/api/search", "/api/orders")
-PRODUCT_NAME_KEYS = {"name", "title"}
-PRODUCT_ID_KEYS = {"id", "plu", "product_id", "productId", "slug"}
-PRODUCT_PRICE_KEYS = {"price", "regular_price", "current_price", "price_current", "prices"}
 
 
 def is_interesting_api_url(url: str) -> bool:
     """Return True for catalog/product API URLs worth capturing."""
     lowered = url.lower()
-    return any(host in lowered for host in API_HOST_MARKERS) and any(
-        path in lowered for path in API_PATH_MARKERS
-    )
-
-
-def safe_json_loads(payload: str) -> Any:
-    """Parse JSON payloads and return None on malformed content."""
-    try:
-        return json.loads(payload)
-    except json.JSONDecodeError:
-        return None
-
-
-def iter_dicts(value: Any) -> list[dict[str, Any]]:
-    """Collect nested dictionaries from a JSON-like payload."""
-    found: list[dict[str, Any]] = []
-    if isinstance(value, dict):
-        found.append(value)
-        for item in value.values():
-            found.extend(iter_dicts(item))
-    elif isinstance(value, list):
-        for item in value:
-            found.extend(iter_dicts(item))
-    return found
+    return any(host in lowered for host in API_HOST_MARKERS) and any(path in lowered for path in API_PATH_MARKERS)
 
 
 def extract_product_candidates(payload: Any, limit: int = 10) -> list[dict[str, Any]]:
     """Extract likely product records from arbitrary catalog JSON."""
     candidates: list[dict[str, Any]] = []
     for item in iter_dicts(payload):
-        keys = set(item)
-        has_name = bool(keys & PRODUCT_NAME_KEYS)
-        has_identity = bool(keys & PRODUCT_ID_KEYS)
-        has_price = bool(keys & PRODUCT_PRICE_KEYS)
+        has_name = any(key in item for key in PRODUCT_NAME_KEYS)
+        has_identity = any(key in item for key in PRODUCT_ID_KEYS)
+        has_price = any(key in item for key in PRODUCT_PRICE_KEYS)
         if not has_name or not (has_identity or has_price):
             continue
-        candidates.append(
-            {
-                "id": item.get("id") or item.get("plu") or item.get("product_id") or item.get("productId") or "",
-                "name": item.get("name") or item.get("title") or "",
-                "price": item.get("price") or item.get("regular_price") or item.get("current_price") or "",
-                "slug": item.get("slug") or "",
-                "keys": sorted(str(key) for key in keys)[:25],
-            }
-        )
+        candidate = build_product_candidate(item)
+        candidate["slug"] = str(item.get("slug") or "")
+        candidates.append(candidate)
         if len(candidates) >= limit:
             break
     return candidates
@@ -98,6 +66,7 @@ def build_discovery_result(
     attempt: dict[str, Any] | None = None,
     session: dict[str, Any] | None = None,
     rate_profile: dict[str, Any] | None = None,
+    dom_link_evidence: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the discovery report payload."""
     status_counts = Counter(str(event.get("status")) for event in events)
@@ -105,6 +74,9 @@ def build_discovery_result(
     empty_events = [event for event in events if event.get("empty_products_payload")]
     interception_summary = summarize_interception_events(events)
     api_first_summary = summarize_api_first_candidates(events)
+    dom_link_summary = _summarize_dom_link_evidence(dom_link_evidence, api_first_summary)
+    api_first_summary = summarize_api_first_candidates(events, dom_link_summary.get("links_by_id") or {})
+    dom_link_summary = _summarize_dom_link_evidence(dom_link_evidence, api_first_summary)
     result = {
         "shop": "pyaterochka",
         "category": category_name,
@@ -122,6 +94,7 @@ def build_discovery_result(
         "empty_events": empty_events[:10],
         "interception": interception_summary,
         "api_first": api_first_summary,
+        "dom_link_evidence": dom_link_summary,
         "parsed_at": datetime.now().isoformat(timespec="seconds"),
     }
     if run:
@@ -209,11 +182,13 @@ def build_markdown_report(result: dict[str, Any]) -> str:
         if replay_candidates:
             lines.append("- Replay candidates:")
             for item in replay_candidates[:5]:
+                sample_sources = _sample_sources_suffix(item)
                 lines.append(
-                    "  - {status}: products={count} {url}".format(
+                    "  - {status}: products={count} {url}{sources}".format(
                         status=item.get("status"),
                         count=item.get("candidate_product_count", 0),
                         url=item.get("url", ""),
+                        sources=sample_sources,
                     )
                 )
         schema_candidates = interception.get("schema_candidates") or []
@@ -221,10 +196,12 @@ def build_markdown_report(result: dict[str, Any]) -> str:
             lines.append("- Schema candidates:")
             for item in schema_candidates[:5]:
                 hints = item.get("schema_hints") or {}
+                sample_sources = _sample_sources_suffix(item)
                 lines.append(
-                    "  - products={count}, keys={keys}".format(
+                    "  - products={count}, keys={keys}{sources}".format(
                         count=item.get("candidate_product_count", 0),
                         keys=hints.get("top_keys", [])[:8],
+                        sources=sample_sources,
                     )
                 )
     api_first = result.get("api_first") or {}
@@ -233,6 +210,20 @@ def build_markdown_report(result: dict[str, Any]) -> str:
         lines.append(f"- Candidate products: {api_first.get('candidate_count', 0)}")
         lines.append(f"- Ready for product model: {api_first.get('ready_count', 0)}")
         lines.append(f"- Missing fields: {api_first.get('missing_field_counts', {})}")
+        source_filter = api_first.get("source_filter") or {}
+        if source_filter:
+            lines.append(
+                "- Source filter: mode={mode}, eligible={eligible}, excluded={excluded}".format(
+                    mode=source_filter.get("mode", ""),
+                    eligible=source_filter.get("eligible_events_count", 0),
+                    excluded=source_filter.get("excluded_events_count", 0),
+                )
+            )
+            excluded_urls = source_filter.get("excluded_urls") or []
+            if excluded_urls:
+                lines.append("- Excluded URLs:")
+                for url in excluded_urls[:5]:
+                    lines.append(f"  - {url}")
         coverage = api_first.get("field_coverage") or {}
         if coverage:
             lines.append(
@@ -247,6 +238,23 @@ def build_markdown_report(result: dict[str, Any]) -> str:
                     missing=mapper_readiness.get("missing_fields", []),
                 )
             )
+        link_evidence = api_first.get("link_evidence") or {}
+        if link_evidence:
+            lines.append(
+                "- Link evidence: products_have_link_key={products_have_link_key}, eligible_with_link={eligible_with_link}, eligible_without_link={eligible_without_link}".format(
+                    products_have_link_key=link_evidence.get("products_have_link_key", False),
+                    eligible_with_link=link_evidence.get("eligible_product_events_with_link_key", 0),
+                    eligible_without_link=link_evidence.get("eligible_product_events_without_link_key", 0),
+                )
+            )
+            non_product_link_keys = link_evidence.get("non_product_link_keys") or []
+            if non_product_link_keys:
+                lines.append(f"- Non-product link keys: {non_product_link_keys}")
+            non_product_link_urls = link_evidence.get("non_product_link_urls") or []
+            if non_product_link_urls:
+                lines.append("- Non-product link URLs:")
+                for url in non_product_link_urls[:5]:
+                    lines.append(f"  - {url}")
         for item in (api_first.get("samples") or [])[:5]:
             sources = item.get("field_sources")
             lines.append(
@@ -259,6 +267,20 @@ def build_markdown_report(result: dict[str, Any]) -> str:
                     sources=f" | sources={sources}" if sources else "",
                 )
             )
+    dom_link_evidence = result.get("dom_link_evidence") or {}
+    if dom_link_evidence:
+        lines.extend(["", "## DOM Link Evidence"])
+        lines.append(f"- DOM product links: {dom_link_evidence.get('count', 0)}")
+        lines.append(f"- API source ids: {dom_link_evidence.get('api_source_ids', [])}")
+        lines.append(f"- Matched API ids: {dom_link_evidence.get('matched_api_source_ids', [])}")
+        lines.append(f"- Unmatched DOM ids: {dom_link_evidence.get('unmatched_dom_product_ids', [])}")
+        for item in (dom_link_evidence.get("sample_links") or [])[:5]:
+            lines.append(
+                "- {href} | {title}".format(
+                    href=item.get("href", ""),
+                    title=item.get("title", ""),
+                )
+            )
     lines.extend(["", "## Product Payload Candidates"])
     product_events = result.get("product_events") or []
     if not product_events:
@@ -267,7 +289,17 @@ def build_markdown_report(result: dict[str, Any]) -> str:
     for event in product_events:
         lines.append(f"- {event.get('status')}: {event.get('url')}")
         for product in event.get("sample_products", [])[:5]:
-            lines.append(f"  - {product.get('id', '')} | {product.get('name', '')} | {product.get('price', '')}")
+            sources = product.get("field_sources")
+            lines.append(
+                "  - {id} | {name} | {price} | {link} | available={available}{sources}".format(
+                    id=product.get("id", ""),
+                    name=product.get("name", ""),
+                    price=product.get("price", ""),
+                    link=product.get("link", ""),
+                    available=product.get("availability", ""),
+                    sources=f" | sources={sources}" if sources else "",
+                )
+            )
     lines.extend(["", "## Empty Payloads"])
     empty_events = result.get("empty_events") or []
     if not empty_events:
@@ -280,3 +312,49 @@ def build_markdown_report(result: dict[str, Any]) -> str:
             lines.append(f"  - {preview}")
     lines.append("")
     return "\n".join(lines)
+
+
+def _sample_sources_suffix(item: dict[str, Any]) -> str:
+    sample_products = item.get("sample_products") or []
+    if not sample_products:
+        return ""
+    sources = sample_products[0].get("field_sources") if isinstance(sample_products[0], dict) else None
+    return f" | sources={sources}" if sources else ""
+
+
+def _summarize_dom_link_evidence(dom_link_evidence: dict[str, Any] | None, api_first: dict[str, Any]) -> dict[str, Any]:
+    if not dom_link_evidence:
+        return {}
+    links_by_id = {
+        str(key): str(value)
+        for key, value in (dom_link_evidence.get("links_by_id") or {}).items()
+        if str(key) and str(value)
+    }
+    if not links_by_id:
+        sample_links = dom_link_evidence.get("sample_links") or []
+        product_ids = dom_link_evidence.get("product_ids") or []
+        for product_id, item in zip(product_ids, sample_links):
+            if not isinstance(item, dict):
+                continue
+            href = str(item.get("href") or "")
+            if str(product_id) and href:
+                links_by_id[str(product_id)] = href
+    api_source_ids = sorted(
+        {
+            str(item.get("source_id"))
+            for item in (api_first.get("samples") or [])
+            if str(item.get("source_id") or "")
+        }
+    )
+    product_ids = [str(value) for value in (dom_link_evidence.get("product_ids") or []) if str(value)]
+    matched = [value for value in product_ids if value in api_source_ids]
+    unmatched = [value for value in product_ids if value not in api_source_ids]
+    return {
+        "count": int(dom_link_evidence.get("count", 0)),
+        "sample_links": dom_link_evidence.get("sample_links", [])[:10],
+        "product_ids": product_ids[:20],
+        "links_by_id": links_by_id,
+        "api_source_ids": api_source_ids[:20],
+        "matched_api_source_ids": matched[:20],
+        "unmatched_dom_product_ids": unmatched[:20],
+    }

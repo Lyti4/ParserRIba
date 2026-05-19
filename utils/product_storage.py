@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from models.schemas import Product
+from utils.onboarding_storage import initialize_onboarding_tables
 
 
 class ProductStorage:
@@ -60,6 +61,7 @@ class ProductStorage:
                 "CREATE INDEX IF NOT EXISTS idx_price_history_lookup "
                 "ON price_history(store, product_id, captured_at)"
             )
+            initialize_onboarding_tables(connection)
 
     def save_products(self, store: str, products: list[Product]) -> None:
         """Upsert current product state and append price history rows."""

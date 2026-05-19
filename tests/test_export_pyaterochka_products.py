@@ -1,11 +1,9 @@
 from models.schemas import Product
 from scripts.export_pyaterochka_products import (
     build_products_from_discovery_result,
-    build_products_from_result,
     build_products_from_product_items,
     extract_product_items_from_payload,
     export_pyaterochka_products,
-    resolve_export_category_names,
 )
 
 
@@ -156,99 +154,6 @@ async def test_export_pyaterochka_products_retries_until_success() -> None:
     assert payload["products_count"] == 1
     assert payload["attempt"]["status"] == "ok"
     assert payload["products"][0]["id"] == "4023639"
-
-
-def test_resolve_export_category_names_defaults_to_fish_and_seafood() -> None:
-    assert resolve_export_category_names("Рыба") == ["Рыба", "Морепродукты", "Икра и закуски", "Котлеты и фарш"]
-    assert resolve_export_category_names("Рыба и морепродукты") == [
-        "Рыба",
-        "Морепродукты",
-        "Икра и закуски",
-        "Котлеты и фарш",
-    ]
-    assert resolve_export_category_names("Морепродукты") == ["Морепродукты"]
-
-
-def test_resolve_export_category_names_prefers_matching_kb_categories() -> None:
-    available = {
-        "Рыба и морепродукты": "https://example.test/fish-seafood",
-        "Икра и рыбные деликатесы": "https://example.test/caviar",
-        "Котлеты и фарш": "https://example.test/fish-mince",
-        "Мясо": "https://example.test/meat",
-    }
-
-    assert resolve_export_category_names("Рыба", available) == [
-        "Рыба и морепродукты",
-        "Икра и рыбные деликатесы",
-        "Котлеты и фарш",
-    ]
-    assert resolve_export_category_names("Рыба и морепродукты", available) == [
-        "Рыба и морепродукты",
-        "Икра и рыбные деликатесы",
-        "Котлеты и фарш",
-    ]
-
-
-def test_resolve_export_category_names_expands_split_kb_categories() -> None:
-    available = {
-        "Рыба": "https://example.test/fish",
-        "Морепродукты": "https://example.test/seafood",
-        "Икра и закуски": "https://example.test/caviar",
-        "Котлеты и фарш": "https://example.test/fish-mince",
-        "Мясо": "https://example.test/meat",
-    }
-
-    assert resolve_export_category_names("Рыба", available) == [
-        "Рыба",
-        "Морепродукты",
-        "Икра и закуски",
-        "Котлеты и фарш",
-    ]
-
-
-def test_resolve_export_category_names_keeps_fish_derived_categories() -> None:
-    available = {
-        "Рыба": "https://example.test/fish",
-        "Морепродукты": "https://example.test/seafood",
-        "Икра и рыбные деликатесы": "https://example.test/caviar",
-        "Котлеты и фарш": "https://example.test/semi-finished",
-    }
-
-    assert resolve_export_category_names("Рыба", available) == [
-        "Рыба",
-        "Морепродукты",
-        "Икра и рыбные деликатесы",
-        "Котлеты и фарш",
-    ]
-
-
-def test_build_products_from_result_prefers_raw_capture() -> None:
-    result = {
-        "category": "Рыба",
-        "raw_product_items": [
-            {
-                "plu": 4023639,
-                "name": "Треска",
-                "prices": {"regular": "999.99"},
-                "image_links": [{"url": "https://img.example/4023639.webp"}],
-                "is_available": True,
-            }
-        ],
-        "dom_link_evidence": {
-            "links_by_id": {
-                "4023639": "https://5ka.ru/product/treska--4023639/",
-            }
-        },
-        "api_first": {"samples": []},
-    }
-
-    products = build_products_from_result(result)
-
-    assert len(products) == 1
-    assert products[0].id == "4023639"
-    assert str(products[0].product_link) == "https://5ka.ru/product/treska--4023639/"
-
-
 async def test_export_pyaterochka_products_combines_fish_and_seafood_categories() -> None:
     calls: list[str] = []
 

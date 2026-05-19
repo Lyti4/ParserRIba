@@ -1,4 +1,4 @@
-from utils.category_intents import resolve_fish_catalog_categories
+from utils.category_intents import get_category_intent_resolver, resolve_fish_catalog_categories
 
 
 def test_resolve_fish_catalog_categories_defaults_without_kb() -> None:
@@ -50,3 +50,9 @@ def test_resolve_fish_catalog_categories_preserves_direct_request() -> None:
     }
 
     assert resolve_fish_catalog_categories("Морепродукты", available) == ["Морепродукты"]
+
+
+def test_get_category_intent_resolver_returns_fish_catalog() -> None:
+    resolver = get_category_intent_resolver("fish_catalog")
+
+    assert resolver("Рыба") == ["Рыба", "Морепродукты", "Икра и закуски", "Котлеты и фарш"]

@@ -16,7 +16,6 @@ if str(ROOT_DIR) not in sys.path:
 
 from models.schemas import Product
 from scripts.discover_pyaterochka_api import DEFAULT_CATEGORY, OUTPUT_DIR
-from scripts.export_store_catalog import build_store_export_payload, get_store_export_backend, write_store_export
 from utils.kb_loader import KBLoader
 from utils.pyaterochka_catalog_capture import capture_pyaterochka_catalog
 from utils.pyaterochka_export import (
@@ -24,9 +23,10 @@ from utils.pyaterochka_export import (
     build_products_from_product_items,
     build_products_from_result,
     extract_product_items_from_payload,
-    merge_products,
     resolve_export_category_names,
 )
+from utils.store_catalog_registry import get_store_export_backend
+from utils.store_export_runtime import build_store_export_payload, write_store_export
 
 DiscoverFunc = Callable[..., Awaitable[dict[str, Any]]]
 

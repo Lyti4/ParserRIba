@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Final
+from typing import Callable, Final
 
 FISH_CATALOG_DEFAULT_CATEGORIES: Final[list[str]] = [
     "Рыба",
@@ -18,6 +18,7 @@ FISH_CATALOG_DERIVED_GROUPS: Final[tuple[tuple[str, ...], ...]] = (
     ("икра", "деликатес", "закуск"),
     ("котлет", "фарш"),
 )
+CategoryIntentResolver = Callable[[str, dict[str, str] | None], list[str]]
 
 
 def resolve_fish_catalog_categories(
@@ -43,6 +44,14 @@ def resolve_fish_catalog_categories(
         if ordered:
             return ordered
     return [normalized]
+
+
+def get_category_intent_resolver(intent: str) -> CategoryIntentResolver:
+    """Return resolver for a known category intent."""
+    normalized = str(intent or "").strip().casefold()
+    if normalized == "fish_catalog":
+        return resolve_fish_catalog_categories
+    raise ValueError(f"Unsupported category intent: {intent}")
 
 
 def _find_exact_category_name(available_categories: dict[str, str], target_name: str) -> str:

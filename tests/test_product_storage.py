@@ -1,4 +1,6 @@
+from models.onboarding import ArtifactPaths, OnboardingResult
 from models.schemas import Product
+from utils.onboarding_storage import OnboardingStorage
 from utils.product_storage import ProductStorage
 
 
@@ -109,3 +111,24 @@ def test_product_storage_reports_latest_snapshot_changes(tmp_path) -> None:
             "current_in_stock": False,
         }
     ]
+
+
+def test_product_storage_saves_and_loads_onboarding_session(tmp_path) -> None:
+    store = OnboardingStorage(tmp_path / "products.db")
+    session = OnboardingResult(
+        session_id="session-1",
+        shop_slug="pyaterochka",
+        site_url="https://5ka.ru",
+        intent="fish_catalog",
+        status="runtime_ready",
+        selected_categories=["Рыба", "Морепродукты"],
+        artifact_paths=ArtifactPaths(session_state_path=str(tmp_path / "session.json")),
+    )
+
+    store.save_onboarding_session(session)
+    saved = store.get_onboarding_session("session-1")
+
+    assert saved["session_id"] == "session-1"
+    assert saved["status"] == "runtime_ready"
+    assert saved["selected_categories"] == ["Рыба", "Морепродукты"]
+    assert saved["schema_version"] == 1

@@ -54,6 +54,9 @@ async def run_catalog_tree_discovery(
         manual_wait=manual_wait,
         listen_seconds=listen_seconds,
     )
+    context_phase_events = getattr(context, "phase_events", [])
+    if context_phase_events:
+        phase_events = list(context_phase_events)
     category_names = _limit_category_names([item.name or item.url for item in discovery.category_links])
     phase_events.append(
         make_phase_event(

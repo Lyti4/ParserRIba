@@ -24,6 +24,7 @@ Detailed launcher rebuild plan:
 
 - `docs/LAUNCHER_ARCHITECTURE.md`
 - `docs/superpowers/plans/2026-05-22-launcher-discovery-first-rebuild.md`
+- `docs/superpowers/plans/2026-05-23-camoufox-research-walker-implementation.md`
 
 1. Keep the current local task layer stable:
    - onboarding discovery;
@@ -47,13 +48,20 @@ Detailed launcher rebuild plan:
    - collect products by chosen sections;
    - choose filters from real collected data;
    - build report and open Excel / report folder / JSON.
-5. Keep Pyaterochka runtime stable while the launcher layer is added:
-   launcher export must reuse the existing Pyaterochka local task/backend path
-   with Camoufox, RU proxy/GeoIP, persistent profile/session behavior,
-   human-like behavior, safe interception, API-first candidates, DOM fallback
-   and anti-bot/proxy/error reporting.
-6. Continue using SQLite as the main desktop storage.
-7. Defer installer/update work until the launcher MVP is usable end-to-end.
+5. Keep moving the new `Исследование` core toward an active Camoufox walker:
+   - serial single-page browser session;
+   - menu expansion before tree capture;
+   - bounded category traversal with repeat limits;
+   - short listing validation probes;
+   - launcher-safe phase reporting and partial warnings.
+6. Keep the current Pyaterochka runtime available as a legacy reference while
+   the launcher layer is added:
+   - do not block the new discovery core on direct reuse of that runtime;
+   - keep the old path for diagnostics, comparison, and understanding proven
+     anti-bot/proxy/human-behavior mechanics;
+   - allow launcher research to evolve as its own adaptive browser engine.
+7. Continue using SQLite as the main desktop storage.
+8. Defer installer/update work until the launcher MVP is usable end-to-end.
 
 ## Next Refactors
 

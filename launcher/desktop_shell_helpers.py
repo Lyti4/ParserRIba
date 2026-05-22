@@ -64,6 +64,18 @@ def set_category_selection(shell: Any, selected: bool) -> None:
     shell._refresh_ui()
 
 
+def set_result_selection(shell: Any, selected: bool) -> None:
+    """Select or clear every visible product row in the result table."""
+    if shell.result_table is None:
+        return
+    if selected:
+        shell.result_table.selectAll()
+    else:
+        shell.result_table.clearSelection()
+    shell._on_result_selection_changed()
+    shell._refresh_ui()
+
+
 def clear_filter_selections(shell: Any, filter_keys: tuple[str, ...]) -> None:
     """Clear all visible multi-select filters and sync launcher state."""
     clear_multi_select_widgets(shell.filter_widgets.values())

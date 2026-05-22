@@ -41,4 +41,10 @@ def build_launcher_task_view(
         "diagnostics_summary": dict(diagnostics_summary or {}),
         "catalog_discovery": dict(catalog_discovery or {}),
         "intent_category_links": list(intent_category_links or []),
+        "research_mode": str(summary.get("research_mode") or ""),
+        "current_phase": str(summary.get("current_phase") or ""),
+        "active_profile_id": str(summary.get("active_profile_id") or ""),
+        "active_profile_version_id": str(summary.get("active_profile_version_id") or ""),
+        "streamed_categories": list(summary.get("streamed_categories") or []),
+        "partial_research": bool(summary.get("partial_research")),
     }

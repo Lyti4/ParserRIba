@@ -81,9 +81,15 @@ def build_onboarding_manifest(
             "category_count": len(result.category_tree),
             "category_tree": [node.model_dump(mode="json") for node in result.category_tree],
             "selected_categories": list(result.selected_categories),
+            "active_profile_id": result.active_profile_id,
+            "active_profile_version_id": result.active_profile_version_id,
+            "streamed_categories": list(result.streamed_categories),
+            "research_mode": result.research_mode,
+            "current_phase": result.current_phase,
             "diagnostics_summary": result.diagnostics_summary,
             "catalog_discovery": dict(result.diagnostics_summary.get("catalog_discovery") or {}),
             "intent_category_links": list(result.diagnostics_summary.get("intent_category_links") or []),
+            "partial_research": bool(result.diagnostics_summary.get("partial_research")),
         },
     )
 

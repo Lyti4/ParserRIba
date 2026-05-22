@@ -21,6 +21,7 @@ from launcher.desktop_shell_helpers import (
     clear_filter_selections,
     load_pyside6,
     set_category_selection,
+    set_result_selection,
     sync_setting_widgets,
 )
 from launcher.desktop_ui_text import INTENT_LABELS, SHOP_LABELS, WINDOW_TITLE
@@ -228,14 +229,14 @@ class DesktopLauncherShell:
     def _on_shop_changed(self, _: str) -> None:
         self.controller.set_selection(shop=self._current_combo_value(self.shop_combo))
         self._refresh_ui()
-
     def _on_intent_changed(self, _: str) -> None:
         self.controller.set_selection(intent=self._current_combo_value(self.intent_combo), categories=[])
         self.controller.set_filters({filter_name: [] for filter_name in FILTER_WIDGET_KEYS})
         self._refresh_ui()
-
     def _on_select_all_categories(self) -> None: set_category_selection(self, True)
     def _on_clear_categories(self) -> None: set_category_selection(self, False)
+    def _on_select_all_results(self) -> None: set_result_selection(self, True)
+    def _on_clear_selected_products(self) -> None: set_result_selection(self, False)
     def _on_clear_filters(self) -> None: clear_filter_selections(self, FILTER_WIDGET_KEYS)
     def _on_run_onboarding(self) -> None: self._run_ui_action(lambda: self.controller.run_onboarding_discovery(site_url=self._site_url()))
     def _on_run_export(self) -> None: self._run_ui_action(self.controller.run_selected_export)
@@ -252,7 +253,6 @@ class DesktopLauncherShell:
     def _on_open_report_dir(self) -> None: self._open_controller_action(self.controller.open_report_dir)
     def _on_open_json(self) -> None: self._open_controller_action(self.controller.open_json)
     def _on_result_selection_changed(self) -> None: self._sync_selected_products_from_table()
-
     def _run_ui_action(self, action: Callable[[], Any]) -> None:
         if self.category_list is not None:
             self._update_state_from_widgets()

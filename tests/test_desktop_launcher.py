@@ -103,3 +103,39 @@ def test_desktop_launcher_updates_research_mode_from_widgets(tmp_path: Path) -> 
     shell._update_state_from_widgets()
 
     assert shell.state.research.mode == "quiet"
+
+
+def test_desktop_launcher_can_select_all_visible_products(tmp_path: Path) -> None:
+    json_path = tmp_path / "products.json"
+    json_path.write_text(
+        (
+            '{"products":['
+            '{"id":"fish-1","category":"Рыба","name":"Треска","brand":"Море","price":{"current":199.99},"in_stock":true},'
+            '{"id":"fish-2","category":"Рыба","name":"Форель","brand":"Река","price":{"current":299.99},"in_stock":true}'
+            ']}'
+        ),
+        encoding="utf-8",
+    )
+    shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
+    shell.state.result.json_path = str(json_path)
+    shell.create_window()
+
+    shell._on_select_all_results()
+
+    assert shell.state.selection.selected_product_ids == ["fish-1", "fish-2"]
+
+
+def test_desktop_launcher_can_clear_selected_products(tmp_path: Path) -> None:
+    json_path = tmp_path / "products.json"
+    json_path.write_text(
+        '{"products":[{"id":"fish-1","category":"Рыба","name":"Треска","brand":"Море","price":{"current":199.99},"in_stock":true}]}',
+        encoding="utf-8",
+    )
+    shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
+    shell.state.result.json_path = str(json_path)
+    shell.state.selection.selected_product_ids = ["fish-1"]
+    shell.create_window()
+
+    shell._on_clear_selected_products()
+
+    assert shell.state.selection.selected_product_ids == []

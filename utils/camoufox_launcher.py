@@ -12,6 +12,9 @@ from loguru import logger
 from utils.fingerprint import build_fingerprint_profile
 from utils.geoip import prepare_geoip
 from utils.proxy import mask_proxy_url, parse_proxy_url
+from utils.catalog_tree_discovery.camoufox_runtime_profile import (
+    CamoufoxResearchRuntimeProfile,
+)
 
 DEFAULT_CAMOUFOX_PATH = Path(
     r"C:\CamoufoxBrowser\camoufox-135.0.1-beta.24-win.x86_64\camoufox.exe"
@@ -98,6 +101,29 @@ def build_camoufox_options(
         logger.info("Using persistent Camoufox profile: {}", path)
 
     return options
+
+
+def build_research_camoufox_options(
+    *,
+    headless: bool | str,
+    proxy_url: str | None = None,
+    geoip: bool = False,
+    user_data_dir: str | Path | None = None,
+    profile: CamoufoxResearchRuntimeProfile | None = None,
+) -> dict[str, Any]:
+    """Build one constrained Camoufox option set for serial research runs."""
+    runtime = profile or CamoufoxResearchRuntimeProfile()
+    return build_camoufox_options(
+        headless=headless,
+        proxy_url=proxy_url,
+        geoip=geoip,
+        block_images=runtime.block_images,
+        block_webgl=runtime.block_webgl,
+        humanize=runtime.humanize,
+        locale=runtime.locale,
+        fingerprint_os="windows",
+        user_data_dir=user_data_dir if runtime.require_persistent_context else None,
+    )
 
 
 def allow_images_in_profile(profile_dir: Path) -> None:

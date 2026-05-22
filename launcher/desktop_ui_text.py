@@ -46,6 +46,7 @@ RESEARCH_MODE_LABELS = {
 
 RESEARCH_PHASE_LABELS = {
     "open_site": "Открытие сайта",
+    "expand_menu": "Раскрытие меню",
     "collect_surface": "Поиск структуры каталога",
     "validate_nodes": "Проверка разделов",
     "collect_hints": "Сбор признаков и маршрутов",

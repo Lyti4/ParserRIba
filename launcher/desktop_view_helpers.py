@@ -107,6 +107,7 @@ def build_result_rows(state: LauncherAppState) -> list[list[str]]:
 
 def _append_research_summary(lines: list[str], state: LauncherAppState) -> None:
     research = state.research
+    diagnostics = state.result.launcher_view.get("diagnostics_summary")
     lines.append(f"Режим исследования: {display_research_mode(research.mode)}")
     if research.current_phase:
         lines.append(f"Текущий этап: {display_research_phase(research.current_phase)}")
@@ -119,12 +120,17 @@ def _append_research_summary(lines: list[str], state: LauncherAppState) -> None:
         lines.append(f"Поток разделов: {', '.join(research.streamed_categories[:6])}")
     elif research.mode == "quiet" and state.result.launcher_view.get("category_tree"):
         lines.append("Поток разделов скрыт до завершения исследования.")
+    if isinstance(diagnostics, dict) and diagnostics.get("partial_research"):
+        lines.append("Предупреждение: частично исследовано.")
 
 
 def _append_top_counts(lines: list[str], title: str, counts: object) -> None:
     if not isinstance(counts, dict) or not counts:
         return
-    pairs = sorted(((str(name), int(count)) for name, count in counts.items()), key=lambda item: (-item[1], item[0]))[:3]
+    pairs = sorted(
+        ((str(name), int(count)) for name, count in counts.items()),
+        key=lambda item: (-item[1], item[0]),
+    )[:3]
     lines.append(f"{title}: {', '.join(f'{name}={count}' for name, count in pairs)}")
 
 

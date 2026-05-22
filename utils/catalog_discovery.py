@@ -7,7 +7,12 @@ import asyncio
 import aiohttp
 
 from models.catalog_discovery import CatalogDiscoveryResult
-from utils.catalog_tree_discovery import build_discovery_graph, classify_catalog_surface, collect_catalog_surface_signals
+from utils.catalog_tree_discovery import (
+    SurfaceSignals,
+    build_discovery_graph,
+    classify_catalog_surface,
+    collect_catalog_surface_signals,
+)
 
 
 def summarize_catalog_discovery(
@@ -24,6 +29,24 @@ def summarize_catalog_discovery(
         status_code=status_code,
         html=html,
     )
+    return build_catalog_discovery_result(
+        site_url=site_url,
+        final_url=final_url,
+        status_code=status_code,
+        signals=signals,
+        discovery_source="dom",
+    )
+
+
+def build_catalog_discovery_result(
+    *,
+    site_url: str,
+    final_url: str,
+    status_code: int,
+    signals: SurfaceSignals,
+    discovery_source: str = "dom",
+) -> CatalogDiscoveryResult:
+    """Build a typed discovery summary from pre-collected surface signals."""
     graph = build_discovery_graph(signals)
     classification = classify_catalog_surface(signals)
     return CatalogDiscoveryResult(
@@ -41,7 +64,7 @@ def summarize_catalog_discovery(
         product_links=signals.dom_products,
         api_hints=signals.api_hints,
         documents=signals.documents,
-        discovery_source="dom",
+        discovery_source=str(discovery_source),
         validation_state=classification.validation_state,
         primary_root_ids=graph.primary_root_ids,
         nodes=graph.nodes,

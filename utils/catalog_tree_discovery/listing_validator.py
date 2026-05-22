@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from models.catalog_discovery import CatalogSurfaceType, RouteHint, ValidationState
+from utils.catalog_tree_discovery.surface_collectors import collect_catalog_surface_signals
 from utils.catalog_tree_discovery.surface_collectors import SurfaceSignals
 
 
@@ -15,6 +18,23 @@ class ValidationProbeResult(BaseModel):
     validation_state: ValidationState
     route_hints: list[RouteHint] = Field(default_factory=list)
     protection_signals: list[str] = Field(default_factory=list)
+
+
+async def validate_listing_candidate(page: Any, url: str, wait_ms: int = 2500) -> ValidationProbeResult:
+    """Open one candidate URL, collect DOM surface signals, and classify them."""
+    response = await page.goto(url, wait_until="domcontentloaded")
+    if wait_ms > 0:
+        await page.wait_for_timeout(wait_ms)
+    html = await page.content()
+    status_code = int(getattr(response, "status", 0) or 0)
+    final_url = str(getattr(page, "url", "") or url)
+    signals = collect_catalog_surface_signals(
+        site_url=url,
+        final_url=final_url,
+        status_code=status_code,
+        html=html,
+    )
+    return classify_catalog_surface(signals)
 
 
 def classify_catalog_surface(signals: SurfaceSignals) -> ValidationProbeResult:

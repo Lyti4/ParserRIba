@@ -57,8 +57,8 @@ Captcha remains manual. Browser/runtime logic stays local and free.
 
 1. Keep user UX simple, keep the core rich.
 2. Separate discovery of the catalog tree from product collection.
-3. Preserve Pyaterochka runtime mechanics instead of creating a simplified
-   launcher-specific scraping path.
+3. Keep the old Pyaterochka runtime as a legacy reference, but let the new
+   discovery core evolve independently.
 4. Store evidence and provenance now, because strategy work will need it later.
 5. Keep storage replaceable so the project can move to a stronger database
    later without rewriting the discovery core.
@@ -158,17 +158,18 @@ The `Исследование` pipeline should have these phases.
 
 ### Phase 1: Browser Startup
 
-Use the existing protected runtime path:
+Use a Camoufox-aware local runtime:
 
 - Camoufox
 - proxy handling
 - GeoIP
-- persistent profile/session reuse
+- persistent profile/session reuse when needed
 - human-like behavior
 - anti-bot detection
 
-Pyaterochka must reuse the current runtime path rather than a separate launcher
-path.
+The new discovery core should not depend on embedding the old Pyaterochka
+runtime. It may reuse proven ideas from that path, but its browser control
+loop should remain a separate adaptive walker.
 
 ### Phase 2: Surface Collection
 
@@ -185,6 +186,16 @@ Collect every plausible catalog signal from the page:
 
 This phase should produce candidate nodes and candidate relations, not yet the
 final tree.
+
+### Camoufox Walker Rules
+
+- use one active page for discovery;
+- keep the walker serial while Camoufox multi-page async behavior remains
+  risky;
+- do not rely on `page.go_back()` or `page.go_forward()` as a core traversal
+  mechanism;
+- treat remote Camoufox server mode as out of runtime scope;
+- keep `config={...}` as an advanced fallback only.
 
 ### Phase 3: Adaptive Tree Expansion
 

@@ -4,9 +4,9 @@
 
 **Goal:** Rebuild the desktop launcher around the user’s required site-first workflow: research store -> choose discovered sections -> collect products -> narrow selection -> build report.
 
-**Architecture:** Keep the current local task/runtime stack, but change the launcher contract from category-first fallbacks to discovery-first state. The launcher must treat site research as the first-class source of sections and must stop pre-populating category choices from KB/backend defaults before research happens.
+**Architecture:** Keep the current local task/runtime stack, but change the launcher contract from category-first fallbacks to discovery-first state. The launcher must treat site research as the first-class source of sections and must stop pre-populating category choices from KB/backend defaults before research happens. The new discovery core must be allowed to evolve independently instead of being blocked on direct reuse of the current Pyaterochka runtime internals.
 
-**Protected Pyaterochka invariant:** The launcher must preserve the existing Pyaterochka parser mechanics. Product collection for Pyaterochka must continue through the local task/backend path that uses Camoufox configuration, RU proxy/GeoIP, persistent profile/session reuse, human-like behavior, safe network/API interception, API-first candidate extraction, DOM/card fallback, and anti-bot/proxy/error reporting. Do not add a separate simplified Pyaterochka scraping path inside the launcher.
+**Pyaterochka legacy reference:** Preserve the current Pyaterochka parser/runtime as a legacy reference path and diagnostic baseline. Use it to understand proven anti-bot, proxy, human-behavior, and interception mechanics when needed, but do not require the new discovery core to embed or depend on that runtime in order to move forward.
 
 **Target product flow:** A user enters a store URL, clicks research, ParserRIba discovers catalog/category/API evidence through the browser/runtime, creates or updates a local store profile, shows discovered categories and subcategories, collects full product cards only for selected categories, derives filters from those collected products, lets the user select exact products, and exports Excel/report output for that selected set.
 
@@ -37,7 +37,7 @@
 - `utils/launcher_task_controller.py`
   - launcher-facing task semantics.
 - `utils/site_onboarding.py`
-  - category discovery and onboarding result semantics.
+  - category discovery and onboarding result semantics, without hard coupling to the legacy Pyaterochka runtime.
 - `utils/onboarding_storage.py`
   - local store profile/session persistence.
 - `utils/product_storage.py`
@@ -61,7 +61,7 @@
 - [ ] Document the launcher layers and stage flow in one explicit architecture file.
 - [ ] Update roadmap wording from generic onboarding/category flow to discovery-first launcher flow.
 - [ ] Point the active next steps at this staged launcher rebuild.
-- [ ] Document the protected Pyaterochka runtime invariant: launcher controls the flow, but collection still uses the existing Camoufox/proxy/GeoIP/human-behavior/interception backend path.
+- [ ] Document the new boundary: the current Pyaterochka runtime stays available as a legacy reference and export backend, but the new discovery core is allowed to use its own adaptive browser strategies.
 - [ ] Document the target operator flow: URL research -> store profile -> category selection -> full product collection -> data-derived filters -> exact product selection -> Excel/report export.
 
 ## Task 2: Remove Category-First Launcher Defaults
@@ -76,7 +76,7 @@
 - [ ] Change launcher category sourcing so the UI prefers discovered categories and otherwise shows no category list instead of KB/default categories.
 - [ ] Remove automatic selection of the first category in the launcher shell.
 - [ ] Keep backend/category fallback logic available only where report/export runtime truly needs it, not in the first launcher screen.
-- [ ] Keep Pyaterochka export actions wired through `utils.launcher_task_controller` -> `utils.local_task_registry` -> store export backend; do not call a new direct browser/parser path from launcher code.
+- [ ] Keep launcher export actions wired through `utils.launcher_task_controller` -> `utils.local_task_registry` -> store export backend, but do not force the research core to reuse the old Pyaterochka runtime implementation details.
 - [ ] Add regression tests proving that:
   - before research, category list is empty;
   - after research, discovered categories appear;

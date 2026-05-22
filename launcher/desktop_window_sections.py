@@ -89,6 +89,8 @@ def build_results_box(shell: Any, qtwidgets: Any) -> Any:
     button_grid.setHorizontalSpacing(8)
     for index, (key, label, handler) in enumerate(
         (
+            ("select_products", "Выбрать показанные", shell._on_select_all_results),
+            ("clear_products", "Снять выбор", shell._on_clear_selected_products),
             ("open_excel", "Открыть Excel", shell._on_open_excel),
             ("open_folder", "Открыть папку", shell._on_open_report_dir),
             ("open_json", "Открыть JSON", shell._on_open_json),
@@ -98,7 +100,7 @@ def build_results_box(shell: Any, qtwidgets: Any) -> Any:
         button.clicked.connect(handler)
         shell.action_buttons[key] = button
         button_grid.addWidget(button, 0, index)
-    for column in range(3):
+    for column in range(5):
         button_grid.setColumnStretch(column, 1)
     layout.addLayout(button_grid)
     return box

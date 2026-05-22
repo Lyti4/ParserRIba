@@ -22,6 +22,12 @@ async def test_onboarding_manifest_includes_launcher_facing_discovery_fields(tmp
     assert manifest.summary["catalog_discovery"] == {}
     assert manifest.summary["intent_category_links"] == []
     assert manifest.summary["diagnostics_summary"]["known_backend"] is False
+    assert manifest.summary["active_profile_id"] == ""
+    assert manifest.summary["active_profile_version_id"] == ""
+    assert manifest.summary["streamed_categories"] == []
+    assert manifest.summary["research_mode"] == "live"
+    assert manifest.summary["current_phase"] == ""
+    assert manifest.summary["partial_research"] is False
 
 
 def _prepare_root(root_dir: Path) -> None:

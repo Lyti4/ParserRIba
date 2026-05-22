@@ -4,9 +4,13 @@ import pytest
 
 from models.catalog_discovery import CatalogDiscoveryResult, CategoryEvidence
 from utils.catalog_discovery import summarize_catalog_discovery
+from utils.catalog_tree_discovery.entrypoint_collectors import (
+    collect_catalog_entrypoints_from_html,
+)
 from utils.catalog_tree_discovery.graph_builder import build_discovery_graph
 from utils.catalog_tree_discovery.listing_validator import classify_catalog_surface
 from utils.catalog_tree_discovery.phase_events import make_phase_event
+from utils.catalog_tree_discovery.research_queue import ResearchQueue
 from utils.catalog_tree_discovery.runner import run_catalog_tree_discovery
 from utils.catalog_tree_discovery.surface_collectors import (
     SurfaceSignals,
@@ -38,6 +42,19 @@ def test_normalize_label_for_launcher_prefers_clean_russian() -> None:
     assert label == "Рыба и морепродукты"
 
 
+def test_collect_catalog_entrypoints_prefers_menu_and_catalog_surfaces() -> None:
+    html = """
+    <nav>
+      <a href="/catalog/fish">Рыба</a>
+      <a href="/catalog/seafood">Морепродукты</a>
+    </nav>
+    """
+
+    result = collect_catalog_entrypoints_from_html("https://shop.example", html)
+
+    assert [item.name for item in result] == ["Рыба", "Морепродукты"]
+
+
 def test_listing_validator_classifies_pdf_blocked_challenge_and_listing() -> None:
     pdf_result = classify_catalog_surface(SurfaceSignals(pdf_hint=True))
     blocked_result = classify_catalog_surface(SurfaceSignals(blocked_hint=True))
@@ -66,6 +83,17 @@ def test_make_phase_event_builds_streaming_payload() -> None:
     assert event.status == "running"
     assert event.message_ru == "Поиск структуры каталога"
     assert event.discovered_categories == ["Рыба", "Морепродукты"]
+
+
+def test_research_queue_deduplicates_urls_and_respects_repeat_limit() -> None:
+    queue = ResearchQueue(max_repeat_urls=2)
+
+    assert queue.push("https://shop.example/catalog/fish") is True
+    assert queue.push("https://shop.example/catalog/fish") is True
+    assert queue.push("https://shop.example/catalog/fish") is False
+    assert queue.pop() == "https://shop.example/catalog/fish"
+    assert queue.pop() == "https://shop.example/catalog/fish"
+    assert queue.pop() is None
 
 
 def test_surface_collectors_detect_russian_region_gate_markers() -> None:
@@ -127,6 +155,10 @@ async def test_run_catalog_tree_discovery_returns_profile_and_phase_events(monke
                 final_url="https://5ka.ru/catalog",
                 status_code=200,
                 manual_wait_used=False,
+                phase_events=[
+                    make_phase_event("open_site", "completed", "Открытие сайта"),
+                    make_phase_event("expand_menu", "running", "Раскрытие меню"),
+                ],
             ),
         )
 
@@ -141,7 +173,8 @@ async def test_run_catalog_tree_discovery_returns_profile_and_phase_events(monke
     assert result.profile.site_url == "https://5ka.ru/catalog"
     assert result.streamed_categories == ["Рыба", "Морепродукты"]
     assert result.current_phase == "build_tree"
-    assert result.phase_events[0].message_ru == "Открытие сайта"
+    assert result.phase_events[0].phase == "open_site"
+    assert result.phase_events[1].phase == "expand_menu"
     assert result.phase_events[-1].discovered_categories == ["Рыба", "Морепродукты"]
     assert result.partial is False
 

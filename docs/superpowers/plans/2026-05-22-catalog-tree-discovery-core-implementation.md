@@ -4,7 +4,7 @@
 
 **Goal:** Build the first production slice of the launcher action `Исследование`: adaptive catalog tree discovery, site profile persistence with history, and launcher integration with phased progress and streamed categories.
 
-**Architecture:** Keep Pyaterochka on the current Camoufox/proxy/GeoIP/human-behavior runtime, but separate discovery into a dedicated core with explicit domain models, repository interfaces, adaptive browser collection, validation, and launcher-safe view models. Persist profiles in SQLite plus JSON snapshots so the domain stays storage-agnostic for a future stronger database.
+**Architecture:** Build discovery as a dedicated core with explicit domain models, repository interfaces, adaptive browser collection, validation, and launcher-safe view models. Keep the current Pyaterochka runtime only as a legacy reference and diagnostics path; the new discovery core must not be blocked on reusing or embedding that runtime. Persist profiles in SQLite plus JSON snapshots so the domain stays storage-agnostic for a future stronger database.
 
 **Tech Stack:** Python 3.11, asyncio, Camoufox async API, Pydantic v2, SQLite, openpyxl, PySide6, pytest.
 
@@ -21,7 +21,7 @@
 - `utils/catalog_discovery.py`
   - keep generic HTML signal extraction, but make it a low-level source provider instead of the final decision maker.
 - `utils/browser_catalog_discovery.py`
-  - keep protected browser startup path and convert it into one source provider for the new discovery core.
+  - provide adaptive browser collection for the new discovery core and keep any legacy Pyaterochka-specific flow isolated as reference-only code.
 - `utils/site_onboarding.py`
   - stop assembling category trees ad hoc; call the new discovery core and build launcher-facing results from it.
 - `utils/onboarding_storage.py`
@@ -587,7 +587,7 @@ git commit -m "docs: finalize catalog research core architecture"
 This plan covers:
 
 - adaptive `Исследование` pipeline;
-- protected Pyaterochka runtime reuse;
+- legacy Pyaterochka runtime reference without coupling the new core to it;
 - rich internal discovery graph;
 - latest-profile UI with internal history retention;
 - live phased progress and quiet mode;

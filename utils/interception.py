@@ -2,24 +2,35 @@
 
 from __future__ import annotations
 
-import json
-import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from utils.interception_profiles import GENERIC_INTERCEPTION_PROFILE, InterceptionProfile
-
-PRODUCT_NAME_KEYS = ("name", "title")
-PRODUCT_ID_KEYS = ("id", "plu", "product_id", "productId", "sku", "slug")
-PRODUCT_PRICE_KEYS = ("price", "current_price", "price_current", "regular_price", "prices")
-PRODUCT_IMAGE_KEYS = ("image", "image_link", "image_links", "image_url", "imageUrl", "images", "picture", "pictures")
-PRODUCT_LINK_KEYS = ("link", "url", "href", "product_url", "productUrl", "webUrl")
-PRODUCT_AVAILABILITY_KEYS = ("availability", "available", "in_stock", "inStock", "is_available", "isAvailable", "stock")
-JSON_CONTENT_MARKERS = ("json", "javascript")
-SENSITIVE_QUERY_KEYS = tuple(
-    "access auth authorization captcha cookie email hcheck key oirut password phone refresh request_ secret session sid token".split()
+from utils.interception_payload_helpers import (
+    payload_has_empty_products,
+    payload_preview,
+    safe_json_loads,
+    sanitize_diagnostic_url,
 )
+from utils.interception_profiles import GENERIC_INTERCEPTION_PROFILE, InterceptionProfile
+from utils.interception_product_helpers import (
+    PRODUCT_AVAILABILITY_KEYS,
+    PRODUCT_ID_KEYS,
+    PRODUCT_IMAGE_KEYS,
+    PRODUCT_LINK_KEYS,
+    PRODUCT_NAME_KEYS,
+    PRODUCT_PRICE_KEYS,
+    build_product_candidate,
+    extract_product_candidates,
+    field_sources as _field_sources,
+    first_nested_text as _first_nested_text,
+    first_nested_value as _first_nested_value,
+    first_present_key as _first_present_key,
+    first_value as _first_value,
+    has_any as _has_any,
+    infer_schema_hints,
+    iter_dicts,
+)
+JSON_CONTENT_MARKERS = ("json", "javascript")
 
 
 @dataclass
@@ -92,108 +103,6 @@ def build_interception_event(
     return event
 
 
-def safe_json_loads(payload: str) -> Any:
-    """Parse JSON payloads and return None on malformed content."""
-    try:
-        return json.loads(payload)
-    except json.JSONDecodeError:
-        return None
-
-
-def sanitize_diagnostic_url(url: str, max_length: int = 260) -> str:
-    """Mask sensitive query values before writing diagnostic URLs."""
-    try:
-        parts = urlsplit(url)
-    except ValueError:
-        return url[:max_length]
-    safe_query: list[tuple[str, str]] = []
-    for key, value in parse_qsl(parts.query, keep_blank_values=True):
-        lowered = key.lower()
-        if any(marker in lowered for marker in SENSITIVE_QUERY_KEYS):
-            safe_query.append((key, "***"))
-        else:
-            safe_query.append((key, value))
-    sanitized = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(safe_query), parts.fragment))
-    return sanitized[:max_length]
-
-
-def payload_has_empty_products(payload: str) -> bool:
-    """Detect product API payloads that explicitly contain empty product lists."""
-    compact = re.sub(r"\s+", "", payload)
-    empty_markers = (
-        '"products":[]',
-        '"productsList":[]',
-        '"items":[]',
-        '"results":[]',
-        '"data":[]',
-        '"productsResponse":null',
-    )
-    return compact == "[]" or any(marker in compact for marker in empty_markers)
-
-
-def payload_preview(payload: str, max_length: int = 500) -> str:
-    """Return a compact response preview for diagnostics."""
-    parsed = safe_json_loads(payload)
-    if parsed is not None:
-        redacted, changed = _redact_sensitive_payload_value(parsed)
-        if changed:
-            safe_payload = json.dumps(redacted, ensure_ascii=False)
-            return safe_payload[:max_length]
-    compact = re.sub(r"\s+", " ", payload).strip()
-    compact = _redact_sensitive_text_fields(compact)
-    return compact[:max_length]
-
-
-def iter_dicts(value: Any) -> list[dict[str, Any]]:
-    """Collect nested dictionaries from a JSON-like payload."""
-    found: list[dict[str, Any]] = []
-    if isinstance(value, dict):
-        found.append(value)
-        for item in value.values():
-            found.extend(iter_dicts(item))
-    elif isinstance(value, list):
-        for item in value:
-            found.extend(iter_dicts(item))
-    return found
-
-
-def extract_product_candidates(payload: Any, limit: int = 10) -> list[dict[str, Any]]:
-    """Extract likely product records from arbitrary catalog JSON."""
-    candidates: list[dict[str, Any]] = []
-    for item in iter_dicts(payload):
-        keys = set(item)
-        has_name = _has_any(item, PRODUCT_NAME_KEYS)
-        has_identity = _has_any(item, PRODUCT_ID_KEYS)
-        has_price = _has_any(item, PRODUCT_PRICE_KEYS)
-        if not has_name or not (has_identity or has_price):
-            continue
-        candidates.append(build_product_candidate(item, keys=keys))
-        if len(candidates) >= limit:
-            break
-    return candidates
-
-
-def infer_schema_hints(payload: Any, limit: int = 20) -> dict[str, Any]:
-    """Infer product-related keys found in a JSON payload."""
-    key_counts: dict[str, int] = {}
-    product_like = 0
-    for item in iter_dicts(payload):
-        keys = set(str(key) for key in item)
-        for key in keys:
-            key_counts[key] = key_counts.get(key, 0) + 1
-        if _has_any(item, PRODUCT_NAME_KEYS) and (_has_any(item, PRODUCT_ID_KEYS) or _has_any(item, PRODUCT_PRICE_KEYS)):
-            product_like += 1
-    return {
-        "product_like_objects": product_like,
-        "top_keys": sorted(key_counts, key=key_counts.get, reverse=True)[:limit],
-        "has_name_key": any(key in key_counts for key in PRODUCT_NAME_KEYS),
-        "has_price_key": any(key in key_counts for key in PRODUCT_PRICE_KEYS),
-        "has_image_key": any(key in key_counts for key in PRODUCT_IMAGE_KEYS),
-        "has_link_key": any(key in key_counts for key in PRODUCT_LINK_KEYS),
-        "has_availability_key": any(key in key_counts for key in PRODUCT_AVAILABILITY_KEYS),
-    }
-
-
 def summarize_interception_events(events: list[dict[str, Any]]) -> dict[str, Any]:
     """Build a compact interception summary for reports."""
     route_counts: dict[str, int] = {}
@@ -211,121 +120,6 @@ def summarize_interception_events(events: list[dict[str, Any]]) -> dict[str, Any
         "replay_candidates": replay_candidates,
         "schema_candidates": schema_candidates,
     }
-
-
-def _has_any(item: dict[str, Any], keys: tuple[str, ...]) -> bool:
-    return any(key in item for key in keys)
-
-
-def _first_value(item: dict[str, Any], keys: tuple[str, ...]) -> Any:
-    for key in keys:
-        if key in item:
-            return item[key]
-    return ""
-
-
-def _field_sources(item: dict[str, Any]) -> dict[str, str]:
-    return {
-        name: key
-        for name, key in {
-            "id": _first_present_key(item, PRODUCT_ID_KEYS),
-            "name": _first_present_key(item, PRODUCT_NAME_KEYS),
-            "price": _first_present_key(item, PRODUCT_PRICE_KEYS),
-            "image": _first_present_key(item, PRODUCT_IMAGE_KEYS),
-            "link": _first_present_key(item, PRODUCT_LINK_KEYS),
-            "availability": _first_present_key(item, PRODUCT_AVAILABILITY_KEYS),
-        }.items()
-        if key
-    }
-
-
-def _first_present_key(item: dict[str, Any], keys: tuple[str, ...]) -> str:
-    for key in keys:
-        if key in item:
-            return key
-    return ""
-
-
-def build_product_candidate(item: dict[str, Any], *, keys: set[Any] | None = None) -> dict[str, Any]:
-    """Build one normalized product candidate from a raw payload object."""
-    candidate_keys = keys or set(item)
-    return {
-        "id": _first_value(item, PRODUCT_ID_KEYS),
-        "name": _first_value(item, PRODUCT_NAME_KEYS),
-        "price": _first_value(item, PRODUCT_PRICE_KEYS),
-        "image": _first_nested_value(item, PRODUCT_IMAGE_KEYS),
-        "link": _first_nested_value(item, PRODUCT_LINK_KEYS),
-        "availability": _first_value(item, PRODUCT_AVAILABILITY_KEYS),
-        "field_sources": _field_sources(item),
-        "keys": sorted(str(key) for key in candidate_keys)[:25],
-    }
-
-
-def _first_nested_value(item: dict[str, Any], keys: tuple[str, ...]) -> Any:
-    for key in keys:
-        if key not in item:
-            continue
-        value = item[key]
-        if isinstance(value, (str, int, float, bool)) or value is None:
-            return value
-        nested = _first_nested_text(value)
-        if nested:
-            return nested
-        return value
-    return ""
-
-
-def _first_nested_text(value: Any) -> str:
-    if isinstance(value, str):
-        return value.strip()
-    if isinstance(value, dict):
-        for nested in value.values():
-            found = _first_nested_text(nested)
-            if found:
-                return found
-    if isinstance(value, list):
-        for item in value:
-            found = _first_nested_text(item)
-            if found:
-                return found
-    return ""
-
-
-def _is_sensitive_key(key: Any) -> bool:
-    lowered = str(key).lower()
-    return any(marker in lowered for marker in SENSITIVE_QUERY_KEYS)
-
-
-def _redact_sensitive_payload_value(value: Any) -> tuple[Any, bool]:
-    if isinstance(value, dict):
-        changed = False
-        result: dict[str, Any] = {}
-        for key, nested in value.items():
-            if _is_sensitive_key(key):
-                result[str(key)] = "***"
-                changed = True
-                continue
-            redacted, nested_changed = _redact_sensitive_payload_value(nested)
-            result[str(key)] = redacted
-            changed = changed or nested_changed
-        return result, changed
-    if isinstance(value, list):
-        changed = False
-        result: list[Any] = []
-        for item in value:
-            redacted, nested_changed = _redact_sensitive_payload_value(item)
-            result.append(redacted)
-            changed = changed or nested_changed
-        return result, changed
-    return value, False
-
-
-def _redact_sensitive_text_fields(value: str) -> str:
-    redacted = value
-    for marker in SENSITIVE_QUERY_KEYS:
-        pattern = re.compile(rf'("{re.escape(marker)}[^"]*"\s*:\s*)"[^"]*"', re.IGNORECASE)
-        redacted = pattern.sub(r'\1"***"', redacted)
-    return redacted
 
 
 def _is_replay_candidate(event: InterceptionEvent) -> bool:

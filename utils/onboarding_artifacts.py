@@ -12,6 +12,7 @@ ArtifactGenerator = Callable[[Path, str], ArtifactPaths]
 def generate_onboarding_artifacts(root_dir: Path, shop_slug: str) -> ArtifactPaths:
     """Create local runtime paths and repo scaffold paths for one site."""
     runtime_dir = root_dir / "data" / "onboarding" / shop_slug
+    (runtime_dir / "profiles").mkdir(parents=True, exist_ok=True)
     scaffold_dir = root_dir / "generated_scaffolds" / shop_slug
     runtime_dir.mkdir(parents=True, exist_ok=True)
     (scaffold_dir / "knowledge_base").mkdir(parents=True, exist_ok=True)

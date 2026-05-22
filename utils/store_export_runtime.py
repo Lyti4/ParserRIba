@@ -11,8 +11,11 @@ from loguru import logger
 
 from models.schemas import Product
 from scripts.discover_pyaterochka_api import OUTPUT_DIR
+from utils.excel_report import write_products_excel_report
+from utils.export_summary import build_export_summary
 from utils.product_storage import ProductStorage
-from utils.pyaterochka_export import build_products_from_result, merge_products
+from utils.pyaterochka_export import build_products_from_result, filter_products_for_intent, merge_products
+from utils.run_manifest import build_store_export_manifest, write_run_manifest
 from utils.store_catalog_registry import StoreExportBackend, DiscoverFunc
 
 
@@ -46,7 +49,7 @@ async def build_store_export_payload(
             category_results.append(result)
             last_result = result
             batch_products.extend(build_products_from_result(result))
-        products = merge_products(batch_products)
+        products = filter_products_for_intent(merge_products(batch_products), backend.intent)
         if products:
             break
         logger.warning(
@@ -86,20 +89,58 @@ async def build_store_export_payload(
         "products_count": len(products),
         "products": [product.model_dump(mode="json") for product in products],
         "exported_at": datetime.now().isoformat(timespec="seconds"),
+        "export_summary": build_export_summary(
+            {
+                "intent": backend.intent,
+                "categories": target_categories,
+                "attempt": {
+                    "status": "ok" if products else "empty",
+                    "reason": "product_payload_captured" if products else "no_product_payload",
+                },
+                "products_count": len(products),
+                "products": [product.model_dump(mode="json") for product in products],
+            }
+        ),
     }
 
 
-def write_store_export(payload: dict[str, Any], output_dir: Path | str = OUTPUT_DIR) -> tuple[Path, Path]:
+def write_store_export(
+    payload: dict[str, Any],
+    output_dir: Path | str = OUTPUT_DIR,
+    *,
+    task_name: str = "store_catalog_export",
+) -> tuple[Path, Path]:
     """Write exported products payload to JSON and SQLite."""
     target_dir = Path(output_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
     shop = str(payload.get("shop") or "store")
     path = target_dir / f"{shop}_products.json"
     db_path = target_dir / "products.db"
+    manifest_path = target_dir / f"{shop}_run_manifest.json"
     storage = ProductStorage(db_path)
     products = [Product(**item) for item in (payload.get("products") or []) if isinstance(item, dict)]
+    storage.initialize()
     storage.save_products(shop, products)
+    actual_excel_path = write_products_excel_report(
+        products,
+        shop=shop,
+        output_dir=target_dir,
+        exported_at=str(payload.get("exported_at") or ""),
+    )
+    payload["export_summary"] = build_export_summary(payload)
     payload["db_path"] = str(db_path)
+    payload["excel_path"] = str(actual_excel_path)
     payload["stored_products_count"] = len(products)
+    manifest = build_store_export_manifest(
+        payload=payload,
+        export_path=path,
+        db_path=db_path,
+        manifest_path=manifest_path,
+        excel_path=actual_excel_path,
+        task_name=task_name,
+    )
+    write_run_manifest(manifest, manifest_path)
+    payload["run_manifest_path"] = str(manifest_path)
+    payload["run_manifest"] = manifest.model_dump(mode="json")
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return path, db_path

@@ -5,6 +5,7 @@ Captcha Handler Strategy for detecting and handling CAPTCHA challenges.
 import asyncio
 from typing import Optional, Dict, Any
 from playwright.async_api import Page
+from loguru import logger
 
 from .base_strategy import BaseStrategy
 
@@ -67,8 +68,8 @@ class CaptchaHandler(BaseStrategy):
         
         if not captcha_type:
             return True  # No CAPTCHA detected
-            
-        print(f"CAPTCHA detected: {captcha_type}")
+
+        logger.warning("CAPTCHA detected: {}", captcha_type)
         
         # Log CAPTCHA for manual solving or external service
         await self._handle_captcha(captcha_type)
@@ -78,7 +79,7 @@ class CaptchaHandler(BaseStrategy):
             return await self._solve_with_service(captcha_type)
         else:
             # Manual solving required
-            print(f"Manual CAPTCHA solving required for {captcha_type}")
+            logger.warning("Manual CAPTCHA solving required for {}", captcha_type)
             return False
 
     async def detect_captcha(self) -> Optional[str]:
@@ -117,9 +118,7 @@ class CaptchaHandler(BaseStrategy):
         await self.page.screenshot(
             path=f"captcha_{captcha_type}_{int(asyncio.get_event_loop().time())}.png"
         )
-        
-        # Log details
-        print(f"CAPTCHA screenshot saved: captcha_{captcha_type}_*.png")
+        logger.info("CAPTCHA screenshot saved for type {}", captcha_type)
 
     async def _solve_with_service(self, captcha_type: str) -> bool:
         """
@@ -129,10 +128,8 @@ class CaptchaHandler(BaseStrategy):
         """
         if not self.solve_service or not self.api_key:
             return False
-            
-        # Placeholder for service integration
-        # Example: 2Captcha, Anti-Captcha APIs
-        print(f"Solving {captcha_type} with {self.solve_service}...")
+
+        logger.info("Solving {} with {}", captcha_type, self.solve_service)
         
         # Simulate waiting for solution
         await asyncio.sleep(5)

@@ -20,6 +20,8 @@
 | Морепродукты | `https://5ka.ru/catalog/moreprodukty--251C13078/` | Подкатегория |
 | Котлеты и фарш | `https://5ka.ru/catalog/kotlety-farsh--251C13079/` | Полуфабрикаты |
 | Икра и закуски | `https://5ka.ru/catalog/ikra-zakuski--251C13080/` | Деликатесы |
+| Пиво, вино, энергетики | `https://5ka.ru/catalog/pivo-vino-energetiki--251C13047/` | Подтвержденный mixed parent для wine discovery |
+| Безалкогольное вино | `https://5ka.ru/catalog/bezalkogolnoe-vino--251C13466/` | Подтвержденная винная категория |
 
 ### Дополнительные URL
 

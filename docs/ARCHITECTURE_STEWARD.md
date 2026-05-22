@@ -7,6 +7,10 @@ Date: 2026-05-14
 The architecture steward is a local Codex workflow for keeping ParserRIba stable
 while the project moves from smoke scripts to a distributable parser app.
 
+The main architecture and delivery direction for the current stage is tracked
+in `docs/ROADMAP_V1.md`. Use the steward for health checks and refactor
+pressure, and use the roadmap for product-shape decisions.
+
 It is not part of the user-facing program, does not run in the background, and
 does not call paid scraping, captcha, LLM, or cloud services. Its job is to
 review the repository before large changes and before release builds.
@@ -48,7 +52,9 @@ dist\ParserRIba\ParserRIba.exe --check-env
 - `utils/session_manager.py`: legacy experimental session code. Replace with a
   smaller SessionPool that uses loguru, async-safe state, proxy affinity,
   cooldowns, and health scoring.
-- `parsers/base_parser.py` and `parsers/base.py`: two competing base contracts.
+- `parsers/base.py` is the active parser contract.
+- `parsers/base_parser.py` plus old non-Pyaterochka store parsers are legacy
+  quarantine code, not active runtime dependencies.
   Choose one canonical parser contract before stabilizing more stores.
 - `parsers/playwright_parser.py`: keep only if it becomes a real fallback.
 - `scripts/smoke_pyaterochka_camoufox.py`: useful but too large. Split later
@@ -58,14 +64,11 @@ dist\ParserRIba\ParserRIba.exe --check-env
 These files should not be deleted just because they are listed here. First add
 tests or a compatibility path, then remove or archive the old behavior.
 
-## Platform Foundation
+## Supporting Plans
 
-The first reusable platform layer is described in `docs/PLATFORM_FOUNDATION.md`.
-Use it as the next implementation guide after the steward checks pass.
-
-The next network/data layer is described in `docs/DATA_INTERCEPTION_PLAN.md`.
-Use it after proxy history is green, so interception results can be separated
-from proxy route failures.
+- `docs/ROADMAP_V1.md`: primary architecture and delivery roadmap.
+- `docs/PLATFORM_FOUNDATION.md`: platform primitives and refactor base.
+- `docs/DATA_INTERCEPTION_PLAN.md`: safe interception and API-first data path.
 
 ## Cleanliness Rules
 

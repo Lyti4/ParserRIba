@@ -13,9 +13,11 @@ Use this prompt when starting a fresh Codex chat:
 
 ```text
 Continue ParserRIba in C:\tmp\ParserRIba-clean. First read AGENTS.md,
-docs/PROJECT_STATE.md, docs/NEXT_STEPS.md, docs/AUTOMATIONS.md and
-docs/ARCHITECTURE_STEWARD.md. Then run git status, run the relevant tests, and
-continue the active plan without adding paid services or committing secrets.
+docs/PROJECT_STATE.md, docs/NEXT_STEPS.md, docs/ROADMAP_V1.md,
+docs/TOOLS_POLICY.md,
+docs/AUTOMATIONS.md and docs/ARCHITECTURE_STEWARD.md. Then run git status, run
+the relevant tests, and continue the active plan without adding paid services
+or committing secrets.
 ```
 
 ## Safe Automation Prompt
@@ -24,12 +26,13 @@ Use this prompt for a heartbeat or recurring task:
 
 ```text
 Continue ParserRIba in C:\tmp\ParserRIba-clean. Read AGENTS.md,
-docs/PROJECT_STATE.md and docs/NEXT_STEPS.md. Check git status. Run tests if
-source files changed. Continue the active Pyaterochka data interception and
-API-first extraction plan. Do not add paid services, cloud LLMs, captcha-solving
-services or browser APIs without explicit approval. Do not commit .env, proxy
-credentials, cookies, captcha tokens, profiles, logs, data, build output, mmdb
-files or __pycache__.
+docs/PROJECT_STATE.md, docs/NEXT_STEPS.md, docs/ROADMAP_V1.md and
+docs/TOOLS_POLICY.md. Check git status. Run tests if source files changed.
+Continue the active Pyaterochka data interception and API-first extraction
+plan. Do not add paid services, cloud LLMs, captcha-solving services or browser
+APIs without explicit approval. Do not commit .env, proxy credentials, cookies,
+captcha tokens, profiles, logs, data, build output, mmdb files or
+__pycache__.
 ```
 
 ## Useful Automation Types

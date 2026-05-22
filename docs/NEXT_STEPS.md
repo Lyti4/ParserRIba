@@ -4,36 +4,69 @@ Date: 2026-05-15
 
 ## Active Track
 
-The active track is Pyaterochka data interception and API-first extraction.
-Avoid starting GUI, installer, FastAPI, Postgres, Redis or dashboard work until
-the parser can reliably capture and normalize product data.
+The active track is now split into two coupled layers:
+
+1. keep Pyaterochka data interception and API-first extraction stable;
+2. rebuild the desktop launcher around a strict discovery-first user flow:
+   - research store;
+   - choose discovered sections;
+   - collect products;
+   - narrow the selection;
+   - build the final report.
+
+Architecture and delivery decisions for this stage are tracked in
+`docs/ROADMAP_V1.md`. Use this file for the main roadmap; use this document for
+the current active execution track.
 
 ## Immediate Plan
 
-1. Continue saving compact safe interception reports under `data/interception/`:
-   masked URLs, route type, status, response size, payload preview, schema
-   hints and sample products only.
-2. Run visual/discovery with working RU proxy and manual captcha solving.
-3. Inspect `Interception`, `Site Error Tracking`, `Proxy Diagnostics` and
-   `Proxy History` report blocks.
-4. Use the API-first candidate report to confirm real Pyaterochka product
-   fields: id, name, price, product link, image and availability.
-5. Build the final Pyaterochka `Product` mapper only after those fields are
-   confirmed from real reports.
-6. Keep DOM/card extraction as fallback for cases where API discovery fails.
-7. Add local SQLite product and price-history storage after API payloads are
-   understood.
+Detailed launcher rebuild plan:
+
+- `docs/LAUNCHER_ARCHITECTURE.md`
+- `docs/superpowers/plans/2026-05-22-launcher-discovery-first-rebuild.md`
+
+1. Keep the current local task layer stable:
+   - onboarding discovery;
+   - Pyaterochka fish export;
+   - Pyaterochka wine export;
+   - report export from SQLite;
+   - report filter options.
+2. Keep the unified launcher-facing result contract stable:
+   - `LocalTaskProcessResult`;
+   - first-class `report_summary`, `export_summary`,
+     `available_filter_counts`, `category_tree`, `catalog_discovery`;
+   - unified `launcher_view`.
+3. Make the launcher category UI discovery-first:
+   - no injected categories before store research;
+   - no auto-selected categories;
+   - visible action name `Исследование`.
+4. First usable launcher flow must support:
+   - choose store URL and intent;
+   - research catalog structure;
+   - choose discovered sections;
+   - collect products by chosen sections;
+   - choose filters from real collected data;
+   - build report and open Excel / report folder / JSON.
+5. Keep Pyaterochka runtime stable while the launcher layer is added:
+   launcher export must reuse the existing Pyaterochka local task/backend path
+   with Camoufox, RU proxy/GeoIP, persistent profile/session behavior,
+   human-like behavior, safe interception, API-first candidates, DOM fallback
+   and anti-bot/proxy/error reporting.
+6. Continue using SQLite as the main desktop storage.
+7. Defer installer/update work until the launcher MVP is usable end-to-end.
 
 ## Next Refactors
 
-- Split `scripts/smoke_pyaterochka_camoufox.py` into smaller modules.
+- Add launcher state models:
+  - selection state;
+  - filter state;
+  - task state;
+  - result state.
+- Keep `parsers/base.py` as the canonical active parser contract.
+- Keep legacy parser modules quarantined from active runtime.
 - Move more store-specific route and API markers into each store KB file as
   those stores are stabilized.
-- Replace legacy `utils/session_manager.py` with `utils.session_pool`.
-- Pick one canonical parser base contract and fix `ParserFactory` import
-  warnings for non-Pyaterochka stores.
-- Remove legacy tracked artifacts from Git permanently: logs and `__pycache__`
-  were already removed from the latest pushed commit.
+- Keep installer/update work out of the active code path until GUI MVP exists.
 
 ## Validation Commands
 
@@ -59,10 +92,9 @@ Passive API discovery:
 
 ## Later Roadmap
 
-1. SQLite product and price history.
-2. Data normalization and deduplication.
-3. FastAPI after data is useful.
-4. Postgres/Alembic after schema is proven locally.
-5. Workers/scheduler after multiple stores are stable.
-6. Observability integrations after local diagnostics mature.
-7. Dashboard and installer after parser reliability improves.
+1. PyInstaller portable build.
+2. Inno Setup installer.
+3. GitHub Releases delivery flow.
+4. One more real store after launcher MVP is stable.
+5. Scheduler/background runs after multi-store stability.
+6. Server/backend work only after the desktop product is genuinely useful.

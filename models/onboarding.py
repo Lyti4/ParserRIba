@@ -40,6 +40,11 @@ class OnboardingResult(BaseModel):
     status: OnboardingStatus
     category_tree: list[DiscoveredCategoryNode] = Field(default_factory=list)
     selected_categories: list[str] = Field(default_factory=list)
+    active_profile_id: str = ""
+    active_profile_version_id: str = ""
+    streamed_categories: list[str] = Field(default_factory=list)
+    research_mode: str = "live"
+    current_phase: str = ""
     artifact_paths: ArtifactPaths = Field(default_factory=ArtifactPaths)
     diagnostics_summary: dict[str, Any] = Field(default_factory=dict)
     schema_version: int = SCHEMA_VERSION

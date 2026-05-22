@@ -7,8 +7,10 @@ Read these files first in any new chat or automation:
 1. `AGENTS.md`
 2. `docs/PROJECT_STATE.md`
 3. `docs/NEXT_STEPS.md`
-4. `docs/AUTOMATIONS.md`
-5. `docs/ARCHITECTURE_STEWARD.md`
+4. `docs/ROADMAP_V1.md`
+5. `docs/TOOLS_POLICY.md`
+6. `docs/AUTOMATIONS.md`
+7. `docs/ARCHITECTURE_STEWARD.md`
 
 ## Project Rules
 
@@ -30,7 +32,9 @@ Read these files first in any new chat or automation:
   `__aexit__`.
 - Do not use `time.sleep()`. Use `asyncio.sleep()` or browser wait APIs.
 - Do not use `print()` for logs in runtime code. Use loguru.
-- Keep new Python files below 300 lines when practical.
+- Keep new focused Python modules below 300 lines when practical.
+- For orchestration entrypoints and large tests, up to roughly 450 lines is
+  acceptable if the file still has one clear responsibility.
 
 ## Current Focus
 

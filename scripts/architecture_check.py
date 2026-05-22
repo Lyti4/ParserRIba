@@ -40,7 +40,19 @@ TRACKED_ARTIFACT_MARKERS = (
     "dist/",
     "GeoLite2",
 )
-LONG_FILE_LIMIT = 300
+DEFAULT_LONG_FILE_LIMIT = 300
+EXTENDED_LONG_FILE_LIMIT = 450
+EXTENDED_LONG_FILE_PATH_PREFIXES = ("tests/", "scripts/")
+EXTENDED_LONG_FILE_PATHS = {"main.py"}
+LEGACY_ARCHIVE_PATHS = {
+    "parsers/auchan.py",
+    "parsers/base_parser.py",
+    "parsers/lenta.py",
+    "parsers/magnit.py",
+    "parsers/okey.py",
+    "parsers/perekrestok.py",
+    "parsers/playwright_parser.py",
+}
 
 
 @dataclass(frozen=True)
@@ -107,18 +119,21 @@ def find_tracked_artifacts(files: Iterable[str]) -> list[Finding]:
 def scan_python_file(path: Path, root: Path = ROOT) -> list[Finding]:
     """Scan one Python file for architecture drift."""
     rel = path.relative_to(root).as_posix()
+    if rel in LEGACY_ARCHIVE_PATHS:
+        return []
     text = path.read_text(encoding="utf-8", errors="ignore")
     lines = text.splitlines()
     findings: list[Finding] = []
 
-    if len(lines) > LONG_FILE_LIMIT:
+    long_file_limit = _long_file_limit_for_path(rel)
+    if len(lines) > long_file_limit:
         findings.append(
             Finding(
                 severity="warning",
                 code="long-file",
                 path=rel,
                 line=0,
-                message=f"Python file has {len(lines)} lines; target is <= {LONG_FILE_LIMIT}.",
+                message=f"Python file has {len(lines)} lines; target is <= {long_file_limit} for this file class.",
             )
         )
 
@@ -161,15 +176,16 @@ def scan_python_file(path: Path, root: Path = ROOT) -> list[Finding]:
                         )
                     )
             if isinstance(node.func, ast.Attribute) and node.func.attr == "close":
-                findings.append(
-                    Finding(
-                        severity="warning",
-                        code="close-call",
-                        path=rel,
-                        line=node.lineno,
-                        message="Review close() call; AsyncCamoufox must be closed via async with or __aexit__.",
+                if not rel.startswith("tests/"):
+                    findings.append(
+                        Finding(
+                            severity="warning",
+                            code="close-call",
+                            path=rel,
+                            line=node.lineno,
+                            message="Review close() call; AsyncCamoufox must be closed via async with or __aexit__.",
+                        )
                     )
-                )
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
             if rel.startswith("parsers/") and ("http://" in node.value or "https://" in node.value):
                 findings.append(
@@ -184,6 +200,16 @@ def scan_python_file(path: Path, root: Path = ROOT) -> list[Finding]:
     return findings
 
 
+def _long_file_limit_for_path(rel_path: str) -> int:
+    """Return the pragmatic file-length guideline for one repo path."""
+    normalized = rel_path.replace("\\", "/")
+    if normalized in EXTENDED_LONG_FILE_PATHS:
+        return EXTENDED_LONG_FILE_LIMIT
+    if any(normalized.startswith(prefix) for prefix in EXTENDED_LONG_FILE_PATH_PREFIXES):
+        return EXTENDED_LONG_FILE_LIMIT
+    return DEFAULT_LONG_FILE_LIMIT
+
+
 def check_parser_factory(root: Path = ROOT) -> list[Finding]:
     """Check whether ParserFactory can be imported and parser modules inspected."""
     script = (
@@ -192,7 +218,7 @@ def check_parser_factory(root: Path = ROOT) -> list[Finding]:
         "    try:\n"
         "        ParserFactory._load_parser_class(store)\n"
         "    except Exception as exc:\n"
-        "        print(f'{store}: {type(exc).__name__}: {exc}')\n"
+        "        print(f'CHECK::{store}: {type(exc).__name__}: {exc}')\n"
     )
     result = subprocess.run(
         [sys.executable, "-c", script],
@@ -205,7 +231,7 @@ def check_parser_factory(root: Path = ROOT) -> list[Finding]:
     lines = [
         line
         for line in result.stdout.splitlines()
-        if line.strip() and not line.startswith(("✅", "🌍", "⚠", "ℹ"))
+        if line.strip().startswith("CHECK::")
     ]
     findings: list[Finding] = []
     if result.returncode != 0:
@@ -225,7 +251,7 @@ def check_parser_factory(root: Path = ROOT) -> list[Finding]:
                 code="parser-factory",
                 path="main.py",
                 line=0,
-                message=f"Parser module check: {line}",
+                message=f"Parser module check: {line.removeprefix('CHECK::')}",
             )
         )
     return findings

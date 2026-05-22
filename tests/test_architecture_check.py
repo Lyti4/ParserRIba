@@ -42,6 +42,17 @@ def test_scan_python_file_flags_parser_hardcoded_url(tmp_path: Path) -> None:
     assert any(item.code == "hardcoded-url" for item in findings)
 
 
+def test_scan_python_file_allows_extended_limit_for_tests(tmp_path: Path) -> None:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    sample = tests_dir / "demo_test.py"
+    sample.write_text("\n".join(f"line_{index} = {index}" for index in range(400)), encoding="utf-8")
+
+    findings = scan_python_file(sample, root=tmp_path)
+
+    assert not any(item.code == "long-file" for item in findings)
+
+
 def test_render_findings_groups_by_severity() -> None:
     report = render_findings(
         [

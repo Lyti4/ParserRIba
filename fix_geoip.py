@@ -8,6 +8,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
+from loguru import logger
 
 def find_and_copy_geoip():
     # Путь к окружению проекта
@@ -16,7 +17,7 @@ def find_and_copy_geoip():
     
     # Если файл уже существует, выходим
     if dest_file.exists():
-        print(f"✅ Файл GeoLite2-City.mmdb уже существует: {dest_file}")
+        logger.info("GeoLite2-City.mmdb already exists: {}", dest_file)
         return True
     
     # Временные директории для поиска
@@ -28,7 +29,7 @@ def find_and_copy_geoip():
     
     # Ищем файл
     mmdb_file = None
-    print("🔍 Поиск файла GeoLite2-City.mmdb...")
+    logger.info("Searching for GeoLite2-City.mmdb...")
     
     for temp_dir in temp_dirs:
         if not temp_dir.exists():
@@ -37,15 +38,14 @@ def find_and_copy_geoip():
         for root, dirs, files in os.walk(temp_dir):
             if "GeoLite2-City.mmdb" in files:
                 mmdb_file = Path(root) / "GeoLite2-City.mmdb"
-                print(f"📍 Найдено: {mmdb_file}")
+                logger.info("Found candidate: {}", mmdb_file)
                 break
         if mmdb_file:
             break
     
     if not mmdb_file:
-        print("❌ Файл GeoLite2-City.mmdb не найден во временных папках.")
-        print("💡 Попробуйте запустить парсер ещё раз, чтобы инициировать загрузку,")
-        print("   затем прервите его (Ctrl+C) и запустите этот скрипт снова.")
+        logger.error("GeoLite2-City.mmdb was not found in temp directories.")
+        logger.info("Run the parser once to trigger the download, interrupt it, then rerun this script.")
         return False
     
     # Создаём директорию назначения, если её нет
@@ -54,11 +54,11 @@ def find_and_copy_geoip():
     # Копируем файл
     try:
         shutil.copy2(mmdb_file, dest_file)
-        print(f"✅ Успешно скопировано: {mmdb_file} -> {dest_file}")
-        print("🚀 Теперь можно запускать парсер: python main.py --store pyaterochka --no-headless --log-level INFO")
+        logger.info("Copied GeoLite2 database: {} -> {}", mmdb_file, dest_file)
+        logger.info("You can now run: python main.py --store pyaterochka --no-headless --log-level INFO")
         return True
     except Exception as e:
-        print(f"❌ Ошибка при копировании: {e}")
+        logger.error("Copy failed: {}", e)
         return False
 
 if __name__ == "__main__":

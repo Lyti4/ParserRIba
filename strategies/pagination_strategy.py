@@ -5,6 +5,7 @@ Pagination Strategy for handling multi-page catalogs.
 import asyncio
 from typing import Optional, List
 from playwright.async_api import Page
+from loguru import logger
 
 from .base_strategy import BaseStrategy
 
@@ -53,7 +54,7 @@ class PaginationStrategy(BaseStrategy):
             
             return True
         except Exception as e:
-            print(f"Pagination error: {e}")
+            logger.warning("Pagination error: {}", e)
             return False
 
     async def can_apply(self) -> bool:

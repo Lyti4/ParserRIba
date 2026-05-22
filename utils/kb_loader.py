@@ -4,10 +4,10 @@
 """
 
 import re
-import os
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field, validator, ConfigDict
+from loguru import logger
 
 from utils.kb_interception import InterceptionConfig, parse_interception_section
 
@@ -267,25 +267,31 @@ class KBLoader:
 # Пример использования и тестирования
 if __name__ == "__main__":
     loader = KBLoader()
-    
-    print("📦 Доступные магазины:", loader.list_available_shops())
+
+    logger.info("Available stores: {}", loader.list_available_shops())
     
     # Тест загрузки Пятерочки
     try:
         pya = loader.load_shop("pyaterochka")
-        print(f"\n✅ {pya.name}:")
-        print(f"   URL: {pya.base_url}")
-        print(f"   Селекторов: {len(pya.selectors)}")
-        print(f"   Custom Headers: {pya.headers.custom}")
-        print(f"   Инструмент: {pya.anti_bot.recommended_tool}")
+        logger.info(
+            "Loaded {}: url={}, selectors={}, custom_headers={}, tool={}",
+            pya.name,
+            pya.base_url,
+            len(pya.selectors),
+            pya.headers.custom,
+            pya.anti_bot.recommended_tool,
+        )
     except Exception as e:
-        print(f"❌ Ошибка загрузки Пятерочки: {e}")
+        logger.error("Failed to load pyaterochka KB: {}", e)
 
     # Тест загрузки Перекрестка (сложный случай)
     try:
         per = loader.load_shop("perekrestok")
-        print(f"\n✅ {per.name}:")
-        print(f"   Инструмент: {per.anti_bot.recommended_tool}")
-        print(f"   Капча: {per.anti_bot.captcha_types}")
+        logger.info(
+            "Loaded {}: tool={}, captcha_types={}",
+            per.name,
+            per.anti_bot.recommended_tool,
+            per.anti_bot.captcha_types,
+        )
     except Exception as e:
-        print(f"❌ Ошибка загрузки Перекрестка: {e}")
+        logger.error("Failed to load perekrestok KB: {}", e)

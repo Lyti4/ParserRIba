@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from launcher.desktop_action_state import build_action_enabled_map
+from launcher.desktop_background_task import start_background_action
 from launcher.desktop_controller import DesktopLauncherController
 from launcher.desktop_filter_panel import (
     FILTER_WIDGET_KEYS,
@@ -62,6 +63,8 @@ class DesktopLauncherShell:
         self.filter_extra_widgets: list[Any] = []
         self.category_action_buttons: list[Any] = []
         self.filter_action_buttons: list[Any] = []
+        self._active_task_thread: Any | None = None
+        self._active_task_worker: Any | None = None
     def run(self) -> int:
         """Run the launcher event loop."""
         app = self._create_application()
@@ -256,12 +259,33 @@ class DesktopLauncherShell:
     def _run_ui_action(self, action: Callable[[], Any]) -> None:
         if self.category_list is not None:
             self._update_state_from_widgets()
+        if self._active_task_thread is not None:
+            return
         self.state.task.status = "running"
         self.state.task.message = "Выполняется действие лаунчера..."
+        self.state.task.last_error = ""
         self._refresh_ui()
-        app = load_pyside6()[0].instance()
-        if app is not None:
-            app.processEvents()
+        self._start_background_action(action)
+
+    def _start_background_action(self, action: Callable[[], Any]) -> None:
+        self._active_task_thread, self._active_task_worker = start_background_action(
+            action=action,
+            on_finished=self._on_background_action_finished,
+            on_failed=self._on_background_action_failed,
+            on_cleared=self._clear_background_action,
+        )
+
+    def _on_background_action_finished(self, _result: object) -> None:
+        self._refresh_ui()
+
+    def _on_background_action_failed(self, _error: object) -> None:
+        self._refresh_ui()
+
+    def _clear_background_action(self) -> None:
+        self._active_task_thread = None
+        self._active_task_worker = None
+
+    def _run_ui_action_sync_for_tests(self, action: Callable[[], Any]) -> None:
         try:
             action()
         except Exception:

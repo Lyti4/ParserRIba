@@ -105,6 +105,19 @@ def test_desktop_launcher_updates_research_mode_from_widgets(tmp_path: Path) -> 
     assert shell.state.research.mode == "quiet"
 
 
+def test_desktop_launcher_runs_long_actions_in_background_thread(tmp_path: Path) -> None:
+    shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
+    shell.create_window()
+
+    scheduled: list[object] = []
+    shell._start_background_action = lambda action: scheduled.append(action)
+
+    shell._run_ui_action(lambda: "done")
+
+    assert len(scheduled) == 1
+    assert shell.state.task.status == "running"
+
+
 def test_desktop_launcher_can_select_all_visible_products(tmp_path: Path) -> None:
     json_path = tmp_path / "products.json"
     json_path.write_text(

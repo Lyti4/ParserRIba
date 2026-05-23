@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from urllib.parse import urlparse
+
 from pydantic import BaseModel, Field
 
 from models.catalog_discovery import DiscoveryEdge, DiscoveryNode, RouteHint
@@ -49,10 +51,11 @@ def build_discovery_graph(signals: SurfaceSignals) -> DiscoveryGraph:
                 raw_evidence_refs=_raw_refs(items, labels),
             )
         )
+    edges = _attach_path_hierarchy(nodes)
     return DiscoveryGraph(
-        primary_root_ids=[node.node_id for node in nodes],
+        primary_root_ids=[node.node_id for node in nodes if not node.parent_ids],
         nodes=nodes,
-        edges=[],
+        edges=edges,
     )
 
 
@@ -96,3 +99,49 @@ def _raw_refs(items: list[EvidenceItem], labels: list[str]) -> list[str]:
         if ref not in refs:
             refs.append(ref)
     return refs
+
+
+def _attach_path_hierarchy(nodes: list[DiscoveryNode]) -> list[DiscoveryEdge]:
+    edges: list[DiscoveryEdge] = []
+    paths = {node.node_id: _normalized_path(node.canonical_url) for node in nodes}
+    by_id = {node.node_id: node for node in nodes}
+    for child in nodes:
+        parent_id = _find_parent_id(child.node_id, paths)
+        if not parent_id:
+            continue
+        parent = by_id[parent_id]
+        if child.node_id not in parent.child_ids:
+            parent.child_ids.append(child.node_id)
+        if parent.node_id not in child.parent_ids:
+            child.parent_ids.append(parent.node_id)
+        edges.append(
+            DiscoveryEdge(
+                from_node_id=parent.node_id,
+                to_node_id=child.node_id,
+                edge_type="parent_child",
+                source=child.source,
+            )
+        )
+    return edges
+
+
+def _find_parent_id(child_id: str, paths: dict[str, str]) -> str:
+    child_path = paths.get(child_id, "")
+    candidates = [
+        (node_id, path)
+        for node_id, path in paths.items()
+        if node_id != child_id and _is_parent_path(path, child_path)
+    ]
+    if not candidates:
+        return ""
+    return max(candidates, key=lambda item: len(item[1]))[0]
+
+
+def _is_parent_path(parent_path: str, child_path: str) -> bool:
+    if not parent_path or not child_path or parent_path == child_path:
+        return False
+    return child_path.startswith(f"{parent_path}/")
+
+
+def _normalized_path(url: str) -> str:
+    return urlparse(str(url or "")).path.rstrip("/")

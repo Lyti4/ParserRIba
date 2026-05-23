@@ -60,6 +60,28 @@ def test_graph_builder_preserves_evidence_provenance() -> None:
     assert graph.nodes[0].route_hints[0].kind == "hydration_payload"
 
 
+def test_graph_builder_infers_parent_child_edges_from_url_paths() -> None:
+    signals = SurfaceSignals(
+        dom_categories=[
+            CategoryEvidence(name="Каталог", url="https://shop.example/catalog"),
+            CategoryEvidence(name="Рыба", url="https://shop.example/catalog/fish"),
+            CategoryEvidence(name="Красная рыба", url="https://shop.example/catalog/fish/red"),
+        ]
+    )
+
+    graph = build_discovery_graph(signals)
+
+    assert graph.primary_root_ids == ["category-1"]
+    assert graph.nodes[0].child_ids == ["category-2"]
+    assert graph.nodes[1].parent_ids == ["category-1"]
+    assert graph.nodes[1].child_ids == ["category-3"]
+    assert graph.nodes[2].parent_ids == ["category-2"]
+    assert [(edge.from_node_id, edge.to_node_id) for edge in graph.edges] == [
+        ("category-1", "category-2"),
+        ("category-2", "category-3"),
+    ]
+
+
 def test_normalize_label_for_launcher_prefers_clean_russian() -> None:
     label = normalize_label_for_launcher("  Рыба___и---морепродукты  ", "https://shop.example/category/fish")
 

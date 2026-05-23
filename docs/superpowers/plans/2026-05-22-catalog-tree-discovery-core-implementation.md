@@ -1,5 +1,10 @@
 # Catalog Tree Discovery Core Implementation Plan
 
+> **Status:** Completed and superseded by the later discovery intelligence and
+> Launcher V2 documents. Keep this file as historical implementation context.
+> Current source of truth:
+> `docs/superpowers/specs/2026-05-23-launcher-v2-discovery-workflow-design.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the first production slice of the launcher action `Исследование`: adaptive catalog tree discovery, site profile persistence with history, and launcher integration with phased progress and streamed categories.

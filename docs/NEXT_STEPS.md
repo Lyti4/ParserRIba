@@ -1,6 +1,6 @@
 # ParserRIba Next Steps
 
-Date: 2026-05-15
+Date: 2026-05-23
 
 ## Active Track
 
@@ -9,10 +9,10 @@ The active track is now split into two coupled layers:
 1. keep Pyaterochka data interception and API-first extraction stable;
 2. rebuild the desktop launcher around a strict discovery-first user flow:
    - research store;
-   - choose discovered sections;
-   - collect products;
-   - narrow the selection;
-   - build the final report.
+   - choose discovered catalog nodes;
+   - collect products from selected nodes;
+   - narrow the product workspace through dynamic filters;
+   - build the final Excel/report output.
 
 Architecture and delivery decisions for this stage are tracked in
 `docs/ROADMAP_V1.md`. Use this file for the main roadmap; use this document for
@@ -20,11 +20,13 @@ the current active execution track.
 
 ## Immediate Plan
 
-Detailed launcher rebuild plan:
+Current Launcher V2 source of truth:
 
 - `docs/LAUNCHER_ARCHITECTURE.md`
-- `docs/superpowers/plans/2026-05-22-launcher-discovery-first-rebuild.md`
-- `docs/superpowers/plans/2026-05-23-camoufox-research-walker-implementation.md`
+- `docs/superpowers/specs/2026-05-23-launcher-v2-discovery-workflow-design.md`
+
+Older implementation plans in `docs/superpowers/plans/` are retained as
+history only. They are not the current source of truth for Launcher V2.
 
 1. Keep the current local task layer stable:
    - onboarding discovery;
@@ -37,39 +39,46 @@ Detailed launcher rebuild plan:
    - first-class `report_summary`, `export_summary`,
      `available_filter_counts`, `category_tree`, `catalog_discovery`;
    - unified `launcher_view`.
-3. Make the launcher category UI discovery-first:
-   - no injected categories before store research;
-   - no auto-selected categories;
-   - visible action name `Исследование`.
-4. First usable launcher flow must support:
-   - choose store URL and intent;
-   - research catalog structure;
-   - choose discovered sections;
-   - collect products by chosen sections;
-   - choose filters from real collected data;
-   - build report and open Excel / report folder / JSON.
-5. Keep moving the new `Исследование` core toward an active Camoufox walker:
+3. Rebuild the launcher as Launcher V2:
+   - guided tabs: `Исследование`, `Каталог`, `Товары`, `Фильтры`, `Отчёт`;
+   - visible store profile context for many future sites;
+   - full catalog tree with checkbox multi-selection;
+   - no auto-selected categories after research;
+   - product collection from checked catalog nodes;
+   - one dynamic scrollable filter panel derived from collected product/card
+     fields;
+   - report generation from selected or filtered products.
+4. Make `StoreProfile` the central launcher object:
+   - one site/domain maps to one profile;
+   - catalog, selected nodes, product workspace, filters, diagnostics and price
+     history are isolated per profile;
+   - profile settings may include advanced network/proxy diagnostics without
+     exposing secrets in the UI or stored artifacts.
+5. Keep Pyaterochka runtime as a legacy reference and temporary store-specific
+   adapter only:
+   - do not make it the generic Launcher V2 engine;
+   - extract reusable mechanics only behind generic browser/session/protection
+     contracts;
+   - keep the old path for diagnostics and comparison while the store-neutral
+     pipeline matures.
+6. Continue improving `Исследование` as a store-neutral Camoufox walker:
    - serial single-page browser session;
    - menu expansion before tree capture;
    - bounded category traversal with repeat limits;
-   - short listing validation probes;
+   - deep selected-node research for subcategories, breadcrumbs, listing API and
+     site facets;
    - launcher-safe phase reporting and partial warnings.
-6. Keep the current Pyaterochka runtime available as a legacy reference while
-   the launcher layer is added:
-   - do not block the new discovery core on direct reuse of that runtime;
-   - keep the old path for diagnostics, comparison, and understanding proven
-     anti-bot/proxy/human-behavior mechanics;
-   - allow launcher research to evolve as its own adaptive browser engine.
 7. Continue using SQLite as the main desktop storage.
 8. Defer installer/update work until the launcher MVP is usable end-to-end.
 
 ## Next Refactors
 
-- Add launcher state models:
-  - selection state;
-  - filter state;
-  - task state;
-  - result state.
+- Add Launcher V2 state models:
+  - profile state;
+  - catalog tree selection state;
+  - product workspace state;
+  - dynamic filter state;
+  - task/result state.
 - Keep `parsers/base.py` as the canonical active parser contract.
 - Keep legacy parser modules quarantined from active runtime.
 - Move more store-specific route and API markers into each store KB file as

@@ -8,6 +8,11 @@ This is the primary architecture and delivery roadmap for the current ParserRIba
 stage. Use this file as the first architecture reference when continuing work,
 reviewing scope, or deciding whether a change belongs in v1 or later.
 
+Launcher V2 details are tracked in
+`docs/superpowers/specs/2026-05-23-launcher-v2-discovery-workflow-design.md`.
+Older launcher and walker plans in `docs/superpowers/plans/` are retained as
+implementation history only.
+
 ## Current Product Direction
 
 ParserRIba v1 is a local-first Windows desktop application. The working shape
@@ -25,7 +30,8 @@ Current priorities:
 
 1. Keep Pyaterochka stable.
 2. Keep scraping runtime local: Python + Camoufox.
-3. Ship a simple Windows launcher over the existing task/runtime contracts.
+3. Ship Launcher V2 over generic site profiles and existing task/runtime
+   contracts.
 4. Use local SQLite, JSON, and Excel as the main artifacts.
 5. Expand to additional stores only through the onboarding/discovery path.
 
@@ -33,8 +39,11 @@ For Pyaterochka, "stable" explicitly means preserving the protected-store
 mechanics already built into the parser path: Camoufox configuration, RU proxy
 and GeoIP handling, persistent profile/session reuse, human-like behavior,
 safe interception, API-first candidate extraction, DOM fallback, and
-anti-bot/proxy/error reporting. The launcher is a control surface over that
-runtime; it must not replace it with a separate simplified scraping path.
+anti-bot/proxy/error reporting. Pyaterochka remains a legacy reference and
+temporary store-specific adapter for product export while Launcher V2 evolves as
+a store-neutral profile, catalog, product, filter and report workspace. The new
+launcher must not replace the protected Pyaterochka path with a simplified
+scraper, but it also must not be built around Pyaterochka internals.
 
 What is explicitly out of scope for v1:
 
@@ -65,9 +74,12 @@ The current architecture is split into five layers.
 - Launcher does not call store scripts directly.
 - Launcher calls `utils.launcher_task_controller`.
 - Launcher reads one normalized task result shape from `launcher_view`.
-- Launcher export actions for Pyaterochka keep using the existing local task
-  and store backend path, including Camoufox, proxy/GeoIP, human behavior,
-  interception and anti-bot diagnostics.
+- Launcher V2 exposes one profile workspace per site/domain and keeps catalog
+  tree selection, product workspace, dynamic filters, diagnostics and price
+  history isolated per profile.
+- Pyaterochka export actions may keep using the existing local task and store
+  backend path as a temporary adapter until the generic selected-node product
+  collection contract is reliable.
 
 ### 2. Local Task Layer
 
@@ -235,9 +247,13 @@ Example:
 
 1. Keep task and launcher contracts stable.
 2. Finalize one normalized launcher view-model over task results.
-3. Build the first PySide6 launcher shell over the existing local task layer.
-4. Keep report generation working from SQLite without requiring new live
+3. Rebuild the PySide6 shell as Launcher V2:
+   `Исследование -> Каталог -> Товары -> Фильтры -> Отчёт`.
+4. Add profile selection/settings before adding more visible runtime controls.
+5. Add checkbox catalog tree multi-selection and product workspace state.
+6. Add one dynamic scrollable filter panel derived from collected product data.
+7. Keep report generation working from SQLite without requiring new live
    scraping.
-5. Add result table, filter state, settings state, and error presentation.
-6. Add one more real store through discovery-first onboarding.
-7. Only then move to packaging, installer, and release flow.
+8. Add one more real store through discovery-first onboarding after the
+   Launcher V2 flow is usable for Pyaterochka.
+9. Only then move to packaging, installer, and release flow.

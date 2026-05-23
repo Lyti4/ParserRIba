@@ -1,5 +1,10 @@
 # Camoufox Research Walker Implementation Plan
 
+> **Status:** Superseded for Launcher V2 planning. Keep this file as
+> implementation history for the Camoufox walker slice only.
+> Current source of truth:
+> `docs/superpowers/specs/2026-05-23-launcher-v2-discovery-workflow-design.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the next production slice of `Исследование`: a real active browser walker for catalog/menu discovery that is designed around Camoufox's actual capabilities and limits.
@@ -639,4 +644,3 @@ The new symbols introduced by this plan are consistent across tasks:
 - `ResearchQueue`
 - `CamoufoxResearchWalker`
 - `validate_listing_candidate(...)`
-

@@ -50,6 +50,83 @@ The PySide6 shell renders widgets and delegates actions. Runtime work continues
 through local tasks; the UI must not directly call parser scripts, Camoufox, or
 store backends.
 
+Launcher V2 is a multi-site profile manager, not a Pyaterochka-specific
+launcher. The central product object is `StoreProfile`: one profile per website
+or store domain. Pyaterochka is one existing profile/adapter and one legacy
+reference implementation, not the architecture center.
+
+## Multi-Site Store Profile Model
+
+Launcher V2 must support many sites over time:
+
+- one website/domain creates one store profile;
+- profiles do not share catalog trees, selected categories, product workspaces,
+  filters, diagnostics or price history;
+- the last active profile may open by default;
+- the user can switch profiles without re-entering old URLs;
+- a newly entered URL either opens an existing matching profile, updates that
+  profile, or creates a new profile;
+- profile data remains local-first in SQLite and JSON snapshots, but the schema
+  must stay migration-friendly for a later Postgres backend.
+
+Each `StoreProfile` keeps:
+
+- site URL and display name;
+- current status: working, partial, needs operator, blocked or failed;
+- discovered catalog tree and full catalog links;
+- selected catalog nodes;
+- route/API hints and payload evidence refs;
+- browser/session strategy notes;
+- region/proxy/challenge diagnostics without secrets;
+- dynamic filters found from product data;
+- product collection history and last successful run time;
+- price-history availability for future reports.
+
+Profile settings should be visible through a `Профиль магазина` panel or
+dialog, not as noise on the first screen. The main flow stays simple, but the
+operator can inspect and adjust profile-level settings when needed.
+
+### Network And Proxy Settings
+
+Proxy controls are useful for protected stores, but they should start as an
+advanced profile section:
+
+- mode: auto, no proxy, use configured proxy;
+- last network/proxy status;
+- region/geo mismatch hints when known;
+- challenge/403/captcha history;
+- proxy identity shown only as mask/hash/status.
+
+Proxy credentials, cookies, captcha tokens and auth headers must never be
+stored in profile snapshots or committed artifacts.
+
+## Pyaterochka Runtime Boundary
+
+The existing Pyaterochka runtime must not be carried forward as the generic
+Launcher V2 discovery engine.
+
+It remains in two roles:
+
+1. legacy reference for proven Camoufox launch, RU proxy, GeoIP, persistent
+   profile, human-like behavior, anti-bot diagnostics and interception
+   mechanics;
+2. temporary store-specific adapter while the new store-neutral pipeline is not
+   yet able to collect full products with the same reliability.
+
+Launcher V2 must evolve around store-neutral contracts:
+
+- store profile;
+- catalog/deep research;
+- selected catalog nodes;
+- product workspace;
+- dynamic filter facets;
+- report input.
+
+Useful Pyaterochka mechanics may be extracted into reusable browser/session or
+protection modules only when they fit those contracts. The new launcher,
+catalog discovery and filter architecture must not depend on embedding the old
+Pyaterochka runtime.
+
 ## Tab 1: Исследование
 
 Purpose: run store research and create/update the local store profile.
@@ -154,6 +231,8 @@ Behavior:
 - multiple selected categories are processed in sequence through existing local
   task/export contracts;
 - no direct simplified Pyaterochka scraping path is added;
+- existing Pyaterochka export can remain a temporary adapter behind the generic
+  selected-node product collection contract;
 - collected products are persisted to SQLite and JSON as they are today;
 - the table supports selecting exact products for the final report.
 
@@ -275,22 +354,27 @@ Report flow:
 Create the tabbed shell and move existing controls into the new tabs without
 changing runtime behavior.
 
-### Slice 2: Catalog Tree Selection
+### Slice 2: Store Profile Surface
+
+Add the visible profile selector/panel and make `StoreProfile` the launcher
+context for catalog, products, filters and reports.
+
+### Slice 3: Catalog Tree Selection
 
 Render `full_catalog_tree` in a checkbox tree widget and store checked nodes.
 Allow any number of categories/subcategories.
 
-### Slice 3: Product Collection From Selected Nodes
+### Slice 4: Product Collection From Selected Nodes
 
 Convert checked nodes into the existing export task inputs. Preserve the
-Pyaterochka runtime path.
+temporary Pyaterochka adapter only behind the generic collection contract.
 
-### Slice 4: Dynamic Filter Panel
+### Slice 5: Dynamic Filter Panel
 
 Build dynamic facets from collected product records and render them in one
 scrollable filter area.
 
-### Slice 5: Deep Category Research
+### Slice 6: Deep Category Research
 
 Add a local task for deeper selected-node discovery and merge the results into
 the active profile/tree.
@@ -298,7 +382,7 @@ the active profile/tree.
 ## Non-Goals For This Spec
 
 - No new paid scraping/captcha/cloud browser services.
-- No replacement of the Pyaterochka runtime.
+- No full replacement of the Pyaterochka product adapter in the first UI slice.
 - No server/backend/Postgres migration.
 - No installer redesign.
 - No promise that every site will expose true nested category structure in the

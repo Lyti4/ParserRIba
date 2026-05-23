@@ -1,5 +1,10 @@
 # Launcher Discovery-First Rebuild Implementation Plan
 
+> **Status:** Superseded for Launcher V2 planning. Keep this file as
+> implementation history only.
+> Current source of truth:
+> `docs/superpowers/specs/2026-05-23-launcher-v2-discovery-workflow-design.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Rebuild the desktop launcher around the user’s required site-first workflow: research store -> choose discovered sections -> collect products -> narrow selection -> build report.

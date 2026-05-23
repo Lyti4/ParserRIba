@@ -15,6 +15,16 @@ This document fixes the current launcher architecture in explicit terms:
 Use this file before changing launcher UX, onboarding/discovery flow, export
 flow, or report/filter behavior.
 
+## Current Source Of Truth
+
+Launcher V2 design is now tracked in:
+
+- `docs/superpowers/specs/2026-05-23-launcher-v2-discovery-workflow-design.md`
+
+That spec supersedes the older one-screen launcher rebuild plans. Older plans
+remain in `docs/superpowers/plans/` as implementation history, not as current
+architecture.
+
 ## Current Layers
 
 ParserRIba desktop flow is:
@@ -117,8 +127,8 @@ Responsibilities:
 
 ### Pyaterochka Runtime Preservation
 
-Pyaterochka is the protected-store runtime baseline. The launcher must keep
-using the same local task and store backend path that preserves:
+Pyaterochka is a protected-store runtime baseline and legacy reference, not the
+generic Launcher V2 architecture center. The old runtime remains useful for:
 
 - Camoufox launch options from `utils.camoufox_launcher`;
 - RU proxy, GeoIP, persistent profile and session reuse behavior;
@@ -126,10 +136,40 @@ using the same local task and store backend path that preserves:
 - safe network/API interception and product API candidate capture;
 - DOM/card fallback and error/proxy/anti-bot reporting.
 
-The launcher must not introduce a separate simplified Pyaterochka scraping
-path. UI work may change how the user starts research/export/report actions,
-but product collection must still go through the existing Pyaterochka runtime
-contracts and reports.
+The launcher must not build the new store-neutral discovery/product workspace
+around the old Pyaterochka runtime. Instead:
+
+- keep Pyaterochka as a legacy reference and temporary store-specific adapter;
+- extract reusable browser/session/protection mechanics only when they fit the
+  generic contracts;
+- keep Launcher V2 contracts centered on store profiles, selected catalog nodes,
+  product workspaces, dynamic filters and reports.
+
+The launcher must not introduce a separate simplified Pyaterochka scraping path.
+Until the generic product pipeline is stable, the existing Pyaterochka export
+adapter may remain behind the generic selected-node collection contract.
+
+## Store Profile Model
+
+Launcher V2 is a multi-site profile manager. One site/domain maps to one local
+`StoreProfile`. Profiles do not share catalog trees, selected nodes, product
+workspaces, filters, diagnostics or price history.
+
+Each profile should track:
+
+- site URL and display name;
+- discovery status and last successful research run;
+- full catalog tree and full catalog links;
+- selected catalog nodes;
+- route/API hints and payload evidence refs;
+- browser/session strategy notes;
+- network/proxy/challenge diagnostics without secrets;
+- dynamic filters found from collected product data;
+- product collection history and price-history availability.
+
+The profile surface should be visible in the launcher, but advanced settings
+such as proxy mode and network diagnostics should live in a profile settings
+panel rather than cluttering the first screen.
 
 ### 6. Storage And Artifacts
 
@@ -257,6 +297,21 @@ The current code still contains category-first fallbacks:
 - report/filter actions can appear meaningful before fresh product collection.
 
 This is why the launcher can feel "pre-filled" instead of truly researched.
+
+## Launcher V2 Target
+
+The new launcher target is a guided workflow:
+
+`Исследование -> Каталог -> Товары -> Фильтры -> Отчёт`
+
+The visible UI must support:
+
+- switching or creating store profiles for many sites;
+- showing the full discovered catalog separately from the chosen intent slice;
+- selecting any number of catalog tree nodes;
+- collecting products from checked nodes;
+- building one dynamic scrollable filter panel from collected product fields;
+- selecting exact products before Excel/report export.
 
 ## Required V1 Launcher Contract
 

@@ -9,6 +9,10 @@ from bs4 import BeautifulSoup
 from pydantic import BaseModel, Field
 
 from models.catalog_discovery import ApiEvidence, CategoryEvidence, DocumentEvidence, ProductLinkEvidence
+from utils.catalog_tree_discovery.embedded_extractors import (
+    extract_embedded_api_hints,
+    extract_embedded_category_evidence,
+)
 
 CHALLENGE_MARKERS = ("captcha", "challenge", "turnstile", "cloudflare", "access denied")
 REGION_MARKERS = ("выберите ваш регион", "регион", "город")
@@ -81,9 +85,11 @@ def collect_catalog_surface_signals(
     challenge_hint = blocked_hint and any(marker in lowered for marker in CHALLENGE_MARKERS)
     region_hint = any(marker in lowered for marker in REGION_MARKERS)
     return SurfaceSignals(
-        dom_categories=_collect_category_links(soup, base_url),
+        dom_categories=_dedup_category_links(
+            _collect_category_links(soup, base_url) + extract_embedded_category_evidence(base_url, html)
+        ),
         dom_products=_collect_product_links(soup, base_url),
-        api_hints=_collect_api_hints(soup, html),
+        api_hints=_dedup_api_hints(_collect_api_hints(soup, html) + extract_embedded_api_hints(html)),
         documents=documents,
         raw_hrefs=raw_hrefs,
         blocked_hint=blocked_hint,
@@ -198,3 +204,26 @@ def _is_noise_category_candidate(name: str, href: str) -> bool:
     if not lowered_name.strip():
         return True
     return any(marker in lowered_name or marker in lowered_href for marker in CATEGORY_NOISE_MARKERS)
+
+
+def _dedup_category_links(items: list[CategoryEvidence]) -> list[CategoryEvidence]:
+    seen: set[str] = set()
+    result: list[CategoryEvidence] = []
+    for item in items:
+        if item.url in seen:
+            continue
+        seen.add(item.url)
+        result.append(item)
+    return result
+
+
+def _dedup_api_hints(items: list[ApiEvidence]) -> list[ApiEvidence]:
+    seen: set[tuple[str, str]] = set()
+    result: list[ApiEvidence] = []
+    for item in items:
+        key = (item.kind, item.value)
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(item)
+    return result

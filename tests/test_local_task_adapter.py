@@ -1,5 +1,6 @@
 import base64
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -170,6 +171,65 @@ def test_build_local_task_process_result_exposes_first_class_onboarding_fields()
     assert result.launcher_view["category_tree"] == [{"name": "Рыба", "url": "https://example.test/fish"}]
     assert result.launcher_view["selected_categories"] == ["Рыба"]
     assert result.launcher_view["catalog_discovery"] == {"surface_type": "category_tree"}
+
+
+def test_run_local_task_subprocess_tolerates_stdout_preamble(monkeypatch, tmp_path: Path) -> None:
+    _prepare_root(tmp_path)
+
+    payload = RunManifest(
+        task_name="site_onboarding_discovery",
+        shop="pyaterochka",
+        intent="fish_catalog",
+        status="runtime_ready",
+    ).model_dump_json(indent=2)
+
+    def fake_run(*args, **kwargs):
+        del args, kwargs
+        return subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=f"Skipping unknown patch audio:seed : 1\n{payload}",
+            stderr="",
+        )
+
+    monkeypatch.setattr("utils.local_task_adapter.subprocess.run", fake_run)
+
+    result = run_local_task_subprocess(
+        task_name="site_onboarding_discovery",
+        task_input={"site_url": "https://5ka.ru/"},
+        root_dir=tmp_path,
+        python_executable=sys.executable,
+    )
+
+    assert result.manifest.task_name == "site_onboarding_discovery"
+    assert result.manifest.status == "runtime_ready"
+
+
+def test_run_local_task_subprocess_raises_runtime_error_with_stderr(monkeypatch, tmp_path: Path) -> None:
+    _prepare_root(tmp_path)
+
+    def fake_run(*args, **kwargs):
+        del args, kwargs
+        raise subprocess.CalledProcessError(
+            returncode=1,
+            cmd=["python", "scripts/run_local_task.py"],
+            stderr="research failed on protected site",
+            output="",
+        )
+
+    monkeypatch.setattr("utils.local_task_adapter.subprocess.run", fake_run)
+
+    try:
+        run_local_task_subprocess(
+            task_name="site_onboarding_discovery",
+            task_input={"site_url": "https://5ka.ru/"},
+            root_dir=tmp_path,
+            python_executable=sys.executable,
+        )
+    except RuntimeError as error:
+        assert str(error) == "research failed on protected site"
+    else:
+        raise AssertionError("Expected RuntimeError from failed local task subprocess.")
 
 
 def _prepare_root(root_dir: Path) -> None:

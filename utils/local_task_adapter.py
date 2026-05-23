@@ -73,15 +73,18 @@ def run_local_task_subprocess(
     )
     if show_summary:
         command.append("--summary")
-    result = subprocess.run(
-        command,
-        cwd=str(root_dir),
-        check=True,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    manifest = RunManifest(**json.loads(result.stdout))
+    try:
+        result = subprocess.run(
+            command,
+            cwd=str(root_dir),
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+    except subprocess.CalledProcessError as error:
+        raise RuntimeError(_build_subprocess_failure_message(error)) from error
+    manifest = RunManifest(**_extract_manifest_payload(result.stdout))
     return build_local_task_process_result(
         manifest=manifest,
         stdout=result.stdout,
@@ -160,3 +163,33 @@ def _summary_dict_list(summary: dict[str, Any], key: str) -> list[dict[str, Any]
         return None
     result = [item for item in value if isinstance(item, dict)]
     return result or None
+
+
+def _extract_manifest_payload(stdout: str) -> dict[str, Any]:
+    """Extract one JSON manifest from noisy subprocess stdout."""
+    payload_text = str(stdout or "").strip()
+    if not payload_text:
+        raise ValueError("Local task subprocess returned empty stdout instead of run manifest JSON.")
+    decoder = json.JSONDecoder()
+    for index, char in enumerate(payload_text):
+        if char != "{":
+            continue
+        try:
+            payload, _end = decoder.raw_decode(payload_text[index:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            return payload
+    snippet = payload_text[:300].replace("\n", "\\n")
+    raise ValueError(f"Local task subprocess stdout did not contain manifest JSON. Snippet: {snippet}")
+
+
+def _build_subprocess_failure_message(error: subprocess.CalledProcessError) -> str:
+    """Render one compact launcher-safe subprocess failure message."""
+    stderr = str(getattr(error, "stderr", "") or "").strip()
+    stdout = str(getattr(error, "stdout", "") or "").strip()
+    if stderr:
+        return stderr
+    if stdout:
+        return f"Local task subprocess failed before manifest JSON was returned. Stdout: {stdout[:300]}"
+    return f"Local task subprocess failed with exit code {error.returncode}."

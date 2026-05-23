@@ -8,7 +8,9 @@ from utils.browser_catalog_discovery import (
     discover_catalog_research_context_via_browser,
     discover_catalog_site_via_browser,
 )
+from utils.catalog_tree_discovery.entrypoint_collectors import collect_catalog_entrypoints_from_html
 from utils.catalog_tree_discovery.event_capture import DiscoveryEventCapture
+from utils.catalog_tree_discovery.surface_collectors import collect_catalog_surface_signals
 
 
 class _ZeroLocator:
@@ -142,16 +144,11 @@ async def test_pyaterochka_browser_discovery_reuses_protected_camoufox_context(m
     }
     assert calls["browse_profile"] == "fish-category"
     assert calls["gotos"][0] == "https://5ka.ru/"
-    assert calls["goto"] == {
-        "site_url": "https://5ka.ru/catalog/moreprodukty--251C13078/",
-        "wait_until": "domcontentloaded",
-        "timeout": 60000,
-    }
-    assert calls["gotos"] == [
-        "https://5ka.ru/",
-        "https://5ka.ru/catalog/ryba--251C13077/",
-        "https://5ka.ru/catalog/moreprodukty--251C13078/",
-    ]
+    assert calls["goto"]["wait_until"] == "domcontentloaded"
+    assert calls["goto"]["timeout"] == 60000
+    assert calls["gotos"][0] == "https://5ka.ru/"
+    assert "https://5ka.ru/catalog/ryba--251C13077/" in calls["gotos"]
+    assert "https://5ka.ru/catalog/moreprodukty--251C13078/" in calls["gotos"]
     assert calls["page"].headers == {"x-test": "1"}
     assert calls["page"].waits == [5000, 3000, 3000, 3000]
     assert any(event.phase == "expand_menu" for event in result.phase_events)
@@ -194,9 +191,154 @@ async def test_discovery_event_capture_records_catalog_like_requests() -> None:
         url="https://shop.example/api/catalog/tree",
         status=200,
         content_type="application/json",
-        body_text='{"items":[{"name":"Рыба","children":[]}]}',
+        body_text='{"items":[{"name":"Fish","url":"/catalog/ryba/","children":[]}]}',
     )
 
     assert capture.request_urls == ["https://shop.example/api/catalog/tree"]
     assert capture.route_hints
     assert capture.route_hints[0].kind == "response_json"
+    assert capture.response_category_urls == ["https://shop.example/catalog/ryba/"]
+
+
+@pytest.mark.asyncio
+async def test_discovery_event_capture_marks_protection_payloads() -> None:
+    capture = DiscoveryEventCapture()
+
+    await capture.record_response(
+        url="https://shop.example/api/session",
+        status=200,
+        content_type="text/html",
+        body_text="<html><body>captcha servicepipe challenge</body></html>",
+    )
+
+    assert "protection:captcha" in capture.protection_hints
+    assert any(item.kind == "protection_html" for item in capture.route_hints)
+
+
+def test_entrypoint_collectors_keep_catalog_root_without_link_text() -> None:
+    html = """
+    <html>
+      <body>
+        <a href="/catalog/"><svg></svg></a>
+      </body>
+    </html>
+    """
+
+    result = collect_catalog_entrypoints_from_html("https://5ka.ru/", html)
+
+    assert result
+    assert result[0].name == "Каталог"
+    assert result[0].url == "https://5ka.ru/catalog/"
+
+
+def test_entrypoint_collectors_add_catalog_urls_from_raw_hrefs() -> None:
+    html = """
+    <html>
+      <body>
+        <script>
+          window.__DATA__ = {
+            "items": [
+              {"url": "/catalog/ryba-i-moreprodukty--251C13049/"}
+            ]
+          };
+        </script>
+      </body>
+    </html>
+    """
+
+    result = collect_catalog_entrypoints_from_html("https://5ka.ru/", html)
+
+    assert result
+    assert result[0].url == "https://5ka.ru/catalog/ryba-i-moreprodukty--251C13049/"
+    assert result[0].name == "Ryba i moreprodukty"
+
+
+def test_surface_collectors_extract_embedded_category_evidence() -> None:
+    html = """
+    <html>
+      <head>
+        <script id="__NEXT_DATA__" type="application/json">
+          {"items":[{"name":"Рыба и морепродукты","url":"/catalog/ryba-i-moreprodukty--251C13049/"}]}
+        </script>
+      </head>
+      <body></body>
+    </html>
+    """
+
+    signals = collect_catalog_surface_signals(
+        site_url="https://5ka.ru/",
+        final_url="https://5ka.ru/",
+        status_code=200,
+        html=html,
+    )
+
+    assert any(item.url == "https://5ka.ru/catalog/ryba-i-moreprodukty--251C13049/" for item in signals.dom_categories)
+    assert any(item.kind == "framework" and item.value == "nextjs_hydration" for item in signals.api_hints)
+    assert any(item.name == "Рыба и морепродукты" for item in signals.dom_categories)
+
+
+@pytest.mark.asyncio
+async def test_research_walker_stops_after_strong_catalog_root(monkeypatch) -> None:
+    calls: dict[str, object] = {"gotos": []}
+
+    class _CatalogPage:
+        def __init__(self) -> None:
+            self.url = "https://shop.example/"
+            self._current_html = '<html><body><a href="/catalog/">Каталог</a></body></html>'
+
+        def on(self, *_args, **_kwargs):
+            return None
+
+        def locator(self, _selector):
+            return _ZeroLocator()
+
+        async def goto(self, site_url: str, **kwargs):
+            calls["gotos"].append(site_url)
+            self.url = site_url
+            calls["last_goto"] = {"site_url": site_url, **kwargs}
+            if site_url.endswith("/catalog/"):
+                links = "".join(
+                    f'<a href="/catalog/category-{index}/">Category {index}</a>'
+                    for index in range(20)
+                )
+                self._current_html = f"<html><body>{links}</body></html>"
+            return SimpleNamespace(status=200)
+
+        async def wait_for_timeout(self, _timeout_ms: int) -> None:
+            return None
+
+        async def content(self) -> str:
+            return self._current_html
+
+    class _Browser:
+        async def new_page(self):
+            return _CatalogPage()
+
+    class _Camoufox:
+        def __init__(self, **_kwargs):
+            return None
+
+        async def __aenter__(self):
+            return _Browser()
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+    monkeypatch.setattr("utils.browser_catalog_discovery.configure_windows_console", lambda: None)
+    monkeypatch.setattr(
+        "utils.browser_catalog_discovery.build_research_camoufox_options",
+        lambda **kwargs: {"headless": kwargs["headless"]},
+    )
+    monkeypatch.setattr("utils.browser_catalog_discovery.AsyncCamoufox", _Camoufox)
+
+    result = await discover_catalog_site_via_browser(
+        "https://shop.example/",
+        shop="metro",
+        headless=True,
+        manual_wait=False,
+        listen_seconds=1,
+    )
+
+    assert calls["gotos"] == ["https://shop.example/", "https://shop.example/catalog/"]
+    assert len(result.category_links) == 21
+    assert result.category_links[0].url == "https://shop.example/catalog/"

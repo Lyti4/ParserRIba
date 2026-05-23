@@ -17,6 +17,7 @@ from utils.catalog_tree_discovery.research_queue import ResearchQueue
 from utils.catalog_tree_discovery.surface_collectors import SurfaceSignals, collect_catalog_surface_signals
 
 MAX_VISITED_PAGES = 4
+CATALOG_TREE_SATISFIED_THRESHOLD = 12
 
 
 @dataclass
@@ -57,34 +58,50 @@ class CamoufoxResearchWalker:
         phase_events.append(make_phase_event("expand_menu", "running", "Раскрытие меню"))
         await expand_menu_surfaces(page)
         await page.wait_for_timeout(self.listen_seconds * 1000)
-        current_signals, final_url, status_code = await self._collect_page_signals(
+
+        current_signals, current_entrypoints, final_url, status_code = await self._scan_current_page(
             page=page,
             site_url=site_url,
             fallback_status=status_code,
         )
         self._merge_signals(aggregate, current_signals, capture)
         visited_urls.append(final_url)
-        discovered_names = [item.name or item.url for item in aggregate.dom_categories]
-        phase_events.append(make_phase_event("collect_surface", "running", "Сбор структуры", discovered_names[:8]))
-
-        for item in collect_catalog_entrypoints_from_html(final_url or site_url, await page.content()):
+        phase_events.append(
+            make_phase_event(
+                "collect_surface",
+                "running",
+                "Сбор структуры",
+                [item.name or item.url for item in current_entrypoints[:8]],
+            )
+        )
+        for item in current_entrypoints:
             self._maybe_enqueue(site_url, item)
 
         steps = 0
         while steps < min(self.max_depth, MAX_VISITED_PAGES - 1):
+            if self._tree_is_sufficient(final_url, current_signals):
+                break
             next_url = self.queue.pop()
             if not next_url or next_url in visited_urls:
                 break
             response = await page.goto(next_url, wait_until="domcontentloaded", timeout=60_000)
             await page.wait_for_timeout(self.listen_seconds * 1000)
-            current_signals, final_url, status_code = await self._collect_page_signals(
+            current_signals, current_entrypoints, final_url, status_code = await self._scan_current_page(
                 page=page,
                 site_url=next_url,
                 fallback_status=int(getattr(response, "status", 0) or 0),
             )
             self._merge_signals(aggregate, current_signals, capture)
             visited_urls.append(final_url)
-            for item in current_signals.dom_categories:
+            phase_events.append(
+                make_phase_event(
+                    "collect_surface",
+                    "running",
+                    "Сбор структуры",
+                    [item.name or item.url for item in current_entrypoints[:8]],
+                )
+            )
+            for item in current_entrypoints:
                 self._maybe_enqueue(site_url, item)
             steps += 1
 
@@ -136,26 +153,30 @@ class CamoufoxResearchWalker:
         page.on("response", track_response)
         return tasks
 
-    async def _collect_page_signals(
+    async def _scan_current_page(
         self,
         *,
         page: Any,
         site_url: str,
         fallback_status: int,
-    ) -> tuple[SurfaceSignals, str, int]:
+    ) -> tuple[SurfaceSignals, list[CategoryEvidence], str, int]:
         html = await page.content()
         final_url = page.url or site_url
         status_code = int(fallback_status or 0)
-        return (
-            collect_catalog_surface_signals(
-                site_url=site_url,
-                final_url=final_url,
-                status_code=status_code,
-                html=html,
-            ),
-            final_url,
-            status_code,
+        signals = collect_catalog_surface_signals(
+            site_url=site_url,
+            final_url=final_url,
+            status_code=status_code,
+            html=html,
         )
+        entrypoints = collect_catalog_entrypoints_from_html(final_url or site_url, html)
+        return signals, entrypoints, final_url, status_code
+
+    def _tree_is_sufficient(self, final_url: str, signals: SurfaceSignals) -> bool:
+        normalized = str(final_url or "").casefold()
+        if "/catalog" not in normalized:
+            return False
+        return len(signals.dom_categories) >= CATALOG_TREE_SATISFIED_THRESHOLD
 
     def _maybe_enqueue(self, root_url: str, item: CategoryEvidence) -> None:
         if not self._same_host(root_url, item.url):
@@ -184,6 +205,18 @@ class CamoufoxResearchWalker:
             api_hint = ApiEvidence(kind=hint.kind, value=hint.value, source="network")
             if not any(existing.kind == api_hint.kind and existing.value == api_hint.value for existing in target.api_hints):
                 target.api_hints.append(api_hint)
+        for url in capture.response_category_urls:
+            if any(existing.url == url for existing in target.dom_categories):
+                continue
+            target.dom_categories.append(
+                CategoryEvidence(
+                    name="Каталог",
+                    url=url,
+                    source="network_response",
+                )
+            )
+        if capture.protection_hints:
+            target.challenge_hint = True
 
     def _dedup_links(self, items: list[Any]) -> list[Any]:
         seen: set[tuple[str, str]] = set()

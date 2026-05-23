@@ -181,7 +181,7 @@ class CamoufoxResearchWalker:
     def _maybe_enqueue(self, root_url: str, item: CategoryEvidence) -> None:
         if not self._same_host(root_url, item.url):
             return
-        self.queue.push(item.url)
+        self.queue.push(item.url, priority=self._priority_for_candidate(item))
 
     def _merge_signals(
         self,
@@ -194,6 +194,7 @@ class CamoufoxResearchWalker:
         target.documents = self._dedup_links(target.documents + source.documents)
         target.api_hints = self._dedup_links(target.api_hints + source.api_hints)
         target.raw_hrefs = list(dict.fromkeys(target.raw_hrefs + source.raw_hrefs))
+        target.evidence_items = self._dedup_links(target.evidence_items + source.evidence_items)
         target.blocked_hint = target.blocked_hint or source.blocked_hint
         target.challenge_hint = target.challenge_hint or source.challenge_hint
         target.region_hint = target.region_hint or source.region_hint
@@ -215,6 +216,7 @@ class CamoufoxResearchWalker:
                     source="network_response",
                 )
             )
+        target.evidence_items = self._dedup_links(target.evidence_items + capture.response_evidence_items)
         if capture.protection_hints:
             target.challenge_hint = True
 
@@ -234,3 +236,15 @@ class CamoufoxResearchWalker:
 
     def _same_host(self, left: str, right: str) -> bool:
         return urlparse(left).netloc.casefold() == urlparse(right).netloc.casefold()
+
+    def _priority_for_candidate(self, item: CategoryEvidence) -> int:
+        lowered = item.url.casefold()
+        if lowered.rstrip("/").endswith("/catalog"):
+            return 0
+        if "/catalog/" in lowered:
+            return 20
+        if "/category/" in lowered or "/categories/" in lowered:
+            return 30
+        if "/product/" in lowered or "/products/" in lowered:
+            return 90
+        return 60

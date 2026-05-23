@@ -196,7 +196,7 @@ async def test_discovery_event_capture_records_catalog_like_requests() -> None:
 
     assert capture.request_urls == ["https://shop.example/api/catalog/tree"]
     assert capture.route_hints
-    assert capture.route_hints[0].kind == "response_json"
+    assert any(hint.kind == "response_json" for hint in capture.route_hints)
     assert capture.response_category_urls == ["https://shop.example/catalog/ryba/"]
 
 

@@ -10,6 +10,7 @@ from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 
 from models.catalog_discovery import ApiEvidence, CategoryEvidence
+from utils.catalog_tree_discovery.payload_classifiers import classify_payload
 
 EMBEDDED_JSON_MARKERS = ("__next_data__", "__apollo_state__", "dehydratedstate", "catalog", "category", "children")
 CATALOG_URL_PATTERN = re.compile(r'["\'](/(?:catalog|category|categories)/[^"\']+)["\']', re.IGNORECASE)
@@ -64,14 +65,12 @@ def _extract_structured_category_evidence(base_url: str, html: str) -> list[Cate
         script_text = script.get_text(" ", strip=True)
         if not script_text or not _looks_like_json_script(script_type, script_id, script_text):
             continue
-        payload = _try_load_json(script_text)
-        if payload is None:
-            continue
-        for item in _walk_category_objects(payload, base_url):
+        classification = classify_payload(base_url=base_url, content_type=script_type, body_text=script_text)
+        for item in classification.categories:
             if item.url in seen:
                 continue
             seen.add(item.url)
-            result.append(item)
+            result.append(CategoryEvidence(name=item.name, url=item.url, source="embedded_json"))
     return result
 
 

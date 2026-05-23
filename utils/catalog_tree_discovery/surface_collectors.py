@@ -13,6 +13,7 @@ from utils.catalog_tree_discovery.embedded_extractors import (
     extract_embedded_api_hints,
     extract_embedded_category_evidence,
 )
+from utils.catalog_tree_discovery.evidence_registry import EvidenceItem
 
 CHALLENGE_MARKERS = ("captcha", "challenge", "turnstile", "cloudflare", "access denied")
 REGION_MARKERS = ("выберите ваш регион", "регион", "город")
@@ -59,6 +60,7 @@ class SurfaceSignals(BaseModel):
     api_hints: list[ApiEvidence] = Field(default_factory=list)
     documents: list[DocumentEvidence] = Field(default_factory=list)
     raw_hrefs: list[str] = Field(default_factory=list)
+    evidence_items: list[EvidenceItem] = Field(default_factory=list)
     blocked_hint: bool = False
     challenge_hint: bool = False
     region_hint: bool = False
@@ -81,17 +83,19 @@ def collect_catalog_surface_signals(
     soup = BeautifulSoup(html, "html.parser")
     raw_hrefs = _collect_hrefs(soup, base_url)
     documents = _collect_documents(soup, base_url, html)
+    dom_categories = _collect_category_links(soup, base_url)
+    embedded_categories = extract_embedded_category_evidence(base_url, html)
+    category_links = _dedup_category_links(dom_categories + embedded_categories)
     blocked_hint = int(status_code) in {401, 403, 429}
     challenge_hint = blocked_hint and any(marker in lowered for marker in CHALLENGE_MARKERS)
     region_hint = any(marker in lowered for marker in REGION_MARKERS)
     return SurfaceSignals(
-        dom_categories=_dedup_category_links(
-            _collect_category_links(soup, base_url) + extract_embedded_category_evidence(base_url, html)
-        ),
+        dom_categories=category_links,
         dom_products=_collect_product_links(soup, base_url),
         api_hints=_dedup_api_hints(_collect_api_hints(soup, html) + extract_embedded_api_hints(html)),
         documents=documents,
         raw_hrefs=raw_hrefs,
+        evidence_items=_build_evidence_items(dom_categories, embedded_categories),
         blocked_hint=blocked_hint,
         challenge_hint=challenge_hint,
         region_hint=region_hint,
@@ -222,6 +226,50 @@ def _dedup_api_hints(items: list[ApiEvidence]) -> list[ApiEvidence]:
     result: list[ApiEvidence] = []
     for item in items:
         key = (item.kind, item.value)
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(item)
+    return result
+
+
+def _build_evidence_items(
+    dom_categories: list[CategoryEvidence],
+    embedded_categories: list[CategoryEvidence],
+) -> list[EvidenceItem]:
+    items: list[EvidenceItem] = []
+    for category in dom_categories:
+        items.append(
+            EvidenceItem(
+                label=category.name,
+                url=category.url,
+                source="dom",
+                payload_type="",
+                confidence=0.55,
+                route_hint="menu_link",
+                evidence_ref="dom:a[href]",
+            )
+        )
+    for category in embedded_categories:
+        items.append(
+            EvidenceItem(
+                label=category.name,
+                url=category.url,
+                source="embedded_json",
+                payload_type="catalog_tree_payload",
+                confidence=0.78,
+                route_hint="hydration_payload",
+                evidence_ref="embedded_json",
+            )
+        )
+    return _dedup_evidence_items(items)
+
+
+def _dedup_evidence_items(items: list[EvidenceItem]) -> list[EvidenceItem]:
+    seen: set[tuple[str, str, str]] = set()
+    result: list[EvidenceItem] = []
+    for item in items:
+        key = (item.url, item.source, item.payload_type)
         if key in seen:
             continue
         seen.add(key)

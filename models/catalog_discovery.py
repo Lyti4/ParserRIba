@@ -16,7 +16,26 @@ CatalogSurfaceType = Literal[
     "blocked",
     "unknown",
 ]
-DiscoverySource = Literal["dom", "network", "mixed", "manual_confirmed"]
+DiscoverySource = Literal[
+    "dom",
+    "embedded_json",
+    "network",
+    "network_response",
+    "route_frontier",
+    "script_bundle",
+    "protection_signal",
+    "mixed",
+    "manual_confirmed",
+]
+PayloadType = Literal[
+    "catalog_tree_payload",
+    "listing_payload",
+    "product_payload",
+    "pagination_payload",
+    "protection_payload",
+    "noise_payload",
+    "",
+]
 ValidationState = Literal[
     "unknown",
     "listing_valid",
@@ -89,6 +108,7 @@ class DiscoveryNode(BaseModel):
     source: DiscoverySource = "dom"
     validation_state: ValidationState = "unknown"
     listing_confidence: float = 0.0
+    payload_type: PayloadType = ""
     route_hints: list[RouteHint] = Field(default_factory=list)
     protection_signals: list[str] = Field(default_factory=list)
     manual_step_seen: bool = False

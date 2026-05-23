@@ -7,6 +7,7 @@ from utils.catalog_discovery import summarize_catalog_discovery
 from utils.catalog_tree_discovery.entrypoint_collectors import (
     collect_catalog_entrypoints_from_html,
 )
+from utils.catalog_tree_discovery.evidence_registry import EvidenceItem
 from utils.catalog_tree_discovery.graph_builder import build_discovery_graph
 from utils.catalog_tree_discovery.listing_validator import classify_catalog_surface
 from utils.catalog_tree_discovery.phase_events import make_phase_event
@@ -34,6 +35,29 @@ def test_graph_builder_merges_duplicate_category_urls() -> None:
     assert graph.nodes[0].canonical_url == "https://shop.example/category/fish"
     assert graph.nodes[0].label_ru == "Рыба"
     assert graph.nodes[0].raw_evidence_refs == ["Рыба и морепродукты"]
+
+
+def test_graph_builder_preserves_evidence_provenance() -> None:
+    signals = SurfaceSignals(
+        evidence_items=[
+            EvidenceItem(
+                label="Рыба",
+                url="https://shop.example/catalog/fish/",
+                source="embedded_json",
+                payload_type="catalog_tree_payload",
+                confidence=0.82,
+                route_hint="hydration_payload",
+                evidence_ref="__NEXT_DATA__",
+            )
+        ]
+    )
+
+    graph = build_discovery_graph(signals)
+
+    assert graph.nodes[0].source == "embedded_json"
+    assert graph.nodes[0].payload_type == "catalog_tree_payload"
+    assert graph.nodes[0].listing_confidence == 0.82
+    assert graph.nodes[0].route_hints[0].kind == "hydration_payload"
 
 
 def test_normalize_label_for_launcher_prefers_clean_russian() -> None:
@@ -94,6 +118,16 @@ def test_research_queue_deduplicates_urls_and_respects_repeat_limit() -> None:
     assert queue.pop() == "https://shop.example/catalog/fish"
     assert queue.pop() == "https://shop.example/catalog/fish"
     assert queue.pop() is None
+
+
+def test_research_queue_prioritizes_catalog_root_over_first_category() -> None:
+    queue = ResearchQueue(max_repeat_urls=2)
+
+    assert queue.push("https://shop.example/catalog/fish", priority=30) is True
+    assert queue.push("https://shop.example/catalog/", priority=0) is True
+
+    assert queue.pop() == "https://shop.example/catalog/"
+    assert queue.pop() == "https://shop.example/catalog/fish"
 
 
 def test_surface_collectors_detect_russian_region_gate_markers() -> None:

@@ -233,6 +233,36 @@ def test_build_summary_text_shows_store_research_result() -> None:
     assert "Источник: исследование магазина" in caption
 
 
+def test_build_summary_text_shows_full_catalog_result() -> None:
+    state = LauncherAppState()
+    state.result.launcher_view = {
+        "full_catalog_tree": [
+            {
+                "name": "Каталог",
+                "url": "https://example.test/catalog",
+                "children": [{"name": "Рыба", "url": "https://example.test/catalog/fish", "children": []}],
+            }
+        ],
+        "full_catalog_links": [
+            {"name": "Каталог", "url": "https://example.test/catalog"},
+            {"name": "Рыба", "url": "https://example.test/catalog/fish"},
+        ],
+        "catalog_discovery": {"surface_type": "category_tree"},
+    }
+
+    summary = build_summary_text(state)
+    rows = build_result_rows(state)
+    caption = build_result_caption_text(state)
+
+    assert "Полный каталог: найдено URL разделов: 2" in summary
+    assert "Первые разделы полного каталога: Каталог, Рыба" in summary
+    assert rows == [
+        ["0", "Каталог", "https://example.test/catalog", "1"],
+        ["1", "Рыба", "https://example.test/catalog/fish", "0"],
+    ]
+    assert "Источник: полный каталог исследования" in caption
+
+
 def test_build_summary_text_hides_quiet_stream_until_completion() -> None:
     state = LauncherAppState()
     state.research.mode = "quiet"

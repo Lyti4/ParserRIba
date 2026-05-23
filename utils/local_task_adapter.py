@@ -29,6 +29,8 @@ class LocalTaskProcessResult:
     export_summary: dict[str, Any] | None = None
     available_filter_counts: dict[str, dict[str, int]] | None = None
     category_tree: list[dict[str, Any]] | None = None
+    full_catalog_tree: list[dict[str, Any]] | None = None
+    full_catalog_links: list[dict[str, Any]] | None = None
     selected_categories: list[str] | None = None
     diagnostics_summary: dict[str, Any] | None = None
     catalog_discovery: dict[str, Any] | None = None
@@ -109,6 +111,8 @@ def build_local_task_process_result(
         export_summary=_summary_dict(summary, "export_summary"),
         available_filter_counts=_nested_count_dict(summary, "available_filter_counts"),
         category_tree=_summary_dict_list(summary, "category_tree"),
+        full_catalog_tree=_summary_dict_list(summary, "full_catalog_tree"),
+        full_catalog_links=_summary_dict_list(summary, "full_catalog_links"),
         selected_categories=_summary_str_list(summary, "selected_categories"),
         diagnostics_summary=_summary_dict(summary, "diagnostics_summary"),
         catalog_discovery=_summary_dict(summary, "catalog_discovery"),
@@ -120,6 +124,8 @@ def build_local_task_process_result(
             export_summary=_summary_dict(summary, "export_summary"),
             available_filter_counts=_nested_count_dict(summary, "available_filter_counts"),
             category_tree=_summary_dict_list(summary, "category_tree"),
+            full_catalog_tree=_summary_dict_list(summary, "full_catalog_tree"),
+            full_catalog_links=_summary_dict_list(summary, "full_catalog_links"),
             selected_categories=_summary_str_list(summary, "selected_categories"),
             diagnostics_summary=_summary_dict(summary, "diagnostics_summary"),
             catalog_discovery=_summary_dict(summary, "catalog_discovery"),

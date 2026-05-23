@@ -39,6 +39,10 @@ def test_run_site_onboarding_for_known_site_creates_runtime_ready_session(tmp_pa
     assert Path(result.artifact_paths.kb_draft_path).exists()
     assert result.diagnostics_summary["catalog_discovery"]["surface_type"] == "category_tree"
     assert result.diagnostics_summary["category_source"] == "browser_discovery"
+    assert result.diagnostics_summary["full_catalog_count"] == 4
+    assert result.diagnostics_summary["full_catalog_links"][0]["url"] == "https://5ka.ru/catalog/ryba--251C13077/"
+    assert result.diagnostics_summary["full_catalog_tree"][0]["name"] == "Каталог"
+    assert result.diagnostics_summary["full_catalog_tree"][0]["children"][0]["url"] == "https://5ka.ru/catalog/ryba--251C13077/"
     assert result.diagnostics_summary["profile_snapshot_path"].endswith("version-1.json")
 
 

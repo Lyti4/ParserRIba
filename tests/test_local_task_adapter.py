@@ -154,6 +154,18 @@ def test_build_local_task_process_result_exposes_first_class_onboarding_fields()
             status="discovery_only",
             summary={
                 "category_tree": [{"name": "Рыба", "url": "https://example.test/fish"}],
+                "full_catalog_tree": [
+                    {
+                        "name": "Каталог",
+                        "url": "https://example.test/catalog",
+                        "children": [{"name": "Рыба", "url": "https://example.test/catalog/fish", "children": []}],
+                    }
+                ],
+                "full_catalog_links": [
+                    {"name": "Каталог", "url": "https://example.test/catalog"},
+                    {"name": "Рыба", "url": "https://example.test/catalog/fish"},
+                ],
+                "full_catalog_count": 2,
                 "selected_categories": ["Рыба"],
                 "diagnostics_summary": {"known_backend": True},
                 "catalog_discovery": {"surface_type": "category_tree"},
@@ -163,12 +175,25 @@ def test_build_local_task_process_result_exposes_first_class_onboarding_fields()
     )
 
     assert result.category_tree == [{"name": "Рыба", "url": "https://example.test/fish"}]
+    assert result.full_catalog_tree == [
+        {
+            "name": "Каталог",
+            "url": "https://example.test/catalog",
+            "children": [{"name": "Рыба", "url": "https://example.test/catalog/fish", "children": []}],
+        }
+    ]
+    assert result.full_catalog_links == [
+        {"name": "Каталог", "url": "https://example.test/catalog"},
+        {"name": "Рыба", "url": "https://example.test/catalog/fish"},
+    ]
     assert result.selected_categories == ["Рыба"]
     assert result.diagnostics_summary == {"known_backend": True}
     assert result.catalog_discovery == {"surface_type": "category_tree"}
     assert result.intent_category_links == [{"name": "Рыба", "url": "https://example.test/fish"}]
     assert result.launcher_view is not None
     assert result.launcher_view["category_tree"] == [{"name": "Рыба", "url": "https://example.test/fish"}]
+    assert result.launcher_view["full_catalog_count"] == 2
+    assert result.launcher_view["full_catalog_tree"][0]["children"][0]["name"] == "Рыба"
     assert result.launcher_view["selected_categories"] == ["Рыба"]
     assert result.launcher_view["catalog_discovery"] == {"surface_type": "category_tree"}
 

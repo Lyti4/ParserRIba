@@ -84,6 +84,19 @@ def build_summary_text(state: LauncherAppState) -> str:
         lines.append(f"Разделов каталога найдено: {len(category_tree)}")
         if names:
             lines.append(f"Найденные разделы: {', '.join(names[:6])}")
+    full_catalog_links = view.get("full_catalog_links")
+    full_catalog_tree = view.get("full_catalog_tree")
+    if isinstance(full_catalog_links, list) and full_catalog_links:
+        lines.append(f"Полный каталог: найдено URL разделов: {len(full_catalog_links)}")
+        names = [
+            str(item.get("name") or "").strip()
+            for item in full_catalog_links
+            if isinstance(item, dict) and str(item.get("name") or "").strip()
+        ]
+        if names:
+            lines.append(f"Первые разделы полного каталога: {', '.join(names[:8])}")
+    elif isinstance(full_catalog_tree, list) and full_catalog_tree:
+        lines.append(f"Полный каталог: корневых разделов: {len(full_catalog_tree)}")
 
     if state.result.excel_path:
         lines.append(f"Файл Excel: {Path(state.result.excel_path).name}")
@@ -170,6 +183,8 @@ def _result_context_parts(state: LauncherAppState) -> list[str]:
         parts.append("Источник: отфильтрованный JSON выгрузки" if active_filters else "Источник: JSON выгрузки")
     elif state.result.launcher_view.get("report_summary"):
         parts.append("Источник: сводка по сохранённому отчёту")
+    elif state.result.launcher_view.get("full_catalog_tree"):
+        parts.append("Источник: полный каталог исследования")
     elif state.result.launcher_view.get("category_tree"):
         parts.append("Источник: исследование магазина")
     if state.result.json_path and Path(state.result.json_path).exists():

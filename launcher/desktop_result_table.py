@@ -69,11 +69,17 @@ def _table_from_json_export(
 def _table_from_launcher_view(view: dict[str, Any]) -> ResultTableModel:
     report_summary = view.get("report_summary")
     if not isinstance(report_summary, dict):
+        catalog_table = _table_from_full_catalog(view)
+        if catalog_table["rows"]:
+            return catalog_table
         return {"headers": [], "rows": [], "product_ids": []}
     category_counts = report_summary.get("category_counts")
     supplier_counts = report_summary.get("supplier_counts")
     brand_counts = report_summary.get("brand_counts")
     if not isinstance(category_counts, dict):
+        catalog_table = _table_from_full_catalog(view)
+        if catalog_table["rows"]:
+            return catalog_table
         return {"headers": [], "rows": [], "product_ids": []}
     headers = REPORT_TABLE_HEADERS
     rows: list[list[str]] = []
@@ -87,6 +93,32 @@ def _table_from_launcher_view(view: dict[str, Any]) -> ResultTableModel:
             ]
         )
     return {"headers": headers, "rows": rows, "product_ids": []}
+
+
+def _table_from_full_catalog(view: dict[str, Any]) -> ResultTableModel:
+    tree = view.get("full_catalog_tree")
+    if not isinstance(tree, list) or not tree:
+        return {"headers": [], "rows": [], "product_ids": []}
+    rows: list[list[str]] = []
+    _append_catalog_tree_rows(rows, tree, level=0)
+    return {"headers": ["Уровень", "Раздел каталога", "URL", "Дочерних разделов"], "rows": rows, "product_ids": []}
+
+
+def _append_catalog_tree_rows(rows: list[list[str]], nodes: list[Any], *, level: int) -> None:
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        children = node.get("children")
+        child_nodes = children if isinstance(children, list) else []
+        rows.append(
+            [
+                str(level),
+                str(node.get("name") or ""),
+                str(node.get("url") or ""),
+                str(len(child_nodes)),
+            ]
+        )
+        _append_catalog_tree_rows(rows, child_nodes, level=level + 1)
 
 
 def _top_count_label(value: Any) -> str:

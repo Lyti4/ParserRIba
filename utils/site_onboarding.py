@@ -16,6 +16,8 @@ from utils.onboarding_storage import OnboardingStorage
 from utils.protection_strategies import get_protection_strategy
 from utils.site_onboarding_support import (
     build_category_tree,
+    build_full_catalog_links,
+    build_full_catalog_tree,
     derive_shop_slug,
     load_kb_categories,
     load_latest_profile_metadata,
@@ -147,6 +149,8 @@ def _build_onboarding_result(
         discovery=discovery,
     )
     category_tree = build_category_tree(target_categories, kb_categories, discovery)
+    full_catalog_tree = build_full_catalog_tree(discovery)
+    full_catalog_links = build_full_catalog_links(discovery)
     profile_snapshot_path = persist_research_profile(
         root_dir=root_dir,
         artifacts=artifacts,
@@ -156,9 +160,12 @@ def _build_onboarding_result(
         "known_backend": True,
         "runtime_export_ready": bool(site_profile.export_backend_shop),
         "category_count": len(category_tree),
+        "full_catalog_count": len(full_catalog_links),
         "category_source": _category_source(discovery, category_tree),
         "protection_strategy": "pause_for_operator",
         "catalog_discovery": discovery.model_dump(mode="json"),
+        "full_catalog_tree": [node.model_dump(mode="json") for node in full_catalog_tree],
+        "full_catalog_links": list(full_catalog_links),
         "phase_events": [event.model_dump(mode="json") for event in research.phase_events],
         "profile_notes": list(research.profile.notes),
         "partial_research": bool(research.partial),

@@ -92,6 +92,9 @@ def merge_launcher_view(current_view: dict[str, Any], new_view: dict[str, Any]) 
         "categories",
         "selected_categories",
         "category_tree",
+        "full_catalog_tree",
+        "full_catalog_links",
+        "full_catalog_count",
         "report_summary",
         "export_summary",
         "available_filter_counts",
@@ -113,6 +116,9 @@ def reset_result_state_for_onboarding(launcher_view: dict[str, Any]) -> dict[str
     """Keep only onboarding-relevant launcher view fields."""
     allowed = {
         "category_tree",
+        "full_catalog_tree",
+        "full_catalog_links",
+        "full_catalog_count",
         "selected_categories",
         "diagnostics_summary",
         "catalog_discovery",
@@ -124,6 +130,13 @@ def reset_result_state_for_onboarding(launcher_view: dict[str, Any]) -> dict[str
 def onboarding_result_message(summary: dict[str, Any]) -> str:
     """Build one onboarding completion message from task summary data."""
     category_count = int(summary.get("category_count") or 0)
+    full_catalog_count = int(summary.get("full_catalog_count") or 0)
+    if full_catalog_count:
+        return (
+            "Исследование магазина завершено. "
+            f"Выбранных разделов: {category_count}. "
+            f"Полный каталог: {full_catalog_count} URL."
+        )
     return f"Исследование магазина завершено. Найдено разделов: {category_count}"
 
 

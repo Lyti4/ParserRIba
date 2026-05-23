@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from urllib.parse import urlparse
 
-from models.catalog_discovery import CatalogDiscoveryResult, CategoryEvidence
+from models.catalog_discovery import CatalogDiscoveryResult, CategoryEvidence, DiscoveryNode
 from models.onboarding import DiscoveredCategoryNode
 from utils.category_intents import get_category_intent_resolver
 from utils.discovery_profile_repository import SQLiteDiscoveryProfileRepository
@@ -65,9 +65,82 @@ def build_category_tree(
     return []
 
 
+def build_full_catalog_tree(discovery: CatalogDiscoveryResult) -> list[DiscoveredCategoryNode]:
+    """Build the full discovered catalog tree from profile graph nodes."""
+    if discovery.nodes:
+        nodes_by_id = {node.node_id: node for node in discovery.nodes}
+        root_ids = list(discovery.primary_root_ids) or [
+            node.node_id for node in discovery.nodes if not node.parent_ids
+        ]
+        roots = [
+            _node_to_category_tree(nodes_by_id[node_id], nodes_by_id)
+            for node_id in root_ids
+            if node_id in nodes_by_id
+        ]
+        return _wrap_flat_catalog_roots(roots, discovery.final_url)
+    roots = [DiscoveredCategoryNode(name=item.name or item.url, url=item.url) for item in discovery.category_links]
+    return _wrap_flat_catalog_roots(roots, discovery.final_url)
+
+
+def build_full_catalog_links(discovery: CatalogDiscoveryResult) -> list[dict[str, str]]:
+    """Build a flat full-catalog link list with hierarchy metadata."""
+    if discovery.nodes:
+        return [
+            {
+                "name": node.label_ru or node.label_original or node.canonical_url,
+                "url": node.canonical_url,
+                "node_id": node.node_id,
+                "parent_ids": ",".join(node.parent_ids),
+                "child_ids": ",".join(node.child_ids),
+                "source": node.source,
+                "payload_type": node.payload_type,
+            }
+            for node in discovery.nodes
+        ]
+    return [
+        {
+            "name": item.name or item.url,
+            "url": item.url,
+            "node_id": "",
+            "parent_ids": "",
+            "child_ids": "",
+            "source": item.source,
+            "payload_type": "",
+        }
+        for item in discovery.category_links
+    ]
+
+
 def category_evidence_map(category_links: list[CategoryEvidence]) -> dict[str, str]:
     """Normalize category evidence into a simple name-to-url mapping."""
     return {(item.name or item.url): item.url for item in category_links}
+
+
+def _node_to_category_tree(
+    node: DiscoveryNode,
+    nodes_by_id: dict[str, DiscoveryNode],
+) -> DiscoveredCategoryNode:
+    children = [
+        _node_to_category_tree(nodes_by_id[child_id], nodes_by_id)
+        for child_id in node.child_ids
+        if child_id in nodes_by_id
+    ]
+    return DiscoveredCategoryNode(
+        name=node.label_ru or node.label_original or node.canonical_url,
+        url=node.canonical_url,
+        children=children,
+    )
+
+
+def _wrap_flat_catalog_roots(
+    roots: list[DiscoveredCategoryNode],
+    catalog_url: str,
+) -> list[DiscoveredCategoryNode]:
+    if len(roots) <= 1:
+        return roots
+    if any(node.children for node in roots):
+        return roots
+    return [DiscoveredCategoryNode(name="Каталог", url=catalog_url, children=roots)]
 
 
 def persist_research_profile(*, root_dir: Path, artifacts, research) -> str:

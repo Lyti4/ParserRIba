@@ -82,8 +82,14 @@ class CamoufoxResearchWalker:
             if self._tree_is_sufficient(final_url, current_signals):
                 break
             next_url = self.queue.pop()
-            if not next_url or next_url in visited_urls:
+            if not next_url:
                 break
+            if next_url in visited_urls:
+                self.queue.skip(next_url, "already_visited")
+                continue
+            if self._is_product_or_listing_url(next_url):
+                self.queue.skip(next_url, "product_or_listing_branch")
+                continue
             response = await page.goto(next_url, wait_until="domcontentloaded", timeout=60_000)
             await page.wait_for_timeout(self.listen_seconds * 1000)
             current_signals, current_entrypoints, final_url, status_code = await self._scan_current_page(
@@ -120,6 +126,7 @@ class CamoufoxResearchWalker:
                 ApiEvidence(kind=hint.kind, value=hint.value, source="network")
                 for hint in capture.route_hints
             )
+        discovery.notes.extend(self.queue.diagnostic_notes())
         return ResearchWalkerResult(
             discovery=discovery,
             phase_events=phase_events,
@@ -180,6 +187,7 @@ class CamoufoxResearchWalker:
 
     def _maybe_enqueue(self, root_url: str, item: CategoryEvidence) -> None:
         if not self._same_host(root_url, item.url):
+            self.queue.skip(item.url, "offsite")
             return
         self.queue.push(item.url, priority=self._priority_for_candidate(item))
 
@@ -248,3 +256,7 @@ class CamoufoxResearchWalker:
         if "/product/" in lowered or "/products/" in lowered:
             return 90
         return 60
+
+    def _is_product_or_listing_url(self, url: str) -> bool:
+        lowered = str(url or "").casefold()
+        return "/product/" in lowered or "/products/" in lowered

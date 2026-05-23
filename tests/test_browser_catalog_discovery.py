@@ -342,3 +342,4 @@ async def test_research_walker_stops_after_strong_catalog_root(monkeypatch) -> N
     assert calls["gotos"] == ["https://shop.example/", "https://shop.example/catalog/"]
     assert len(result.category_links) == 21
     assert result.category_links[0].url == "https://shop.example/catalog/"
+    assert "frontier_enqueued:21" in result.notes

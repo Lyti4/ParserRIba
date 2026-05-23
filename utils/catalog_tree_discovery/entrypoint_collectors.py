@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 from models.catalog_discovery import CategoryEvidence
 from utils.catalog_tree_discovery.surface_collectors import collect_catalog_surface_signals
@@ -59,11 +59,10 @@ def _derive_category_label(url: str) -> str:
 
 def _extract_catalog_urls_from_html(site_url: str, html: str) -> list[str]:
     matches = re.findall(r'["\'](/(?:catalog|category|categories)/[^"\']+)["\']', html, flags=re.IGNORECASE)
-    base = site_url.rstrip("/")
     result: list[str] = []
     seen: set[str] = set()
     for match in matches:
-        url = f"{base}{match}" if match.startswith("/") else match
+        url = urljoin(site_url, match)
         if url in seen:
             continue
         seen.add(url)

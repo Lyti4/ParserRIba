@@ -130,6 +130,21 @@ def test_research_queue_prioritizes_catalog_root_over_first_category() -> None:
     assert queue.pop() == "https://shop.example/catalog/fish"
 
 
+def test_research_queue_records_frontier_diagnostics() -> None:
+    queue = ResearchQueue(max_repeat_urls=1)
+
+    assert queue.push("https://shop.example/catalog/fish", priority=30) is True
+    assert queue.push("https://shop.example/catalog/fish", priority=30) is False
+    queue.skip("https://other.example/catalog/", "offsite")
+
+    notes = queue.diagnostic_notes()
+
+    assert "frontier_enqueued:1" in notes
+    assert "frontier_pending:1" in notes
+    assert "frontier_skipped_offsite:1" in notes
+    assert "frontier_skipped_repeat_limit:1" in notes
+
+
 def test_surface_collectors_detect_russian_region_gate_markers() -> None:
     signals = collect_catalog_surface_signals(
         site_url="https://shop.example/",

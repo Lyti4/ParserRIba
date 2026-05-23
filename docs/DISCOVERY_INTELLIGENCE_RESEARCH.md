@@ -46,5 +46,8 @@ They are development references, not runtime dependencies.
   protection and noise.
 - Store provenance on internal discovery nodes through evidence refs, source,
   confidence, route hints and protection signals.
+- Keep frontier diagnostics in profile notes: enqueued count, pending count and
+  skipped reasons such as offsite, repeat limit, already visited and
+  product/listing branch.
 - Keep user-facing launcher Russian simple; hide low-level evidence unless a
   developer diagnostic view asks for it.

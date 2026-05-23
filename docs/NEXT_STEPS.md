@@ -73,6 +73,9 @@ history only. They are not the current source of truth for Launcher V2.
 
 ## Next Refactors
 
+- Use `docs/PROJECT_FILE_FLOW_MAP.md` before deleting or quarantining code:
+  it shows launch paths, local imports, test-only imports and cleanup review
+  candidates.
 - Add Launcher V2 state models:
   - profile state;
   - catalog tree selection state;

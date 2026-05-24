@@ -27,6 +27,11 @@ def no_output_path_message() -> str:
     return "Пока нет файла или папки для открытия."
 
 
+def no_selected_categories_message() -> str:
+    """Return one friendly message when product collection has no selected nodes."""
+    return "Сначала выберите один или несколько разделов каталога."
+
+
 def settings_saved_message() -> str:
     """Return one friendly message for persisted launcher settings."""
     return "Настройки лаунчера сохранены."

@@ -61,6 +61,20 @@ def test_desktop_launcher_wraps_controls_in_scroll_area(tmp_path: Path) -> None:
     assert scroll_areas
 
 
+def test_desktop_launcher_exposes_workflow_tabs(tmp_path: Path) -> None:
+    shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
+    window = shell.create_window()
+
+    tabs = window.findChild(shell._qtwidgets.QTabWidget)
+
+    assert tabs is not None
+    assert [tabs.tabText(index) for index in range(tabs.count())] == [
+        "Исследование",
+        "Каталог",
+        "Фильтры",
+    ]
+
+
 def test_desktop_launcher_research_button_is_renamed(tmp_path: Path) -> None:
     shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
     shell.create_window()

@@ -3,8 +3,10 @@ from pathlib import Path
 import pytest
 
 from launcher.desktop_controller import DesktopLauncherController
+from launcher.desktop_controller_helpers import selected_export_categories
 from launcher.desktop_user_messages import (
     empty_filter_options_message,
+    no_selected_categories_message,
     no_output_path_message,
     opened_path_message,
     settings_saved_message,
@@ -123,14 +125,20 @@ def test_desktop_launcher_controller_marks_failure_state(tmp_path: Path) -> None
     assert controller.state.task.last_error == "boom"
 
 
-def test_desktop_launcher_controller_uses_stable_default_category_names(tmp_path: Path) -> None:
+def test_selected_export_categories_does_not_inject_default_category() -> None:
+    assert selected_export_categories([], "fish_catalog") == []
+    assert selected_export_categories([" Рыба ", ""], "fish_catalog") == ["Рыба"]
+
+
+def test_desktop_launcher_controller_rejects_export_without_selected_categories(tmp_path: Path) -> None:
     controller = DesktopLauncherController(root_dir=tmp_path)
-
-    controller.set_selection(intent="wine_catalog", categories=[])
-    assert controller._default_category() == "Вино"
-
     controller.set_selection(intent="fish_catalog", categories=[])
-    assert controller._default_category() == "Рыба"
+
+    with pytest.raises(ValueError, match=no_selected_categories_message()):
+        controller.run_selected_export()
+
+    assert controller.state.task.status == "failed"
+    assert controller.state.task.message == no_selected_categories_message()
 
 
 def test_desktop_launcher_controller_runs_selected_export_for_every_category(tmp_path: Path) -> None:

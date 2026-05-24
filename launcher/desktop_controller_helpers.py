@@ -146,9 +146,10 @@ def default_category_name(intent: str) -> str:
 
 
 def selected_export_categories(categories: list[str], intent: str) -> list[str]:
-    """Normalize selected categories and provide one intent-aware fallback."""
+    """Normalize selected categories for discovery-first export actions."""
+    del intent
     selected = [str(item).strip() for item in categories if str(item).strip()]
-    return selected or [default_category_name(intent)]
+    return selected
 
 
 def result_message(result: LocalTaskProcessResult) -> str:

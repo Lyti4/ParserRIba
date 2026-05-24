@@ -9,7 +9,6 @@ from typing import Any, Callable
 from launcher.desktop_controller_helpers import (
     artifact_or_existing,
     combine_export_results,
-    default_category_name,
     discovered_category_names,
     has_rich_filter_counts,
     merge_launcher_view,
@@ -23,6 +22,7 @@ from launcher.desktop_export_facets import build_available_filter_counts_from_ex
 from launcher.desktop_user_messages import (
     empty_filter_options_message,
     friendly_error_message,
+    no_selected_categories_message,
     no_output_path_message,
     opened_path_message,
     settings_saved_message,
@@ -34,7 +34,6 @@ from utils.local_task_adapter import LocalTaskProcessResult
 
 TaskRunner = Callable[..., LocalTaskProcessResult]
 PathOpener = Callable[[str], None]
-
 
 class DesktopLauncherController:
     """Manage launcher state transitions and local task execution."""
@@ -145,6 +144,12 @@ class DesktopLauncherController:
         """Run the selected live export for every chosen launcher category."""
         runner, task_name = self._export_runner_and_task()
         categories = selected_export_categories(self.state.selection.categories, self.state.selection.intent)
+        if not categories:
+            self._start_task(task_name)
+            error = ValueError(no_selected_categories_message())
+            self._fail_task(error)
+            self.save_state()
+            raise error
         common = {
             "root_dir": self.root_dir,
             "attempts": self.state.settings.attempts,
@@ -198,11 +203,9 @@ class DesktopLauncherController:
     def open_excel(self) -> bool:
         """Open the latest Excel artifact if it exists."""
         return self._open_path(self.state.result.excel_path)
-
     def open_report_dir(self) -> bool:
         """Open the latest report directory if it exists."""
         return self._open_path(self.state.result.report_dir)
-
     def open_json(self) -> bool:
         """Open the latest JSON artifact if it exists."""
         return self._open_path(self.state.result.json_path)
@@ -280,9 +283,6 @@ class DesktopLauncherController:
         counts = dict(filter_result.available_filter_counts or {})
         if counts:
             self.state.result.launcher_view["available_filter_counts"] = counts
-
-    def _default_category(self) -> str:
-        return default_category_name(self.state.selection.intent)
 
     def _open_path(self, path_value: str) -> bool:
         path = str(path_value or "").strip()

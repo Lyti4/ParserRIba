@@ -7,10 +7,6 @@ from typing import Any, Callable
 
 from launcher.desktop_action_state import build_action_enabled_map
 from launcher.desktop_background_task import start_background_action
-from launcher.desktop_catalog_tree_widget import (
-    collect_checked_catalog_nodes,
-    populate_catalog_tree_widget,
-)
 from launcher.desktop_controller import DesktopLauncherController
 from launcher.desktop_filter_panel import (
     FILTER_WIDGET_KEYS,
@@ -21,6 +17,13 @@ from launcher.desktop_filter_panel import (
 from launcher.desktop_interaction_state import apply_widget_enabled_state
 from launcher.desktop_result_table import build_result_table
 from launcher.desktop_result_table_widget import populate_result_table_widget
+from launcher.desktop_selection_panel import (
+    build_catalog_selection_box,
+    build_store_selection_box,
+    refresh_catalog_tree,
+    refresh_category_list,
+    sync_catalog_selection_from_widgets,
+)
 from launcher.desktop_shell_helpers import (
     build_window_icon,
     clear_filter_selections,
@@ -29,7 +32,7 @@ from launcher.desktop_shell_helpers import (
     set_result_selection,
     sync_setting_widgets,
 )
-from launcher.desktop_ui_text import INTENT_LABELS, SHOP_LABELS, WINDOW_TITLE
+from launcher.desktop_ui_text import WINDOW_TITLE
 from launcher.desktop_view_helpers import build_result_caption_text, build_status_text, build_summary_text
 from launcher.desktop_window_sections import (
     build_actions_box,
@@ -111,9 +114,7 @@ class DesktopLauncherShell:
         controls_layout = qtwidgets.QVBoxLayout(controls_widget)
         controls_layout.setContentsMargins(0, 0, 0, 0)
         controls_layout.setSpacing(8)
-        controls_layout.addWidget(self._build_selection_box(qtwidgets))
-        for builder in (build_filter_box, build_actions_box, build_settings_box, build_status_box):
-            controls_layout.addWidget(builder(self, qtwidgets))
+        controls_layout.addWidget(self._build_workflow_tabs(qtwidgets))
         controls_scroll = qtwidgets.QScrollArea()
         controls_scroll.setObjectName("launcherControlsScrollArea")
         controls_scroll.setWidgetResizable(True)
@@ -123,6 +124,21 @@ class DesktopLauncherShell:
         layout.addWidget(controls_scroll, stretch=0)
         layout.addWidget(build_results_box(self, qtwidgets), stretch=1)
         return container
+
+    def _build_workflow_tabs(self, qtwidgets: Any) -> Any:
+        tabs = qtwidgets.QTabWidget()
+        tabs.addTab(self._build_research_tab(qtwidgets), "Исследование")
+        tabs.addTab(build_catalog_selection_box(self, qtwidgets), "Каталог")
+        tabs.addTab(build_filter_box(self, qtwidgets), "Фильтры")
+        return tabs
+
+    def _build_research_tab(self, qtwidgets: Any) -> Any:
+        widget = qtwidgets.QWidget()
+        layout = qtwidgets.QVBoxLayout(widget)
+        layout.addWidget(build_store_selection_box(self, qtwidgets))
+        for builder in (build_actions_box, build_settings_box, build_status_box):
+            layout.addWidget(builder(self, qtwidgets))
+        return widget
 
     def _build_selection_box(self, qtwidgets: Any) -> Any:
         box = qtwidgets.QGroupBox("Выбор")
@@ -177,8 +193,8 @@ class DesktopLauncherShell:
             return
         self._set_combo_value(self.shop_combo, self.state.selection.shop)
         self._set_combo_value(self.intent_combo, self.state.selection.intent)
-        self._refresh_category_list()
-        self._refresh_catalog_tree()
+        refresh_category_list(self)
+        refresh_catalog_tree(self)
         refresh_filter_widgets(self)
         sync_setting_widgets(self)
         self._set_combo_value(self.research_mode_combo, self.state.research.mode)
@@ -234,15 +250,7 @@ class DesktopLauncherShell:
             self._sync_selected_products_from_table()
 
     def _update_state_from_widgets(self) -> None:
-        assert self.category_list is not None
-        if self.catalog_tree is not None and self.catalog_tree.topLevelItemCount() > 0:
-            nodes = collect_checked_catalog_nodes(self.catalog_tree, self._qt)
-            self.controller.set_selection(
-                categories=[str(item.get("name") or "") for item in nodes if str(item.get("name") or "").strip()],
-                selected_catalog_nodes=nodes,
-            )
-        else:
-            self.controller.set_selection(categories=[item.text() for item in self.category_list.selectedItems()])
+        sync_catalog_selection_from_widgets(self)
         self._sync_selected_products_from_table()
         self.controller.set_filters(collect_filter_selections(self))
         self.controller.set_settings(
@@ -291,11 +299,7 @@ class DesktopLauncherShell:
     def _on_catalog_tree_changed(self, _item: Any, _column: int) -> None:
         if self.catalog_tree is None or self._qt is None:
             return
-        nodes = collect_checked_catalog_nodes(self.catalog_tree, self._qt)
-        self.controller.set_selection(
-            categories=[str(item.get("name") or "") for item in nodes if str(item.get("name") or "").strip()],
-            selected_catalog_nodes=nodes,
-        )
+        sync_catalog_selection_from_widgets(self)
         self._refresh_action_buttons()
     def _run_ui_action(self, action: Callable[[], Any]) -> None:
         if self.category_list is not None:

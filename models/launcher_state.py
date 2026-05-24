@@ -15,6 +15,7 @@ class LauncherSelectionState(BaseModel):
     shop: str = "pyaterochka"
     intent: str = "fish_catalog"
     categories: list[str] = Field(default_factory=list)
+    selected_catalog_nodes: list[dict[str, Any]] = Field(default_factory=list)
     selected_product_ids: list[str] = Field(default_factory=list)
 
 

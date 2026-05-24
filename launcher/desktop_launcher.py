@@ -7,6 +7,10 @@ from typing import Any, Callable
 
 from launcher.desktop_action_state import build_action_enabled_map
 from launcher.desktop_background_task import start_background_action
+from launcher.desktop_catalog_tree_widget import (
+    collect_checked_catalog_nodes,
+    populate_catalog_tree_widget,
+)
 from launcher.desktop_controller import DesktopLauncherController
 from launcher.desktop_filter_panel import (
     FILTER_WIDGET_KEYS,
@@ -48,6 +52,7 @@ class DesktopLauncherShell:
         self.shop_combo: Any | None = None
         self.intent_combo: Any | None = None
         self.category_list: Any | None = None
+        self.catalog_tree: Any | None = None
         self.headless_checkbox: Any | None = None
         self.manual_wait_checkbox: Any | None = None
         self.research_mode_combo: Any | None = None
@@ -145,6 +150,12 @@ class DesktopLauncherShell:
         self.category_list.setMinimumHeight(86)
         self.category_list.setMaximumHeight(100)
         layout.addWidget(self.category_list, 2, 1, 1, 3)
+        layout.addWidget(qtwidgets.QLabel("Дерево каталога"), 4, 0)
+        self.catalog_tree = qtwidgets.QTreeWidget()
+        self.catalog_tree.setMinimumHeight(180)
+        self.catalog_tree.setSelectionMode(qtwidgets.QAbstractItemView.SelectionMode.NoSelection)
+        self.catalog_tree.itemChanged.connect(self._on_catalog_tree_changed)
+        layout.addWidget(self.catalog_tree, 4, 1, 1, 3)
         button_grid = qtwidgets.QGridLayout()
         button_grid.setContentsMargins(0, 0, 0, 0)
         button_grid.setHorizontalSpacing(8)
@@ -158,7 +169,7 @@ class DesktopLauncherShell:
             button.clicked.connect(handler)
             self.category_action_buttons.append(button)
             button_grid.addWidget(button, 0, index)
-        layout.addLayout(button_grid, 3, 1, 1, 3)
+        layout.addLayout(button_grid, 5, 1, 1, 3)
         return box
 
     def _refresh_ui(self) -> None:
@@ -167,6 +178,7 @@ class DesktopLauncherShell:
         self._set_combo_value(self.shop_combo, self.state.selection.shop)
         self._set_combo_value(self.intent_combo, self.state.selection.intent)
         self._refresh_category_list()
+        self._refresh_catalog_tree()
         refresh_filter_widgets(self)
         sync_setting_widgets(self)
         self._set_combo_value(self.research_mode_combo, self.state.research.mode)
@@ -189,6 +201,19 @@ class DesktopLauncherShell:
             self.category_list.addItem(item)
             item.setSelected(category_name in selected)
 
+    def _refresh_catalog_tree(self) -> None:
+        if self.catalog_tree is None or self._qtwidgets is None or self._qt is None:
+            return
+        tree = self.state.result.launcher_view.get("full_catalog_tree")
+        nodes = tree if isinstance(tree, list) else []
+        populate_catalog_tree_widget(
+            self.catalog_tree,
+            self._qtwidgets,
+            self._qt,
+            nodes,
+            self.state.selection.categories,
+        )
+
     def _refresh_result_table(self) -> None:
         if self.result_table is None:
             return
@@ -210,7 +235,14 @@ class DesktopLauncherShell:
 
     def _update_state_from_widgets(self) -> None:
         assert self.category_list is not None
-        self.controller.set_selection(categories=[item.text() for item in self.category_list.selectedItems()])
+        if self.catalog_tree is not None and self.catalog_tree.topLevelItemCount() > 0:
+            nodes = collect_checked_catalog_nodes(self.catalog_tree, self._qt)
+            self.controller.set_selection(
+                categories=[str(item.get("name") or "") for item in nodes if str(item.get("name") or "").strip()],
+                selected_catalog_nodes=nodes,
+            )
+        else:
+            self.controller.set_selection(categories=[item.text() for item in self.category_list.selectedItems()])
         self._sync_selected_products_from_table()
         self.controller.set_filters(collect_filter_selections(self))
         self.controller.set_settings(
@@ -256,6 +288,15 @@ class DesktopLauncherShell:
     def _on_open_report_dir(self) -> None: self._open_controller_action(self.controller.open_report_dir)
     def _on_open_json(self) -> None: self._open_controller_action(self.controller.open_json)
     def _on_result_selection_changed(self) -> None: self._sync_selected_products_from_table()
+    def _on_catalog_tree_changed(self, _item: Any, _column: int) -> None:
+        if self.catalog_tree is None or self._qt is None:
+            return
+        nodes = collect_checked_catalog_nodes(self.catalog_tree, self._qt)
+        self.controller.set_selection(
+            categories=[str(item.get("name") or "") for item in nodes if str(item.get("name") or "").strip()],
+            selected_catalog_nodes=nodes,
+        )
+        self._refresh_action_buttons()
     def _run_ui_action(self, action: Callable[[], Any]) -> None:
         if self.category_list is not None:
             self._update_state_from_widgets()

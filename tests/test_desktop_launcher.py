@@ -85,6 +85,35 @@ def test_desktop_launcher_does_not_autoselect_discovered_categories(tmp_path: Pa
     assert shell.category_list.selectedItems() == []
 
 
+def test_desktop_launcher_renders_full_catalog_tree_and_syncs_checked_nodes(tmp_path: Path) -> None:
+    shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
+    shell.state.result.launcher_view = {
+        "shop": "pyaterochka",
+        "intent": "fish_catalog",
+        "category_tree": [{"name": "Рыба", "url": "https://example.test/fish"}],
+        "full_catalog_tree": [
+            {
+                "name": "Каталог",
+                "url": "https://5ka.ru/catalog/",
+                "children": [
+                    {"name": "Рыба", "url": "https://5ka.ru/catalog/fish/", "children": []},
+                    {"name": "Морепродукты", "url": "https://5ka.ru/catalog/seafood/", "children": []},
+                ],
+            }
+        ],
+    }
+
+    shell.create_window()
+    root = shell.catalog_tree.topLevelItem(0)
+    root.child(1).setCheckState(0, shell._qt.CheckState.Checked)
+
+    assert shell.catalog_tree.topLevelItemCount() == 1
+    assert shell.state.selection.categories == ["Морепродукты"]
+    assert shell.state.selection.selected_catalog_nodes == [
+        {"name": "Морепродукты", "url": "https://5ka.ru/catalog/seafood/"}
+    ]
+
+
 def test_desktop_launcher_exposes_research_mode_widget(tmp_path: Path) -> None:
     shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
     shell.state.research.mode = "quiet"

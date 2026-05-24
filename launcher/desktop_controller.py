@@ -79,24 +79,27 @@ class DesktopLauncherController:
         shop: str | None = None,
         intent: str | None = None,
         categories: list[str] | None = None,
-        selected_product_ids: list[str] | None = None,
+        selected_catalog_nodes: list[dict[str, Any]] | None = None, selected_product_ids: list[str] | None = None,
     ) -> None:
         """Update current launcher selection state."""
+        selection = self.state.selection
         if shop is not None:
-            self.state.selection.shop = shop
-            self.state.selection.selected_product_ids = []
+            selection.shop = shop
+            selection.selected_catalog_nodes = []
+            selection.selected_product_ids = []
         if intent is not None:
-            self.state.selection.intent = intent
-            self.state.selection.selected_product_ids = []
+            selection.intent = intent
+            selection.selected_catalog_nodes = []
+            selection.selected_product_ids = []
         if categories is not None:
-            self.state.selection.categories = list(categories)
-            self.state.selection.selected_product_ids = []
+            selection.categories = list(categories)
+            if selected_catalog_nodes is None:
+                selection.selected_catalog_nodes = []
+            selection.selected_product_ids = []
+        if selected_catalog_nodes is not None:
+            selection.selected_catalog_nodes = [dict(item) for item in selected_catalog_nodes if isinstance(item, dict)]
         if selected_product_ids is not None:
-            self.state.selection.selected_product_ids = [
-                str(item).strip()
-                for item in selected_product_ids
-                if str(item).strip()
-            ]
+            selection.selected_product_ids = [str(item).strip() for item in selected_product_ids if str(item).strip()]
 
     def set_filters(self, filters: dict[str, Any]) -> None:
         """Replace current filter state from a plain mapping."""

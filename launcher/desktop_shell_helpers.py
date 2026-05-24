@@ -6,6 +6,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
+from launcher.desktop_catalog_tree_widget import set_all_catalog_tree_items_checked
 from launcher.desktop_list_widget_helpers import clear_multi_select_widgets, set_all_items_selected
 
 
@@ -60,6 +61,8 @@ def set_category_selection(shell: Any, selected: bool) -> None:
     if shell.category_list is None:
         return
     set_all_items_selected(shell.category_list, selected)
+    if getattr(shell, "catalog_tree", None) is not None and shell._qt is not None:
+        set_all_catalog_tree_items_checked(shell.catalog_tree, shell._qt, selected)
     shell._update_state_from_widgets()
     shell._refresh_ui()
 

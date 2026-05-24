@@ -61,6 +61,27 @@ def test_build_result_table_falls_back_to_report_summary() -> None:
     assert table["product_ids"] == []
 
 
+def test_build_result_table_skips_blank_and_duplicate_catalog_rows() -> None:
+    state = LauncherAppState()
+    state.result.launcher_view = {
+        "full_catalog_tree": [
+            {
+                "name": "",
+                "url": "",
+                "children": [
+                    {"name": "Napekli vam skidok", "url": "https://5ka.ru/catalog/napekli/", "children": []},
+                    {"name": "Napekli vam skidok", "url": "https://5ka.ru/catalog/napekli/", "children": []},
+                    {"name": "", "url": "", "children": []},
+                ],
+            }
+        ]
+    }
+
+    table = build_result_table(state)
+
+    assert table["rows"] == [["1", "Napekli vam skidok", "https://5ka.ru/catalog/napekli/", "0"]]
+
+
 def test_build_result_table_applies_selected_export_filters(tmp_path: Path) -> None:
     json_path = tmp_path / "products.json"
     json_path.write_text(

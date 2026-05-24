@@ -343,3 +343,67 @@ async def test_research_walker_stops_after_strong_catalog_root(monkeypatch) -> N
     assert len(result.category_links) == 21
     assert result.category_links[0].url == "https://shop.example/catalog/"
     assert "frontier_enqueued:21" in result.notes
+
+
+@pytest.mark.asyncio
+async def test_research_walker_does_not_enter_first_category_when_home_has_dense_catalog(monkeypatch) -> None:
+    calls: dict[str, object] = {"gotos": []}
+
+    class _DenseHomePage:
+        def __init__(self) -> None:
+            self.url = "https://shop.example/"
+            links = "".join(
+                f'<a href="/catalog/category-{index}/">Category {index}</a>'
+                for index in range(20)
+            )
+            self._current_html = f"<html><body>{links}</body></html>"
+
+        def on(self, *_args, **_kwargs):
+            return None
+
+        def locator(self, _selector):
+            return _ZeroLocator()
+
+        async def goto(self, site_url: str, **kwargs):
+            calls["gotos"].append(site_url)
+            self.url = site_url
+            calls["last_goto"] = {"site_url": site_url, **kwargs}
+            return SimpleNamespace(status=200)
+
+        async def wait_for_timeout(self, _timeout_ms: int) -> None:
+            return None
+
+        async def content(self) -> str:
+            return self._current_html
+
+    class _Browser:
+        async def new_page(self):
+            return _DenseHomePage()
+
+    class _Camoufox:
+        def __init__(self, **_kwargs):
+            return None
+
+        async def __aenter__(self):
+            return _Browser()
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+    monkeypatch.setattr("utils.browser_catalog_discovery.configure_windows_console", lambda: None)
+    monkeypatch.setattr(
+        "utils.browser_catalog_discovery.build_research_camoufox_options",
+        lambda **kwargs: {"headless": kwargs["headless"]},
+    )
+    monkeypatch.setattr("utils.browser_catalog_discovery.AsyncCamoufox", _Camoufox)
+
+    result = await discover_catalog_site_via_browser(
+        "https://shop.example/",
+        shop="metro",
+        headless=True,
+        manual_wait=False,
+        listen_seconds=1,
+    )
+
+    assert calls["gotos"] == ["https://shop.example/"]
+    assert len(result.category_links) == 20

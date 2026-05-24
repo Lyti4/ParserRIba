@@ -113,6 +113,7 @@ async def _run_site_onboarding_discovery_task(
         headless=task_input.get("headless"),
         manual_wait=bool(task_input.get("manual_wait") or False),
         listen_seconds=int(task_input.get("listen_seconds") or 6),
+        research_mode=str(task_input.get("research_mode") or "live"),
         selected_categories=[
             str(item)
             for item in (task_input.get("selected_categories") or [])

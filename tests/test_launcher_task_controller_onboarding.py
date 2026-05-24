@@ -32,6 +32,7 @@ def test_run_launcher_onboarding_discovery_uses_local_task_adapter(tmp_path: Pat
         site_url="https://unknown-store.example",
         root_dir=tmp_path,
         selected_categories=["Рыба"],
+        research_mode="quiet",
         python_executable="python.exe",
         show_summary=True,
     )
@@ -51,6 +52,7 @@ def test_run_launcher_onboarding_discovery_uses_local_task_adapter(tmp_path: Pat
         "headless": None,
         "manual_wait": False,
         "listen_seconds": 6,
+        "research_mode": "quiet",
     }
 
 

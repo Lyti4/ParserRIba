@@ -135,6 +135,7 @@ class DesktopLauncherController:
             headless=self.state.settings.headless,
             manual_wait=self.state.settings.manual_wait,
             listen_seconds=self.state.settings.listen_seconds,
+            research_mode=self.state.research.mode,
         )
 
     def run_selected_export(self) -> LocalTaskProcessResult:

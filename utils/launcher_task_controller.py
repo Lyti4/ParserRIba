@@ -20,6 +20,7 @@ def run_launcher_onboarding_discovery(
     headless: bool | str | None = None,
     manual_wait: bool = False,
     listen_seconds: int = 6,
+    research_mode: str = "live",
     python_executable: str | None = None,
     show_summary: bool = False,
 ) -> LocalTaskProcessResult:
@@ -34,6 +35,7 @@ def run_launcher_onboarding_discovery(
             "headless": headless,
             "manual_wait": manual_wait,
             "listen_seconds": listen_seconds,
+            "research_mode": research_mode,
         },
         root_dir=Path(root_dir),
         python_executable=python_executable,

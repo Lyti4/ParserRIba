@@ -56,5 +56,6 @@ if __name__ == "__main__":
             headless=args.headless,
             manual_wait=args.manual_wait,
             listen_seconds=args.listen_seconds,
+            research_mode=args.research_mode,
         )
     sys.stdout.write(result.model_dump_json(indent=2))

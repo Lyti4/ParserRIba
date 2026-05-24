@@ -100,25 +100,24 @@ def _table_from_full_catalog(view: dict[str, Any]) -> ResultTableModel:
     if not isinstance(tree, list) or not tree:
         return {"headers": [], "rows": [], "product_ids": []}
     rows: list[list[str]] = []
-    _append_catalog_tree_rows(rows, tree, level=0)
+    seen: set[tuple[str, str]] = set()
+    _append_catalog_tree_rows(rows, tree, level=0, seen=seen)
     return {"headers": ["Уровень", "Раздел каталога", "URL", "Дочерних разделов"], "rows": rows, "product_ids": []}
 
 
-def _append_catalog_tree_rows(rows: list[list[str]], nodes: list[Any], *, level: int) -> None:
+def _append_catalog_tree_rows(rows: list[list[str]], nodes: list[Any], *, level: int, seen: set[tuple[str, str]]) -> None:
     for node in nodes:
         if not isinstance(node, dict):
             continue
         children = node.get("children")
         child_nodes = children if isinstance(children, list) else []
-        rows.append(
-            [
-                str(level),
-                str(node.get("name") or ""),
-                str(node.get("url") or ""),
-                str(len(child_nodes)),
-            ]
-        )
-        _append_catalog_tree_rows(rows, child_nodes, level=level + 1)
+        name = str(node.get("name") or "").strip()
+        url = str(node.get("url") or "").strip()
+        key = (name.casefold(), url.casefold())
+        if (name or url) and key not in seen:
+            rows.append([str(level), name, url, str(len(child_nodes))])
+            seen.add(key)
+        _append_catalog_tree_rows(rows, child_nodes, level=level + 1, seen=seen)
 
 
 def _top_count_label(value: Any) -> str:

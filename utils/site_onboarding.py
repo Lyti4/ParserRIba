@@ -40,6 +40,7 @@ def run_site_onboarding(
     headless: bool | str | None = None,
     manual_wait: bool = False,
     listen_seconds: int = 6,
+    research_mode: str = "live",
 ) -> OnboardingResult:
     """Create or resume a guided onboarding session for one site."""
     site_profile = match_known_store_site(site_url)
@@ -76,6 +77,7 @@ def run_site_onboarding(
         headless=headless,
         manual_wait=manual_wait,
         listen_seconds=listen_seconds,
+        research_mode=research_mode,
     )
     _persist_onboarding_result(root_dir, result)
     return result
@@ -112,6 +114,7 @@ def _build_onboarding_result(
     headless: bool | str | None = None,
     manual_wait: bool = False,
     listen_seconds: int = 6,
+    research_mode: str = "live",
 ) -> OnboardingResult:
     shop_slug = site_profile.shop if site_profile else derive_shop_slug(site_url)
     artifacts = get_artifact_generator("default")(root_dir, shop_slug)
@@ -139,6 +142,7 @@ def _build_onboarding_result(
         headless=headless,
         manual_wait=manual_wait,
         listen_seconds=listen_seconds,
+        research_mode=research_mode,
     )
     discovery = research.catalog_discovery
     kb_categories = load_kb_categories(root_dir, site_profile.kb_shop)
@@ -215,12 +219,13 @@ def _run_catalog_research_sync(
     headless: bool | str | None = None,
     manual_wait: bool = False,
     listen_seconds: int = 6,
+    research_mode: str = "live",
 ) -> CatalogTreeDiscoveryRunResult:
     return asyncio.run(
         run_catalog_tree_discovery(
             site_url,
             shop=site_profile.shop,
-            mode="live",
+            mode=research_mode,
             headless=headless,
             manual_wait=manual_wait,
             listen_seconds=listen_seconds,

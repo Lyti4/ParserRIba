@@ -181,9 +181,9 @@ class CamoufoxResearchWalker:
 
     def _tree_is_sufficient(self, final_url: str, signals: SurfaceSignals) -> bool:
         normalized = str(final_url or "").casefold()
-        if "/catalog" not in normalized:
-            return False
-        return len(signals.dom_categories) >= CATALOG_TREE_SATISFIED_THRESHOLD
+        if len(signals.dom_categories) >= CATALOG_TREE_SATISFIED_THRESHOLD:
+            return True
+        return "/catalog" in normalized and len(signals.dom_categories) > 1
 
     def _maybe_enqueue(self, root_url: str, item: CategoryEvidence) -> None:
         if not self._same_host(root_url, item.url):

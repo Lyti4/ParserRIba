@@ -250,6 +250,7 @@ def test_run_site_onboarding_passes_browser_runtime_flags(tmp_path: Path) -> Non
         "headless": True,
         "manual_wait": True,
         "listen_seconds": 9,
+        "research_mode": "live",
     }
 
 

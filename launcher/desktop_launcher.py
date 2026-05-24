@@ -98,7 +98,7 @@ class DesktopLauncherShell:
         self.window.setWindowTitle(WINDOW_TITLE)
         if icon is not None:
             self.window.setWindowIcon(icon)
-        self.window.resize(1320, 765)
+        self.window.resize(1200, 700)
         self.window.setCentralWidget(self._build_central_widget())
         self._refresh_ui()
         return app
@@ -121,14 +121,14 @@ class DesktopLauncherShell:
         controls_scroll.setHorizontalScrollBarPolicy(load_pyside6()[2].ScrollBarAlwaysOff)
         controls_scroll.setFrameShape(qtwidgets.QFrame.Shape.NoFrame)
         controls_scroll.setWidget(controls_widget)
-        layout.addWidget(controls_scroll, stretch=0)
-        layout.addWidget(build_results_box(self, qtwidgets), stretch=1)
+        layout.addWidget(controls_scroll, stretch=1)
         return container
 
     def _build_workflow_tabs(self, qtwidgets: Any) -> Any:
         tabs = qtwidgets.QTabWidget()
         tabs.addTab(self._build_research_tab(qtwidgets), "Исследование")
         tabs.addTab(build_catalog_selection_box(self, qtwidgets), "Каталог")
+        tabs.addTab(build_results_box(self, qtwidgets), "Товары")
         tabs.addTab(build_filter_box(self, qtwidgets), "Фильтры")
         return tabs
 
@@ -139,54 +139,6 @@ class DesktopLauncherShell:
         for builder in (build_actions_box, build_settings_box, build_status_box):
             layout.addWidget(builder(self, qtwidgets))
         return widget
-
-    def _build_selection_box(self, qtwidgets: Any) -> Any:
-        box = qtwidgets.QGroupBox("Выбор")
-        layout = qtwidgets.QGridLayout(box)
-        layout.setHorizontalSpacing(8)
-        layout.setVerticalSpacing(6)
-        layout.addWidget(qtwidgets.QLabel("URL сайта"), 0, 0)
-        self.site_url_input = qtwidgets.QLineEdit("https://5ka.ru")
-        layout.addWidget(self.site_url_input, 0, 1, 1, 3)
-        layout.addWidget(qtwidgets.QLabel("Магазин"), 1, 0)
-        self.shop_combo = qtwidgets.QComboBox()
-        for value, label in SHOP_LABELS.items():
-            self.shop_combo.addItem(label, value)
-        self.shop_combo.currentTextChanged.connect(self._on_shop_changed)
-        layout.addWidget(self.shop_combo, 1, 1)
-        layout.addWidget(qtwidgets.QLabel("Раздел"), 1, 2)
-        self.intent_combo = qtwidgets.QComboBox()
-        for value, label in INTENT_LABELS.items():
-            self.intent_combo.addItem(label, value)
-        self.intent_combo.currentTextChanged.connect(self._on_intent_changed)
-        layout.addWidget(self.intent_combo, 1, 3)
-        layout.addWidget(qtwidgets.QLabel("Категории"), 2, 0)
-        self.category_list = qtwidgets.QListWidget()
-        self.category_list.setSelectionMode(qtwidgets.QAbstractItemView.SelectionMode.MultiSelection)
-        self.category_list.setMinimumHeight(86)
-        self.category_list.setMaximumHeight(100)
-        layout.addWidget(self.category_list, 2, 1, 1, 3)
-        layout.addWidget(qtwidgets.QLabel("Дерево каталога"), 4, 0)
-        self.catalog_tree = qtwidgets.QTreeWidget()
-        self.catalog_tree.setMinimumHeight(180)
-        self.catalog_tree.setSelectionMode(qtwidgets.QAbstractItemView.SelectionMode.NoSelection)
-        self.catalog_tree.itemChanged.connect(self._on_catalog_tree_changed)
-        layout.addWidget(self.catalog_tree, 4, 1, 1, 3)
-        button_grid = qtwidgets.QGridLayout()
-        button_grid.setContentsMargins(0, 0, 0, 0)
-        button_grid.setHorizontalSpacing(8)
-        for index, (label, handler) in enumerate(
-            (
-                ("Выбрать все категории", self._on_select_all_categories),
-                ("Очистить категории", self._on_clear_categories),
-            )
-        ):
-            button = qtwidgets.QPushButton(label)
-            button.clicked.connect(handler)
-            self.category_action_buttons.append(button)
-            button_grid.addWidget(button, 0, index)
-        layout.addLayout(button_grid, 5, 1, 1, 3)
-        return box
 
     def _refresh_ui(self) -> None:
         if self.shop_combo is None or self.intent_combo is None or self.category_list is None:
@@ -207,28 +159,6 @@ class DesktopLauncherShell:
         apply_widget_enabled_state(self)
         self._refresh_action_buttons()
         self._refresh_result_table()
-
-    def _refresh_category_list(self) -> None:
-        assert self.category_list is not None
-        self.category_list.clear()
-        selected = set(self.state.selection.categories)
-        for category_name in self.controller.list_available_categories():
-            item = self._qtwidgets.QListWidgetItem(category_name)
-            self.category_list.addItem(item)
-            item.setSelected(category_name in selected)
-
-    def _refresh_catalog_tree(self) -> None:
-        if self.catalog_tree is None or self._qtwidgets is None or self._qt is None:
-            return
-        tree = self.state.result.launcher_view.get("full_catalog_tree")
-        nodes = tree if isinstance(tree, list) else []
-        populate_catalog_tree_widget(
-            self.catalog_tree,
-            self._qtwidgets,
-            self._qt,
-            nodes,
-            self.state.selection.categories,
-        )
 
     def _refresh_result_table(self) -> None:
         if self.result_table is None:

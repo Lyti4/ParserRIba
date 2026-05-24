@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from launcher.desktop_dynamic_filter_panel import build_found_filters_host, refresh_found_filters_panel
 from launcher.desktop_filter_helpers import build_filter_option_labels, extract_filter_counts
 from launcher.desktop_ui_text import (
     FILTER_TITLES,
@@ -37,13 +38,15 @@ def build_filter_box(shell: Any, qtwidgets: Any) -> Any:
         shell.filter_widgets[filter_name] = widget
         layout.addWidget(widget, index // 2 * 2 + 1, index % 2)
     layout.addLayout(_build_filter_value_row(shell, qtwidgets), 6, 0, 1, 2)
+    layout.addWidget(build_found_filters_host(shell, qtwidgets), 7, 0, 1, 2)
     action_row = qtwidgets.QHBoxLayout()
     action_row.addStretch(1)
     clear_button = qtwidgets.QPushButton("Сбросить фильтры")
     clear_button.clicked.connect(shell._on_clear_filters)
     shell.filter_action_buttons.append(clear_button)
     action_row.addWidget(clear_button)
-    layout.addLayout(action_row, 7, 0, 1, 2)
+    layout.addLayout(action_row, 8, 0, 1, 2)
+    refresh_found_filters_panel(shell)
     return box
 
 
@@ -60,6 +63,7 @@ def refresh_filter_widgets(shell: Any) -> None:
             item.setData(32, value)
             widget.addItem(item)
             item.setSelected(value in selected)
+    refresh_found_filters_panel(shell)
     _refresh_filter_value_widgets(shell, filters_state)
 
 

@@ -71,6 +71,7 @@ def test_desktop_launcher_exposes_workflow_tabs(tmp_path: Path) -> None:
     assert [tabs.tabText(index) for index in range(tabs.count())] == [
         "Исследование",
         "Каталог",
+        "Товары",
         "Фильтры",
     ]
 

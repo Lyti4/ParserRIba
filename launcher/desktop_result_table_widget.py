@@ -22,20 +22,29 @@ def populate_result_table_widget(
         if str(item).strip()
     }
     table.blockSignals(True)
-    table.setColumnCount(len(headers))
-    table.setHorizontalHeaderLabels([str(item) for item in headers])
-    table.setRowCount(len(rows))
-    _configure_result_table_widget(table, qtwidgets, len(headers))
-    table.clearSelection()
-    for row_index, row in enumerate(rows):
-        product_id = product_ids[row_index] if row_index < len(product_ids) else ""
-        for column_index, value in enumerate(row):
-            item = qtwidgets.QTableWidgetItem(str(value))
-            item.setData(qt.ItemDataRole.UserRole, product_id)
-            table.setItem(row_index, column_index, item)
-        if product_id and product_id in selected_product_ids:
-            table.selectRow(row_index)
-    table.blockSignals(False)
+    try:
+        table.setSortingEnabled(False)
+        table.clearSelection()
+        table.clearContents()
+        table.setRowCount(0)
+        table.setColumnCount(len(headers))
+        table.setHorizontalHeaderLabels([str(item) for item in headers])
+        table.setRowCount(len(rows))
+        _configure_result_table_widget(table, qtwidgets, len(headers))
+        for row_index, row in enumerate(rows):
+            product_id = product_ids[row_index] if row_index < len(product_ids) else ""
+            for column_index, value in enumerate(row):
+                item = qtwidgets.QTableWidgetItem(str(value))
+                item.setData(qt.ItemDataRole.UserRole, product_id)
+                table.setItem(row_index, column_index, item)
+            if product_id and product_id in selected_product_ids:
+                for column_index in range(len(headers)):
+                    selected_item = table.item(row_index, column_index)
+                    if selected_item is not None:
+                        selected_item.setSelected(True)
+    finally:
+        table.setSortingEnabled(True)
+        table.blockSignals(False)
 
 
 def _configure_result_table_widget(table: Any, qtwidgets: Any, column_count: int) -> None:
@@ -45,7 +54,6 @@ def _configure_result_table_widget(table: Any, qtwidgets: Any, column_count: int
     table.setSelectionBehavior(abstract_view.SelectionBehavior.SelectRows)
     table.setSelectionMode(abstract_view.SelectionMode.ExtendedSelection)
     table.setAlternatingRowColors(True)
-    table.setSortingEnabled(True)
     table.setWordWrap(False)
     table.verticalHeader().setVisible(False)
     header = table.horizontalHeader()

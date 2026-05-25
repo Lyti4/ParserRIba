@@ -15,9 +15,9 @@ moving or archiving code.
 - Entry point: `scripts/run_desktop_launcher.py`.
 - The launcher must call controller/task APIs, not parser scripts directly.
 - Key modules: `desktop_launcher.py`, `desktop_controller.py`,
-  `desktop_controller_workspace.py`, `desktop_workflow_tabs.py`,
-  `desktop_catalog_tree_widget.py`, `desktop_dynamic_filter_panel.py`,
-  `desktop_product_details.py`.
+  `desktop_controller_profile.py`, `desktop_controller_workspace.py`,
+  `desktop_workflow_tabs.py`, `desktop_catalog_tree_widget.py`,
+  `desktop_dynamic_filter_panel.py`, `desktop_product_details.py`.
 
 ### Launcher Task Bridge
 
@@ -56,6 +56,8 @@ moving or archiving code.
 - `utils/storage_report_builder.py`, `utils/report_filter_facets.py`,
   `utils/report_export_summary.py` and `utils/excel_report.py` build reports
   and filter options from stored products.
+- `utils/launcher_profile_snapshot.py` writes local Launcher V2 workspace
+  snapshots for profile/catalog/product/filter/report history.
 - Runtime artifacts belong in `data/`, not in Git.
 
 ### Domain Models

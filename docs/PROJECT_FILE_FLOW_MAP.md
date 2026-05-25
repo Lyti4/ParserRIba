@@ -31,6 +31,9 @@ flowchart TD
   n_launcher_desktop_controller[launcher<br/>desktop_controller.py] --> n_launcher_desktop_controller_helpers[launcher<br/>desktop_controller_helpers.py]
   n_launcher_desktop_controller_helpers[launcher<br/>desktop_controller_helpers.py] --> n_utils[utils<br/>__init__.py]
   n_launcher_desktop_controller_helpers[launcher<br/>desktop_controller_helpers.py] --> n_utils_local_task_adapter[utils<br/>local_task_adapter.py]
+  n_launcher_desktop_controller[launcher<br/>desktop_controller.py] --> n_launcher_desktop_controller_profile[launcher<br/>desktop_controller_profile.py]
+  n_launcher_desktop_controller_profile[launcher<br/>desktop_controller_profile.py] --> n_utils[utils<br/>__init__.py]
+  n_launcher_desktop_controller_profile[launcher<br/>desktop_controller_profile.py] --> n_utils_launcher_profile_snapshot[utils<br/>launcher_profile_snapshot.py]
   n_launcher_desktop_controller[launcher<br/>desktop_controller.py] --> n_launcher_desktop_controller_reports[launcher<br/>desktop_controller_reports.py]
   n_launcher_desktop_controller_reports[launcher<br/>desktop_controller_reports.py] --> n_launcher[launcher<br/>__init__.py]
   n_launcher_desktop_controller_reports[launcher<br/>desktop_controller_reports.py] --> n_launcher_desktop_controller_helpers[launcher<br/>desktop_controller_helpers.py]
@@ -593,7 +596,7 @@ flowchart TD
 ```mermaid
 flowchart LR
   n_launcher[launcher] -->|14| n_models[models]
-  n_launcher[launcher] -->|12| n_utils[utils]
+  n_launcher[launcher] -->|14| n_utils[utils]
   n_main_py[main.py] -->|1| n_scripts[scripts]
   n_main_py[main.py] -->|2| n_utils[utils]
   n_parsers[parsers] -->|1| n_main_py[main.py]
@@ -605,10 +608,10 @@ flowchart LR
   n_scripts[scripts] -->|4| n_models[models]
   n_scripts[scripts] -->|69| n_utils[utils]
   n_tests[tests] -->|40| n_launcher[launcher]
-  n_tests[tests] -->|68| n_models[models]
+  n_tests[tests] -->|70| n_models[models]
   n_tests[tests] -->|13| n_scripts[scripts]
-  n_tests[tests] -->|148| n_utils[utils]
-  n_utils[utils] -->|70| n_models[models]
+  n_tests[tests] -->|150| n_utils[utils]
+  n_utils[utils] -->|72| n_models[models]
   n_utils[utils] -->|4| n_scripts[scripts]
 ```
 
@@ -635,8 +638,9 @@ flowchart LR
 | `launcher/desktop_action_state.py` | desktop launcher UI/controller | when desktop launcher is opened | `models/__init__.py`, `models/launcher_state.py` | `launcher/desktop_launcher.py` | `tests/test_desktop_action_state.py` |
 | `launcher/desktop_background_task.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_launcher.py` | - |
 | `launcher/desktop_catalog_tree_widget.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_selection_panel.py`, `launcher/desktop_shell_helpers.py` | `tests/test_desktop_catalog_tree_widget.py` |
-| `launcher/desktop_controller.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_controller_selection.py`, +6 more | `launcher/desktop_launcher.py`, `scripts/build_launcher_browser_preview.py` | `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_research.py`, `tests/test_desktop_launcher_controller_tasks.py` |
+| `launcher/desktop_controller.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_profile.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, +7 more | `launcher/desktop_launcher.py`, `scripts/build_launcher_browser_preview.py` | `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_research.py`, `tests/test_desktop_launcher_controller_tasks.py` |
 | `launcher/desktop_controller_helpers.py` | desktop launcher UI/controller | when desktop launcher is opened | `utils/__init__.py`, `utils/local_task_adapter.py` | `launcher/desktop_controller.py`, `launcher/desktop_controller_reports.py` | `tests/test_desktop_launcher_controller.py` |
+| `launcher/desktop_controller_profile.py` | desktop launcher UI/controller | when desktop launcher is opened | `utils/__init__.py`, `utils/launcher_profile_snapshot.py` | `launcher/desktop_controller.py` | - |
 | `launcher/desktop_controller_reports.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_export_facets.py`, `launcher/desktop_user_messages.py`, `utils/__init__.py`, +1 more | `launcher/desktop_controller.py` | - |
 | `launcher/desktop_controller_research.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_ui_text.py`, `models/__init__.py`, `models/launcher_state.py`, `utils/__init__.py`, +1 more | `launcher/desktop_controller.py` | - |
 | `launcher/desktop_controller_selection.py` | desktop launcher UI/controller | when desktop launcher is opened | `models/__init__.py`, `models/launcher_state.py` | `launcher/desktop_controller.py` | - |
@@ -669,9 +673,9 @@ flowchart LR
 
 | File | Role | When it runs | Imports | Imported by | Tests |
 | --- | --- | --- | --- | --- | --- |
-| `models/__init__.py` | Pydantic/domain model | imported by runtime modules | - | `launcher/browser_preview.py`, `launcher/desktop_action_state.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_controller_selection.py`, `launcher/desktop_controller_workspace.py`, +41 more | `tests/test_browser_catalog_discovery.py`, `tests/test_browser_preview.py`, `tests/test_catalog_tree_discovery_runner.py`, +28 more |
+| `models/__init__.py` | Pydantic/domain model | imported by runtime modules | - | `launcher/browser_preview.py`, `launcher/desktop_action_state.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_controller_selection.py`, `launcher/desktop_controller_workspace.py`, +42 more | `tests/test_browser_catalog_discovery.py`, `tests/test_browser_preview.py`, `tests/test_catalog_tree_discovery_runner.py`, +29 more |
 | `models/catalog_discovery.py` | Pydantic/domain model | imported by runtime modules | - | `utils/browser_catalog_discovery.py`, `utils/catalog_discovery.py`, `utils/catalog_tree_discovery/embedded_extractors.py`, `utils/catalog_tree_discovery/entrypoint_collectors.py`, `utils/catalog_tree_discovery/event_capture.py`, +12 more | `tests/test_browser_catalog_discovery.py`, `tests/test_catalog_tree_discovery_runner.py`, `tests/test_discovery_profile_repository.py`, +4 more |
-| `models/launcher_state.py` | Pydantic/domain model | imported by runtime modules | - | `launcher/browser_preview.py`, `launcher/desktop_action_state.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_controller_selection.py`, `launcher/desktop_controller_workspace.py`, +3 more | `tests/test_browser_preview.py`, `tests/test_desktop_action_state.py`, `tests/test_desktop_filter_panel.py`, +6 more |
+| `models/launcher_state.py` | Pydantic/domain model | imported by runtime modules | - | `launcher/browser_preview.py`, `launcher/desktop_action_state.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_controller_selection.py`, `launcher/desktop_controller_workspace.py`, +4 more | `tests/test_browser_preview.py`, `tests/test_desktop_action_state.py`, `tests/test_desktop_filter_panel.py`, +7 more |
 | `models/onboarding.py` | Pydantic/domain model | imported by runtime modules | - | `utils/onboarding_artifacts.py`, `utils/onboarding_storage.py`, `utils/run_manifest.py`, `utils/site_onboarding.py`, `utils/site_onboarding_support.py` | `tests/test_product_storage.py` |
 | `models/product.py` | Pydantic/domain model | imported by runtime modules | - | `parsers/base_parser.py`, `parsers/playwright_parser.py` | - |
 | `models/report_request.py` | Pydantic/domain model | during report/filter/export generation | - | `scripts/export_store_report.py`, `utils/local_task_registry.py`, `utils/report_filter_facets.py`, `utils/storage_report_builder.py` | `tests/test_report_export_summary.py`, `tests/test_report_requests.py`, `tests/test_storage_report_builder.py` |
@@ -786,6 +790,7 @@ flowchart LR
 | `tests/test_interception_archive.py` | test | pytest only | `utils/__init__.py`, `utils/interception_archive.py` | - | - |
 | `tests/test_interception_profiles.py` | test | pytest only | `utils/__init__.py`, `utils/interception.py`, `utils/interception_profiles.py` | - | - |
 | `tests/test_kb_loader.py` | test | pytest only | `utils/__init__.py`, `utils/kb_loader.py` | - | - |
+| `tests/test_launcher_profile_snapshot.py` | test | pytest only | `models/__init__.py`, `models/launcher_state.py`, `utils/__init__.py`, `utils/launcher_profile_snapshot.py` | - | - |
 | `tests/test_launcher_settings.py` | test | pytest only | `models/__init__.py`, `models/launcher_state.py`, `utils/__init__.py`, `utils/launcher_settings.py` | - | - |
 | `tests/test_launcher_state.py` | test | pytest only | `models/__init__.py`, `models/launcher_state.py` | - | - |
 | `tests/test_launcher_task_controller_exports.py` | test | pytest only | `models/__init__.py`, `models/task_actor.py`, `utils/__init__.py`, `utils/launcher_task_controller.py`, `utils/local_task_adapter.py` | - | - |
@@ -827,7 +832,7 @@ flowchart LR
 
 | File | Role | When it runs | Imports | Imported by | Tests |
 | --- | --- | --- | --- | --- | --- |
-| `utils/__init__.py` | support module | imported by runtime modules | - | `launcher/desktop_controller.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_controller_workspace.py`, +60 more | `tests/test_api_discovery.py`, `tests/test_api_discovery_context.py`, `tests/test_api_discovery_report_details.py`, +50 more |
+| `utils/__init__.py` | support module | imported by runtime modules | - | `launcher/desktop_controller.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_profile.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, +61 more | `tests/test_api_discovery.py`, `tests/test_api_discovery_context.py`, `tests/test_api_discovery_report_details.py`, +51 more |
 | `utils/antibot.py` | support module | imported by runtime modules | - | `parsers/pyaterochka.py`, `scripts/smoke_pyaterochka_camoufox.py`, `scripts/smoke_pyaterochka_support.py`, `utils/browser_catalog_discovery.py` | `tests/test_proxy_and_antibot.py` |
 | `utils/api_discovery.py` | support module | imported by runtime modules | `utils/__init__.py`, `utils/api_discovery_report.py`, `utils/api_first_extractor.py`, `utils/interception.py`, `utils/proxy.py` | `scripts/discover_pyaterochka_api.py` | `tests/test_api_discovery.py`, `tests/test_api_discovery_context.py`, `tests/test_api_discovery_report_details.py` |
 | `utils/api_discovery_report.py` | report/export | during report/filter/export generation | - | `utils/api_discovery.py` | - |
@@ -870,6 +875,7 @@ flowchart LR
 | `utils/interception_profiles.py` | support module | imported by runtime modules | - | `scripts/discover_pyaterochka_api.py`, `utils/interception.py`, `utils/network_capture.py` | `tests/test_interception_profiles.py` |
 | `utils/kb_interception.py` | support module | imported by runtime modules | - | `utils/kb_loader.py` | - |
 | `utils/kb_loader.py` | support module | manual/debug command | `utils/__init__.py`, `utils/kb_interception.py` | `parsers/auchan.py`, `parsers/base.py`, `parsers/base_parser.py`, `parsers/base_support.py`, `parsers/lenta.py`, +12 more | `tests/test_kb_loader.py`, `tests/test_parsers_smoke.py` |
+| `utils/launcher_profile_snapshot.py` | support module | imported by runtime modules | `models/__init__.py`, `models/launcher_state.py` | `launcher/desktop_controller_profile.py` | `tests/test_launcher_profile_snapshot.py` |
 | `utils/launcher_report_task_controller.py` | report/export | during report/filter/export generation | `utils/__init__.py`, `utils/kb_loader.py`, `utils/local_task_adapter.py`, `utils/store_catalog_registry.py` | `utils/launcher_task_controller.py` | `tests/test_launcher_task_controller_reports.py` |
 | `utils/launcher_settings.py` | support module | imported by runtime modules | `models/__init__.py`, `models/launcher_state.py` | `launcher/desktop_controller.py` | `tests/test_launcher_settings.py` |
 | `utils/launcher_task_controller.py` | local task bridge | imported by runtime modules | `utils/__init__.py`, `utils/launcher_report_task_controller.py`, `utils/local_task_adapter.py` | `launcher/desktop_controller.py` | `tests/test_launcher_task_controller_exports.py`, `tests/test_launcher_task_controller_onboarding.py`, `tests/test_launcher_task_controller_reports.py` |

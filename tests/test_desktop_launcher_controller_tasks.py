@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from launcher.desktop_controller import DesktopLauncherController
@@ -136,6 +137,7 @@ def test_desktop_launcher_controller_hydrates_workspace_state_from_launcher_view
                 summary={
                     "active_profile_id": "profile-1",
                     "active_profile_version_id": "version-2",
+                    "site_url": "https://5ka.ru",
                     "category_tree": [{"name": "Рыба", "url": "https://example.test/fish"}],
                     "full_catalog_tree": [{"name": "Каталог", "children": [{"name": "Рыба"}]}],
                     "full_catalog_links": [{"name": "Рыба", "url": "https://example.test/fish"}],
@@ -155,7 +157,7 @@ def test_desktop_launcher_controller_hydrates_workspace_state_from_launcher_view
     assert controller.state.profile.profile_id == "profile-1"
     assert controller.state.profile.profile_version_id == "version-2"
     assert controller.state.profile.shop == "pyaterochka"
-    assert controller.state.profile.diagnostics == {"known_backend": True}
+    assert controller.state.profile.diagnostics["known_backend"] is True
     assert controller.state.catalog.full_tree == [{"name": "Каталог", "children": [{"name": "Рыба"}]}]
     assert controller.state.catalog.full_links == [{"name": "Рыба", "url": "https://example.test/fish"}]
     assert controller.state.catalog.catalog_type == "category_tree"
@@ -165,6 +167,11 @@ def test_desktop_launcher_controller_hydrates_workspace_state_from_launcher_view
     assert controller.state.dynamic_filters.counts == {"brands": {"Nord": 2}}
     assert controller.state.dynamic_filters.available_filters["brands"]["source"] == "available_filter_counts"
     assert controller.state.dynamic_filters.available_filters["Производитель"]["source"] == "found_filters"
+    snapshot_path = Path(controller.state.result.artifact_paths["launcher_profile_snapshot_path"])
+    snapshot_payload = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    assert snapshot_path.exists()
+    assert snapshot_payload["profile"]["site_url"] == "https://5ka.ru"
+    assert snapshot_payload["catalog"]["full_tree"] == [{"name": "Каталог", "children": [{"name": "Рыба"}]}]
 
 
 def test_desktop_launcher_controller_workspace_sync_is_additive(tmp_path: Path) -> None:

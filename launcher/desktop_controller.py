@@ -25,6 +25,7 @@ from launcher.desktop_controller_reports import (
     refresh_filter_counts_after_export,
     run_selected_report_export,
 )
+from launcher.desktop_controller_profile import persist_launcher_profile_snapshot
 from launcher.desktop_controller_selection import update_selection_state
 from launcher.desktop_controller_research import sync_research_state
 from launcher.desktop_controller_workspace import sync_workspace_state
@@ -180,7 +181,7 @@ class DesktopLauncherController:
             raise
         result = combine_export_results(results, categories, captured_payloads=captured_payloads)
         self._apply_result(result)
-        self._refresh_filter_counts_after_export(categories)
+        refresh_filter_counts_after_export(self, categories)
         self.save_state()
         return result
 
@@ -259,6 +260,7 @@ class DesktopLauncherController:
         phase_label = sync_research_state(self.state, result)
         if phase_label:
             self.state.task.message = f"{result_message(result)} Текущая фаза: {phase_label}"
+        persist_launcher_profile_snapshot(self, result.manifest.task_name)
 
     def _export_runner_and_task(self) -> tuple[TaskRunner, str]:
         return (
@@ -266,9 +268,6 @@ class DesktopLauncherController:
             if self.state.selection.intent == "wine_catalog"
             else (self.fish_export_runner, "pyaterochka_fish_export")
         )
-
-    def _refresh_filter_counts_after_export(self, categories: list[str]) -> None:
-        refresh_filter_counts_after_export(self, categories)
 
     def _open_path(self, path_value: str) -> bool:
         path = str(path_value or "").strip()

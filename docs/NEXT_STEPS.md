@@ -85,8 +85,9 @@ current source of truth for Launcher V2.
   - keep catalog/result/filter panels reading synchronized
     profile/catalog/products/filter/result state first, with raw
     `launcher_view` only as a compatibility fallback;
-  - persist per-site profile snapshots with catalog tree, diagnostics, selected
-    nodes and report artifacts;
+  - keep Launcher V2 per-site workspace snapshots writing catalog tree,
+    diagnostics, selected nodes and report artifacts without mixing them into
+    discovery-only profile history;
   - keep `launcher_view` as a compatibility/view-model surface until every tab
     consumes the structured workspace state directly.
 - Keep controller/test files below the architecture-check line budget when adding

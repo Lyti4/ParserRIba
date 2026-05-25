@@ -65,6 +65,25 @@ def test_resolve_export_category_names_keeps_fish_derived_categories() -> None:
     ]
 
 
+def test_resolve_export_category_names_supports_full_wine_catalog() -> None:
+    available = {
+        "Безалкогольное вино": "https://example.test/non-alcoholic-wine",
+        "Вино тихое": "https://example.test/still-wine",
+        "Вино игристое": "https://example.test/sparkling-wine",
+        "Шампанское": "https://example.test/champagne",
+        "Винный напиток игристый": "https://example.test/sparkling-drink",
+        "Морепродукты": "https://example.test/seafood",
+    }
+
+    assert resolve_export_category_names("Вино", available, intent="wine_catalog") == [
+        "Безалкогольное вино",
+        "Вино тихое",
+        "Вино игристое",
+        "Шампанское",
+        "Винный напиток игристый",
+    ]
+
+
 def test_build_products_from_result_prefers_raw_capture() -> None:
     result = {
         "category": "Рыба",

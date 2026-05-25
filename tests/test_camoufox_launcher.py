@@ -1,6 +1,7 @@
 from utils.camoufox_launcher import (
     allow_images_in_profile,
     build_camoufox_options,
+    build_research_camoufox_options,
     disable_session_restore_in_profile,
 )
 
@@ -43,6 +44,28 @@ def test_build_camoufox_options_allows_persistent_profile(tmp_path) -> None:
     assert options["persistent_context"] is True
     assert options["user_data_dir"] == str(profile_dir)
     assert profile_dir.exists()
+
+
+def test_build_research_camoufox_options_uses_serial_research_defaults(tmp_path) -> None:
+    options = build_research_camoufox_options(
+        headless=False,
+        proxy_url="http://user:pass@example:8080",
+        geoip=True,
+        user_data_dir=tmp_path / "profile",
+    )
+
+    assert options["persistent_context"] is True
+    assert options["humanize"] == 1.5
+    assert options["block_images"] is False
+    assert options["block_webgl"] is False
+    assert options["locale"] == "ru-RU"
+
+
+def test_build_research_camoufox_options_does_not_enable_cache_or_remote_only_flags() -> None:
+    options = build_research_camoufox_options(headless=True)
+
+    assert "enable_cache" not in options
+    assert "ws_endpoint" not in options
 
 
 def test_allow_images_in_profile_updates_persisted_pref(tmp_path) -> None:

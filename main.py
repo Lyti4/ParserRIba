@@ -7,6 +7,9 @@ ParserRiba - Главный скрипт запуска
 import os
 import sys
 from pathlib import Path
+from utils.logger import get_logger, setup_logger
+
+logger = get_logger("main")
 
 def _app_root() -> Path:
     """Return source root or frozen executable directory."""
@@ -33,60 +36,52 @@ if sys.platform == "win32":
         os.environ["CAMOUFOX_BIN"] = camoufox_path
         # Отключаем проверку обновлений и авто-загрузку
         os.environ["CAMOUFOX_SKIP_DOWNLOAD"] = "1"
-        print(f"✅ Camoufox найден: {camoufox_path}")
+        logger.info("Camoufox binary configured: {}", camoufox_path)
     else:
-        print(f"⚠️  Warning: Camoufox не найден по пути {camoufox_path}")
-        print("   Убедитесь, что браузер установлен или измените путь в main.py")
+        logger.warning("Camoufox binary not found: {}", camoufox_path)
+        logger.warning("Install Camoufox or update the path in main.py")
     
     # Настройка GeoIP базы данных
     geoip_path = _app_root() / "GeoLite2-City.mmdb"
     if geoip_path.exists():
         os.environ["GEOIP_PATH"] = str(geoip_path)
-        print(f"🌍 GeoIP база найдена: {geoip_path}")
+        logger.info("GeoIP database configured: {}", geoip_path)
     else:
-        print(f"ℹ️  GeoIP база не найдена: {geoip_path}")
-        print("   GeoIP отключен по умолчанию. Для включения скачайте базу:")
-        print("   python download_geoip.py")
+        logger.info("GeoIP database not found: {}", geoip_path)
+        logger.info("GeoIP stays disabled; use `python download_geoip.py` to install it")
 # =============================================================================
 
 import asyncio
 import argparse
 import importlib
 import yaml
-from pathlib import Path
 from datetime import datetime
 from typing import Optional, List
 
-from utils.logger import get_logger, setup_logger
-
-# Импорты парсеров
-
-
-logger = get_logger("main")
-
 
 class ParserFactory:
-    """Фабрика для создания парсеров."""
-    
-    # ИЗМЕНЕНО: парсеры импортируются лениво, чтобы диагностические команды
-    # не падали из-за ошибки импорта в конкретном парсере.
+    """Factory for runtime-ready parser backends only."""
+
     PARSERS = {
         "pyaterochka": ("parsers.pyaterochka", "PyaterochkaParser"),
-        "magnit": ("parsers.magnit", "MagnitParser"),
-        "lenta": ("parsers.lenta", "LentaParser"),
-        "auchan": ("parsers.auchan", "AuchanParser"),
-        "okey": ("parsers.okey", "OkeyParser"),
-        "perekrestok": ("parsers.perekrestok", "PerekrestokParser"),
     }
+    LEGACY_PARSERS = ("magnit", "lenta", "auchan", "okey", "perekrestok")
 
     @classmethod
     def _load_parser_class(cls, store_name: str):
+        """Load one runtime-ready parser class."""
         module_name, class_name = cls.PARSERS[store_name]
         module = importlib.import_module(module_name)
         return getattr(module, class_name)
     
     @classmethod
     def get_parser(cls, store_name: str, config: dict, **kwargs):
+        """Return one supported parser instance."""
+        if store_name in cls.LEGACY_PARSERS:
+            raise NotImplementedError(
+                f"{store_name} is quarantined as a legacy parser path. "
+                "Use onboarding/discovery tasks until a runtime-ready backend exists."
+            )
         if store_name not in cls.PARSERS:
             raise ValueError(f"Неизвестный магазин: {store_name}")
         
@@ -99,35 +94,17 @@ class ParserFactory:
             camoufox_available = True
         except ImportError:
             logger.warning("⚠️  Camoufox недоступен, будет использоваться Playwright")
-        
-        # Pyaterochka использует CamoufoxParser -> base_parser.py (shop_name, region, headless)
-        if store_name == "pyaterochka":
-            if not camoufox_available:
-                logger.warning("🔄 Переключаемся на Playwright для pyaterochka")
-                # Можно добавить fallback на PlaywrightParser если нужно
-            return parser_class(
-                store_name=store_name,
-                region=kwargs.get('region', '77'),
-                headless=kwargs.get('headless', True)
-            )
-        # Magnit использует base_parser.py (shop_name, region, headless)
-        elif store_name == "magnit":
-            return parser_class(
-                shop_name=store_name,
-                region=kwargs.get('region', '77'),
-                headless=kwargs.get('headless', True)
-            )
-        # Lenta, Auchan, Okey, Perekrestok используют base.py (context, kb_path)
-        else:
-            # Для этих парсеров нужен BrowserContext - пока передаем заглушку
-            # Требуется доработка main.py для инициализации Playwright
-            raise NotImplementedError(
-                f"Парсер {store_name} требует BrowserContext. "
-                f"Необходимо инициализировать Playwright в main.py"
-            )
+        if not camoufox_available:
+            logger.warning("🔄 Pyaterochka runtime may fail without Camoufox support")
+        return parser_class(
+            store_name=store_name,
+            region=kwargs.get('region', '77'),
+            headless=kwargs.get('headless', True)
+        )
     
     @classmethod
     def get_available_stores(cls) -> List[str]:
+        """Return runtime-ready stores only."""
         return list(cls.PARSERS.keys())
 
 
@@ -364,12 +341,11 @@ async def main():
     
     # Вывод списка магазинов
     if args.list_stores:
-        print("\n📋 Доступные магазины:")
+        logger.info("Available runtime-ready stores:")
         for i, store in enumerate(ParserFactory.get_available_stores(), 1):
             enabled = config.get("stores", {}).get(store, {}).get("enabled", True)
-            status = "✅" if enabled else "❌"
-            print(f"  {i}. {status} {store}")
-        print()
+            status = "enabled" if enabled else "disabled"
+            logger.info("  {}. {} ({})", i, store, status)
         return
     
     # Определение магазинов для парсинга

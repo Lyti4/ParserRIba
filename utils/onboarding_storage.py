@@ -7,6 +7,7 @@ import sqlite3
 from pathlib import Path
 
 from models.onboarding import OnboardingResult
+from utils.discovery_profile_repository import initialize_discovery_profile_tables
 
 
 def initialize_onboarding_tables(connection: sqlite3.Connection) -> None:
@@ -97,6 +98,30 @@ class OnboardingStorage:
         if not row:
             return {}
         return json.loads(str(row["payload_json"]))
+
+    def get_latest_profile_metadata(self, shop_slug: str, site_url: str) -> dict:
+        """Return the latest active discovery profile identifiers for one site."""
+        if not self.db_path.exists():
+            return {}
+        with self._connect() as connection:
+            initialize_discovery_profile_tables(connection)
+            row = connection.execute(
+                """
+                SELECT profile_id, latest_version_id, updated_at
+                FROM discovery_profiles
+                WHERE shop_slug = ? AND site_url = ?
+                ORDER BY updated_at DESC
+                LIMIT 1
+                """,
+                (shop_slug, site_url),
+            ).fetchone()
+        if not row:
+            return {}
+        return {
+            "profile_id": str(row["profile_id"]),
+            "profile_version_id": str(row["latest_version_id"]),
+            "updated_at": str(row["updated_at"]),
+        }
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.db_path)

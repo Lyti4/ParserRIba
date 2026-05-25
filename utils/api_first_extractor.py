@@ -2,20 +2,25 @@
 
 from __future__ import annotations
 
-import hashlib
-import re
 from dataclasses import asdict, dataclass
 from typing import Any
 
-PRODUCT_MAPPER_REQUIRED_FIELDS = ("source_id", "name", "price", "link", "image", "availability")
-API_FIRST_FILTER_MODE = "products_only"
-LINK_EVIDENCE_KEYS = ("link", "url", "href", "product_url", "productUrl", "webUrl", "deeplink", "deep_link", "info_link", "slug")
-PRODUCT_ID_KEYS = ("id", "plu", "product_id", "productId", "sku", "slug")
-PRODUCT_NAME_KEYS = ("name", "title")
-PRODUCT_PRICE_KEYS = ("price", "current_price", "price_current", "regular_price", "prices")
-PRODUCT_IMAGE_KEYS = ("image", "image_link", "image_links", "image_url", "imageUrl")
-PRODUCT_LINK_KEYS = ("link", "url", "href", "product_url", "productUrl", "webUrl")
-PRODUCT_AVAILABILITY_KEYS = ("availability", "available", "in_stock", "inStock", "is_available", "isAvailable", "stock")
+from utils.api_first_value_helpers import (
+    API_FIRST_FILTER_MODE,
+    LINK_EVIDENCE_KEYS,
+    PRODUCT_AVAILABILITY_KEYS,
+    PRODUCT_ID_KEYS,
+    PRODUCT_IMAGE_KEYS,
+    PRODUCT_LINK_KEYS,
+    PRODUCT_MAPPER_REQUIRED_FIELDS,
+    PRODUCT_NAME_KEYS,
+    PRODUCT_PRICE_KEYS,
+    dedupe_key as build_dedupe_key,
+    first_availability,
+    first_present_key,
+    first_price,
+    first_string,
+)
 
 
 @dataclass(frozen=True)
@@ -95,15 +100,15 @@ def summarize_api_first_candidates(
 
 def build_api_product_candidate(sample: dict[str, Any], *, source_url: str) -> ApiProductCandidate:
     """Normalize one intercepted sample into a stable candidate shape."""
-    source_id = _first_string(sample, PRODUCT_ID_KEYS)
-    name = _first_string(sample, PRODUCT_NAME_KEYS)
-    image = _first_string(sample, PRODUCT_IMAGE_KEYS)
-    link = _first_string(sample, PRODUCT_LINK_KEYS)
-    price = _first_price(sample, PRODUCT_PRICE_KEYS)
-    availability = _first_availability(sample, PRODUCT_AVAILABILITY_KEYS)
+    source_id = first_string(sample, PRODUCT_ID_KEYS)
+    name = first_string(sample, PRODUCT_NAME_KEYS)
+    image = first_string(sample, PRODUCT_IMAGE_KEYS)
+    link = first_string(sample, PRODUCT_LINK_KEYS)
+    price = first_price(sample, PRODUCT_PRICE_KEYS)
+    availability = first_availability(sample, PRODUCT_AVAILABILITY_KEYS)
     field_sources = _candidate_field_sources(sample)
     missing = _missing_fields(name=name, price=price, link=link)
-    dedupe_key = _dedupe_key(source_id=source_id, name=name, link=link)
+    candidate_dedupe_key = build_dedupe_key(source_id=source_id, name=name, link=link)
     raw_keys = tuple(str(key) for key in sample.get("keys") or sorted(sample))
     return ApiProductCandidate(
         source_id=source_id,
@@ -113,7 +118,7 @@ def build_api_product_candidate(sample: dict[str, Any], *, source_url: str) -> A
         link=link,
         availability=availability,
         source_url=source_url,
-        dedupe_key=dedupe_key,
+        dedupe_key=candidate_dedupe_key,
         ready_for_product_model=not missing,
         missing_fields=missing,
         raw_keys=raw_keys[:30],
@@ -126,12 +131,12 @@ def _candidate_field_sources(sample: dict[str, Any]) -> dict[str, str]:
     if preserved:
         return preserved
     field_sources = {
-        "source_id": _first_present_key(sample, PRODUCT_ID_KEYS),
-        "name": _first_present_key(sample, PRODUCT_NAME_KEYS),
-        "price": _first_present_key(sample, PRODUCT_PRICE_KEYS),
-        "image": _first_present_key(sample, PRODUCT_IMAGE_KEYS),
-        "link": _first_present_key(sample, PRODUCT_LINK_KEYS),
-        "availability": _first_present_key(sample, PRODUCT_AVAILABILITY_KEYS),
+        "source_id": first_present_key(sample, PRODUCT_ID_KEYS),
+        "name": first_present_key(sample, PRODUCT_NAME_KEYS),
+        "price": first_present_key(sample, PRODUCT_PRICE_KEYS),
+        "image": first_present_key(sample, PRODUCT_IMAGE_KEYS),
+        "link": first_present_key(sample, PRODUCT_LINK_KEYS),
+        "availability": first_present_key(sample, PRODUCT_AVAILABILITY_KEYS),
     }
     return {key: value for key, value in field_sources.items() if value}
 
@@ -293,128 +298,3 @@ def _observed_link_keys(event: dict[str, Any]) -> list[str]:
     return sorted(observed)
 
 
-def _dedupe_key(*, source_id: str, name: str, link: str) -> str:
-    stable = source_id or link or _normalize_name(name)
-    if not stable:
-        stable = "unknown"
-    digest = hashlib.sha1(stable.encode("utf-8", errors="ignore")).hexdigest()
-    return digest[:16]
-
-
-def _normalize_name(value: str) -> str:
-    return re.sub(r"\s+", " ", value.strip().lower())
-
-
-def _string_value(sample: dict[str, Any], key: str) -> str:
-    value = sample.get(key)
-    if value is None:
-        return ""
-    return str(value).strip()
-
-
-def _first_string(sample: dict[str, Any], keys: tuple[str, ...]) -> str:
-    for key in keys:
-        value = sample.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-        if isinstance(value, (int, float)) and not isinstance(value, bool):
-            return str(value)
-        if isinstance(value, list) and value:
-            nested = _first_nested_url(value)
-            if nested:
-                return nested
-        if isinstance(value, dict):
-            nested = _first_nested_url(value)
-            if nested:
-                return nested
-    return ""
-
-
-def _first_present_key(sample: dict[str, Any], keys: tuple[str, ...]) -> str:
-    for key in keys:
-        if key in sample:
-            return key
-    return ""
-
-
-def _first_price(sample: dict[str, Any], keys: tuple[str, ...]) -> float | None:
-    for key in keys:
-        if key in sample:
-            price = _extract_price(sample[key])
-            if price is not None:
-                return price
-    return None
-
-
-def _first_availability(sample: dict[str, Any], keys: tuple[str, ...]) -> bool | None:
-    for key in keys:
-        if key in sample:
-            found = _extract_availability(sample[key])
-            if found is not None:
-                return found
-    return None
-
-
-def _first_nested_url(value: Any) -> str:
-    if isinstance(value, str):
-        return value.strip()
-    if isinstance(value, dict):
-        for nested in value.values():
-            found = _first_nested_url(nested)
-            if found:
-                return found
-    if isinstance(value, list):
-        for item in value:
-            found = _first_nested_url(item)
-            if found:
-                return found
-    return ""
-
-
-def _extract_price(value: Any) -> float | None:
-    if isinstance(value, bool) or value is None:
-        return None
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        normalized = value.replace(",", ".")
-        match = re.search(r"\d+(?:\.\d+)?", normalized)
-        if match:
-            return float(match.group(0))
-        return None
-    if isinstance(value, dict):
-        for key in ("current", "regular", "value", "price", "amount"):
-            if key in value:
-                price = _extract_price(value[key])
-                if price is not None:
-                    return price
-        for nested in value.values():
-            price = _extract_price(nested)
-            if price is not None:
-                return price
-    if isinstance(value, list):
-        for item in value:
-            price = _extract_price(item)
-            if price is not None:
-                return price
-    return None
-
-
-def _extract_availability(value: Any) -> bool | None:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
-        return value > 0
-    if isinstance(value, str):
-        normalized = value.strip().lower()
-        if normalized in {"true", "yes", "available", "in_stock", "instock", "1"}:
-            return True
-        if normalized in {"false", "no", "unavailable", "out_of_stock", "outofstock", "0"}:
-            return False
-    if isinstance(value, dict):
-        for key in ("available", "in_stock", "inStock", "is_available", "isAvailable", "stock", "quantity"):
-            if key in value:
-                found = _extract_availability(value[key])
-                if found is not None:
-                    return found
-    return None

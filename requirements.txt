@@ -1,43 +1,34 @@
-# ParserRiba Dependencies
-# Основные библиотеки для парсинга
+# ParserRIba dependencies
 
-# Асинхронность и HTTP
+# Async and HTTP
 asyncio>=3.4.3
 aiohttp>=3.9.0
-curl-cffi>=0.6.0  # Основной HTTP клиент с обходом детекта
+curl-cffi>=0.6.0
 
-# Browser Automation
-playwright>=1.40.0  # Резервный браузерный парсинг
-playwright-stealth>=1.0.7  # Скрытие автоматизации браузера
-camoufox[geoip]>=0.4.0  # Продвинутый Firefox + GeoIP согласование с прокси
-browserforge>=1.0.0  # Автоматическая генерация отпечатков (BrowserForge)
-cloverlabs-camoufox>=0.1.0  # Camoufox с поддержкой пер-контекстной ротации (alpha)
+# Browser automation
+playwright>=1.40.0
+playwright-stealth>=1.0.7
+camoufox[geoip]>=0.4.0
+browserforge>=1.0.0
+cloverlabs-camoufox>=0.1.0
 
-# Валидация данных
+# Validation and config
 pydantic>=2.5.0
 pydantic-settings>=2.1.0
-
-# Конфигурация
 pyyaml>=6.0.1
-
-# Утилиты
 python-dotenv>=1.0.0
-tenacity>=8.2.0  # Retries
+
+# Runtime utilities
+tenacity>=8.2.0
 fake-useragent>=1.4.0
-loguru>=0.7.2  # Логирование
-beautifulsoup4>=4.12.0  # Парсинг HTML
-lxml>=4.9.0  # XML/HTML парсер для BeautifulSoup
+loguru>=0.7.2
+PySide6>=6.8.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
 
-# Экспорт данных
-# (опционально, если нужен CSV/Excel)
-# pandas>=2.0.0
-# openpyxl>=3.1.0
+# Export
+openpyxl>=3.1.0
 
-# Тестирование
+# Testing
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
-
-# Линтинг (разработка)
-# black>=23.0.0
-# flake8>=6.0.0
-# mypy>=1.0.0

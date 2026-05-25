@@ -7,8 +7,28 @@ from typing import Any
 
 from models.schemas import Product
 from scripts.discover_pyaterochka_api import DEFAULT_CATEGORY
-from utils.category_intents import resolve_fish_catalog_categories
-from utils.interception import PRODUCT_AVAILABILITY_KEYS, PRODUCT_PRICE_KEYS, build_product_candidate, iter_dicts
+from utils.category_intents import get_category_intent_resolver
+from utils.interception import (
+    PRODUCT_AVAILABILITY_KEYS,
+    PRODUCT_PRICE_KEYS,
+    build_product_candidate,
+    iter_dicts,
+)
+from utils.wine_product_classification import (
+    ALCOHOL_FREE,
+    ALCOHOL_REGULAR,
+    WINE_STYLE_CHAMPAGNE,
+    WINE_STYLE_QUIET,
+    WINE_STYLE_SANGRIA,
+    WINE_STYLE_SPARKLING,
+    WINE_STYLE_VERMOUTH,
+    WINE_STYLE_WINE_DRINK,
+    classify_wine_alcohol_type,
+    classify_wine_style,
+    extract_brand_from_payload,
+    is_wine_product,
+    merge_wine_raw_fields,
+)
 
 
 def build_products_from_discovery_result(result: dict[str, Any]) -> list[Product]:
@@ -22,19 +42,26 @@ def build_products_from_discovery_result(result: dict[str, Any]) -> list[Product
         price = sample.get("price")
         if not link or not name or price is None:
             continue
+        category = str(result.get("category") or "").strip() or None
+        alcohol_type = classify_wine_alcohol_type(name, category)
         products.append(
             Product(
                 id=str(sample.get("source_id") or "").strip() or None,
                 name=name,
+                brand=extract_brand_from_payload(sample),
                 price=float(price),
                 image_url=(str(sample.get("image") or "").strip() or None),
                 product_link=link,
-                category=str(result.get("category") or "").strip() or None,
+                category=category,
+                subcategory=classify_wine_style(name, category),
                 in_stock=bool(sample.get("availability")),
-                raw_data={
-                    "source_id": str(sample.get("source_id") or "").strip(),
-                    "field_sources": sample.get("field_sources") or {},
-                },
+                raw_data=merge_wine_raw_fields(
+                    {
+                        "source_id": str(sample.get("source_id") or "").strip(),
+                        "field_sources": sample.get("field_sources") or {},
+                    },
+                    alcohol_type=alcohol_type,
+                ),
             )
         )
     return products
@@ -46,16 +73,23 @@ def build_products_from_result(result: dict[str, Any]) -> list[Product]:
     dom_links_by_id = ((result.get("dom_link_evidence") or {}).get("links_by_id")) or {}
     category = str(result.get("category") or "")
     if raw_items:
-        return build_products_from_product_items(raw_items, category=category, dom_links_by_id=dom_links_by_id)
+        return build_products_from_product_items(
+            raw_items,
+            category=category,
+            dom_links_by_id=dom_links_by_id,
+        )
     return build_products_from_discovery_result(result)
 
 
 def resolve_export_category_names(
     category_name: str,
     available_categories: dict[str, str] | None = None,
+    *,
+    intent: str = "fish_catalog",
 ) -> list[str]:
     """Resolve target categories for one export run."""
-    return resolve_fish_catalog_categories(category_name or DEFAULT_CATEGORY, available_categories)
+    resolver = get_category_intent_resolver(intent)
+    return resolver(category_name or DEFAULT_CATEGORY, available_categories)
 
 
 def merge_products(products: list[Product]) -> list[Product]:
@@ -75,6 +109,7 @@ def merge_products(products: list[Product]) -> list[Product]:
             merged_by_id[product_id] = product
             categories_by_id[product_id] = [category] if category else []
             continue
+
         existing = merged_by_id[product_id]
         categories = categories_by_id[product_id]
         if category and category not in categories:
@@ -84,7 +119,32 @@ def merge_products(products: list[Product]) -> list[Product]:
             raw_data["categories"] = categories
             existing.category = categories[0]
             existing.raw_data = raw_data
+            existing.subcategory = existing.subcategory or classify_wine_style(
+                existing.name,
+                existing.category,
+            )
     return list(merged_by_id.values())
+
+
+def filter_products_for_intent(products: list[Product], intent: str) -> list[Product]:
+    """Filter and normalize exported products for a specific catalog intent."""
+    normalized = str(intent or "").strip().casefold()
+    if normalized != "wine_catalog":
+        return products
+
+    filtered: list[Product] = []
+    for product in products:
+        if not is_wine_product(product):
+            continue
+        product.subcategory = classify_wine_style(product.name, product.category)
+        alcohol_type = classify_wine_alcohol_type(product.name, product.category)
+        product.raw_data = merge_wine_raw_fields(
+            product.raw_data,
+            alcohol_type=alcohol_type,
+            intent_scope="wine_storefront",
+        )
+        filtered.append(product)
+    return filtered
 
 
 def extract_product_items_from_payload(payload: Any) -> list[dict[str, Any]]:
@@ -129,19 +189,22 @@ def build_products_from_product_items(
             "availability": raw_sources.get("availability") or "",
             "link": "dom_product_href",
         }
+        alcohol_type = classify_wine_alcohol_type(name, category)
         products.append(
             Product(
                 id=source_id,
                 name=name,
+                brand=extract_brand_from_payload(item),
                 price=price,
                 image_url=(str(candidate.get("image") or "").strip() or None),
                 product_link=link,
                 category=category or None,
+                subcategory=classify_wine_style(name, category),
                 in_stock=_extract_availability_from_item(item),
-                raw_data={
-                    "source_id": source_id,
-                    "field_sources": {key: value for key, value in field_sources.items() if value},
-                },
+                raw_data=merge_wine_raw_fields(
+                    _build_raw_product_data(item, source_id=source_id, field_sources=field_sources),
+                    alcohol_type=alcohol_type,
+                ),
             )
         )
     return products
@@ -178,3 +241,56 @@ def _extract_availability_from_item(item: dict[str, Any]) -> bool:
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             return value > 0
     return True
+
+
+def _build_raw_product_data(
+    item: dict[str, Any],
+    *,
+    source_id: str,
+    field_sources: dict[str, str],
+) -> dict[str, Any]:
+    """Keep useful raw product-card fields for filters and product details."""
+    raw_data: dict[str, Any] = {
+        "source_id": source_id,
+        "field_sources": {
+            key: value for key, value in field_sources.items() if value
+        },
+    }
+    for key in (
+        "brand",
+        "supplier",
+        "producer",
+        "manufacturer",
+        "vendor",
+        "country",
+        "country_of_origin",
+        "origin_country",
+        "composition",
+        "description",
+        "weight",
+        "volume",
+        "unit",
+        "packaging",
+        "fat",
+        "protein",
+        "carbohydrate",
+        "calories",
+        "shelf_life",
+        "storage_conditions",
+    ):
+        value = _raw_filter_value(item.get(key))
+        if value not in ("", [], {}):
+            raw_data[key] = value
+    return raw_data
+
+
+def _raw_filter_value(value: Any) -> Any:
+    if isinstance(value, (str, int, float)) and not isinstance(value, bool):
+        return value
+    if isinstance(value, list):
+        return [_raw_filter_value(item) for item in value if _raw_filter_value(item) not in ("", [], {})]
+    if isinstance(value, dict):
+        for key in ("name", "title", "value", "label"):
+            if key in value:
+                return _raw_filter_value(value[key])
+    return ""

@@ -4,14 +4,15 @@
 """
 
 import asyncio
-import re
 import time
 from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from dataclasses import dataclass
 
+from loguru import logger
 from models import Product, ParseResult, CategoryInfo, ParserConfig
+from parsers.base_support import build_parser_info, extract_selector_value, resolve_category_name
 from utils.kb_loader import KBLoader, ShopKnowledge
 from strategies import BaseStrategy
 from policies import PoliciesEngine, PolicyResult, ErrorType, ActionType
@@ -63,10 +64,14 @@ class BaseParser(ABC):
         # Конфигурация
         self.config = self._build_config()
         
-        print(f"🛒 Parser initialized: {self.kb.name} (region: {region or 'default'})")
-        print(f"   Categories: {len(self.kb.categories)}")
-        print(f"   Selectors: {len(self.kb.selectors)}")
-        print(f"   Strategies: {len(self.kb.anti_bot.strategies)}")
+        logger.info(
+            "Parser initialized: {} (region: {}), categories={}, selectors={}, strategies={}",
+            self.kb.name,
+            region or "default",
+            len(self.kb.categories),
+            len(self.kb.selectors),
+            len(self.kb.anti_bot.strategies),
+        )
     
     def _build_config(self) -> ParserConfig:
         """Построение конфигурации на основе Knowledge Base."""
@@ -147,7 +152,12 @@ class BaseParser(ABC):
                 parse_duration_ms=duration_ms
             )
             
-            print(f"✅ Parsed {len(products)} products from {category_name} in {duration_ms}ms")
+            logger.info(
+                "Parsed {} products from {} in {}ms",
+                len(products),
+                category_name,
+                duration_ms,
+            )
             return result
             
         except Exception as e:
@@ -170,11 +180,11 @@ class BaseParser(ABC):
             action = await self.policy_engine.evaluate(error_type, context.request_id, {"error": str(e)})
             
             if action.should_retry:
-                print(f"⚠️  Policy triggered retry: {action.message}")
+                logger.warning("Policy triggered retry: {}", action.message)
                 return await self.parse_category(category_url, page)
             
             errors.append(f"Parse error: {str(e)}")
-            print(f"❌ Error parsing {category_url}: {e}")
+            logger.warning("Error parsing {}: {}", category_url, e)
             
             # Возврат пустого результата с ошибкой
             return ParseResult(
@@ -234,13 +244,7 @@ class BaseParser(ABC):
     
     def _get_category_name(self, url: str) -> str:
         """Извлечение названия категории из URL или KB."""
-        # Поиск в KB
-        for name, cat_url in self.kb.categories.items():
-            if cat_url in url or url in cat_url:
-                return name
-        
-        # Fallback: извлечение из URL
-        return url.rstrip('/').split('/')[-1].replace('-', ' ').title()
+        return resolve_category_name(url, self.kb)
     
     def _extract_selector(self, selector_type: str) -> Optional[str]:
         """
@@ -252,60 +256,7 @@ class BaseParser(ABC):
         Returns:
             CSS/XPath селектор или None
         """
-        import re as regex_module
-        selector = self.kb.selectors.get(selector_type)
-        if selector:
-            # Приоритет: CSS > XPath > Regex
-            css_value = selector.css or selector.xpath or selector.regex
-            if css_value:
-                # Поддерживаем несколько форматов разделения селекторов:
-                # 1. " | " - разделитель с пробелами (наш формат fallback)
-                # 2. "," - запятая (CSS формат для множественных селекторов)
-                # Проверяем наличие разделителей
-                
-                # Проверка на pipe разделитель (с пробелами или множественные |)
-                has_pipe = ' | ' in css_value or (css_value.count('|') > 2)
-                
-                # Проверка на запятую как разделитель CSS селекторов
-                # Запятая должна быть не внутри квадратных скобок []
-                has_comma = ',' in css_value
-                
-                if has_pipe:
-                    # Разделяем по '|' с любыми пробелами и очищаем каждый селектор
-                    separators = regex_module.split(r'\s*\|\s*', css_value)
-                    selectors = [s.strip() for s in separators]
-                elif has_comma:
-                    # Разделяем по запятой (CSS multiple selectors)
-                    # Но только если запятая не внутри атрибутов [...]
-                    selectors = []
-                    current = ""
-                    bracket_depth = 0
-                    for char in css_value:
-                        if char == '[':
-                            bracket_depth += 1
-                            current += char
-                        elif char == ']':
-                            bracket_depth -= 1
-                            current += char
-                        elif char == ',' and bracket_depth == 0:
-                            selectors.append(current.strip())
-                            current = ""
-                        else:
-                            current += char
-                    if current.strip():
-                        selectors.append(current.strip())
-                else:
-                    return css_value
-                
-                # Возвращаем первый непустой селектор который не является regex паттерном
-                for sel in selectors:
-                    if sel and not sel.startswith('^') and not sel.startswith('('):
-                        return sel
-                
-                # Если все селекторы отфильтрованы, возвращаем первый
-                return selectors[0] if selectors else None
-        
-        return None
+        return extract_selector_value(self.kb, selector_type)
     
     async def parse_all_categories(self) -> List[ParseResult]:
         """
@@ -316,11 +267,10 @@ class BaseParser(ABC):
         """
         results = []
         
-        print(f"\n📊 Starting full parse of {self.kb.name}...")
-        print(f"   Total categories: {len(self.kb.categories)}")
+        logger.info("Starting full parse of {} with {} categories", self.kb.name, len(self.kb.categories))
         
         for category_name, category_url in self.kb.categories.items():
-            print(f"\n🔍 Parsing category: {category_name}")
+            logger.info("Parsing category: {}", category_name)
             result = await self.parse_category(category_url)
             results.append(result)
             
@@ -329,21 +279,10 @@ class BaseParser(ABC):
                 await asyncio.sleep(self.config.delay_between_requests)
         
         total_products = sum(r.total_products for r in results)
-        print(f"\n✅ Completed! Total products: {total_products}")
+        logger.info("Completed full parse for {}. Total products: {}", self.kb.name, total_products)
         
         return results
     
     def get_info(self) -> Dict[str, Any]:
         """Получение информации о парсере."""
-        return {
-            "shop": self.kb.name,
-            "region": self.region,
-            "categories": list(self.kb.categories.keys()),
-            "selectors": dict(self.kb.selectors),
-            "headers": self.kb.headers.standard | self.kb.headers.custom,
-            "anti_bot": {
-                "recommended_tool": self.kb.anti_bot.recommended_tool,
-                "captcha_types": self.kb.anti_bot.captcha_types,
-                "strategies": self.kb.anti_bot.strategies
-            },
-        }
+        return build_parser_info(self.kb, self.region)

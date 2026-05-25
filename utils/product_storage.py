@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from models.schemas import Product
+from utils.discovery_profile_repository import initialize_discovery_profile_tables
 from utils.onboarding_storage import initialize_onboarding_tables
 
 
@@ -31,6 +32,7 @@ class ProductStorage:
                     product_link TEXT NOT NULL,
                     image_url TEXT NOT NULL,
                     category TEXT NOT NULL,
+                    subcategory TEXT,
                     in_stock INTEGER NOT NULL,
                     current_price REAL NOT NULL,
                     old_price REAL,
@@ -42,6 +44,7 @@ class ProductStorage:
                 )
                 """
             )
+            _ensure_products_subcategory_column(connection)
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS price_history (
@@ -62,6 +65,7 @@ class ProductStorage:
                 "ON price_history(store, product_id, captured_at)"
             )
             initialize_onboarding_tables(connection)
+            initialize_discovery_profile_tables(connection)
 
     def save_products(self, store: str, products: list[Product]) -> None:
         """Upsert current product state and append price history rows."""
@@ -78,15 +82,17 @@ class ProductStorage:
                     """
                     INSERT INTO products (
                         store, product_id, name, product_link, image_url, category,
+                        subcategory,
                         in_stock, current_price, old_price, unit_price, currency,
                         raw_data, updated_at
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(store, product_id) DO UPDATE SET
                         name=excluded.name,
                         product_link=excluded.product_link,
                         image_url=excluded.image_url,
                         category=excluded.category,
+                        subcategory=excluded.subcategory,
                         in_stock=excluded.in_stock,
                         current_price=excluded.current_price,
                         old_price=excluded.old_price,
@@ -102,6 +108,7 @@ class ProductStorage:
                         str(product.product_link),
                         str(product.image_url or ""),
                         str(product.category or ""),
+                        str(product.subcategory or ""),
                         int(product.in_stock),
                         float(product.price.current),
                         product.price.old,
@@ -139,6 +146,7 @@ class ProductStorage:
             rows = connection.execute(
                 """
                 SELECT store, product_id, name, product_link, image_url, category,
+                       subcategory,
                        in_stock, current_price, old_price, unit_price, currency
                 FROM products
                 WHERE store = ?
@@ -258,6 +266,7 @@ def _row_to_product(row: sqlite3.Row) -> dict[str, Any]:
         "product_link": str(row["product_link"]),
         "image_url": str(row["image_url"]),
         "category": str(row["category"]),
+        "subcategory": str(row["subcategory"] or ""),
         "in_stock": bool(row["in_stock"]),
         "current_price": float(row["current_price"]),
         "old_price": row["old_price"],
@@ -278,10 +287,11 @@ def _row_to_history(row: sqlite3.Row) -> dict[str, Any]:
 
 
 def _empty_snapshot_report() -> dict[str, Any]:
-    return {
-        "products_count": 0,
-        "latest_snapshot_at": "",
-        "previous_snapshot_at": "",
-        "changed_prices": [],
-        "changed_availability": [],
-    }
+    return {"products_count": 0, "latest_snapshot_at": "", "previous_snapshot_at": "", "changed_prices": [], "changed_availability": []}
+
+
+def _ensure_products_subcategory_column(connection: sqlite3.Connection) -> None:
+    columns = {str(row["name"]) for row in connection.execute("PRAGMA table_info(products)").fetchall()}
+    if "subcategory" in columns:
+        return
+    connection.execute("ALTER TABLE products ADD COLUMN subcategory TEXT")

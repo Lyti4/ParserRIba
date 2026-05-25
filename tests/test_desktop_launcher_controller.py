@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from launcher.desktop_controller import DesktopLauncherController
+from launcher.desktop_controller import DesktopLauncherController, open_path_with_system_handler
 from launcher.desktop_controller_helpers import selected_export_categories
 from launcher.desktop_user_messages import (
     empty_filter_options_message,
@@ -251,6 +251,20 @@ def test_desktop_launcher_controller_open_excel_uses_injected_path_opener(tmp_pa
     assert opened is True
     assert opened_paths == [controller.state.result.excel_path]
     assert controller.state.task.message == opened_path_message(controller.state.result.excel_path)
+
+
+def test_open_path_with_system_handler_uses_linux_opener(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_popen(command: list[str]) -> None:
+        captured["command"] = command
+
+    monkeypatch.setattr("launcher.desktop_controller.sys.platform", "linux")
+    monkeypatch.setattr("launcher.desktop_controller.subprocess.Popen", fake_popen)
+
+    open_path_with_system_handler("/tmp/report.xlsx")
+
+    assert captured["command"] == ["xdg-open", "/tmp/report.xlsx"]
 
 
 def test_desktop_launcher_controller_preserves_report_result_when_loading_filters(tmp_path: Path) -> None:

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Callable
 
@@ -72,7 +74,7 @@ class DesktopLauncherController:
         self.wine_filter_options_runner = (
             wine_filter_options_runner or task_controller.run_launcher_wine_report_filter_options
         )
-        self.path_opener = path_opener or os.startfile  # type: ignore[attr-defined]
+        self.path_opener = path_opener or open_path_with_system_handler
 
     def set_selection(
         self,
@@ -310,3 +312,12 @@ class DesktopLauncherController:
         self.state.task.message = opened_path_message(path)
         self.state.task.last_error = ""
         return True
+
+
+def open_path_with_system_handler(path: str) -> None:
+    """Open a local path with the platform default application."""
+    if sys.platform == "win32":
+        os.startfile(path)  # type: ignore[attr-defined]
+        return
+    command = ["open", path] if sys.platform == "darwin" else ["xdg-open", path]
+    subprocess.Popen(command)

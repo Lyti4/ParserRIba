@@ -68,6 +68,9 @@ def _clear_transient_selection(state: LauncherAppState) -> None:
     state.selection.categories = []
     state.selection.selected_catalog_nodes = []
     state.selection.selected_product_ids = []
+    state.catalog.selected_nodes = []
+    state.catalog.selected_node_urls = []
+    state.products.selected_product_ids = []
     if state.task.status == "running":
         state.task.status = "idle"
         state.task.message = ""

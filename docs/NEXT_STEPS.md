@@ -81,12 +81,10 @@ current source of truth for Launcher V2.
   candidates.
 - Use `docs/LEGACY_MIGRATION_BACKLOG.md` for the exact order of legacy archive
   slices.
-- Add Launcher V2 state models:
-  - profile state;
-  - catalog tree selection state;
-  - product workspace state;
-  - dynamic filter state;
-  - task/result state.
+- Wire Launcher V2 state models into controller workflows:
+  - populate profile state from discovery profile snapshots;
+  - mirror catalog tree and selected nodes into catalog state;
+  - mirror captured products and dynamic filter schema into workspace state.
 - Keep controller/test files below the architecture-check line budget when adding
   new Launcher V2 behavior.
 - Treat `main.py`, `parsers/`, `strategies/` and `policies/` as legacy archive

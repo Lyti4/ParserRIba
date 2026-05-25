@@ -927,5 +927,4 @@ These are review candidates, not deletion instructions.
 - `utils/session_manager.py`: keep until replacement path and tests are confirmed.
 
 ### Current untracked/local artifacts
-- `launcher/desktop_controller_reports.py`
-- `tests/test_desktop_launcher_controller_tasks.py`
+- none

@@ -14,8 +14,9 @@ from models.launcher_state import LauncherAppState
 def build_browser_preview_html(state: LauncherAppState) -> str:
     """Build a static interactive HTML preview from the current launcher state."""
     table = _normalize_preview_table(build_result_table(state))
+    filter_counts = state.dynamic_filters.counts or state.result.launcher_view
     filters = {
-        key: build_filter_option_labels(extract_filter_counts(state.result.launcher_view, key))
+        key: build_filter_option_labels(extract_filter_counts(filter_counts, key))
         for key in FILTER_WIDGET_KEYS
     }
     payload = {
@@ -257,9 +258,10 @@ def build_browser_preview_html(state: LauncherAppState) -> str:
 
 def _build_preview_summary(state: LauncherAppState) -> str:
     """Build an ASCII-safe summary for the browser preview."""
-    view = state.result.launcher_view
     lines = [str(state.task.message or "").strip() or "Preview mode"]
-    report_summary = view.get("report_summary")
+    report_summary = state.result.summary.get("report_summary")
+    if not isinstance(report_summary, dict):
+        report_summary = state.result.launcher_view.get("report_summary")
     if isinstance(report_summary, dict):
         products_count = report_summary.get("products_count")
         categories = report_summary.get("categories")
@@ -267,7 +269,7 @@ def _build_preview_summary(state: LauncherAppState) -> str:
             lines.append(f"Report products: {products_count}")
         if isinstance(categories, list) and categories:
             lines.append(f"Categories: {', '.join(str(item) for item in categories)}")
-    filter_counts = view.get("available_filter_counts")
+    filter_counts = state.dynamic_filters.counts or state.result.launcher_view.get("available_filter_counts")
     if isinstance(filter_counts, dict):
         suppliers = filter_counts.get("suppliers")
         if isinstance(suppliers, dict) and suppliers:

@@ -87,6 +87,9 @@ current source of truth for Launcher V2.
   - product workspace state;
   - dynamic filter state;
   - task/result state.
+- Split the remaining oversized desktop controller surface:
+  - move report/filter orchestration out of `launcher/desktop_controller.py`;
+  - split `tests/test_desktop_launcher_controller.py` by controller responsibility.
 - Treat `main.py`, `parsers/`, `strategies/` and `policies/` as legacy archive
   candidates, not product runtime.
 - Do not repair legacy bugs unless the code is being extracted into a target

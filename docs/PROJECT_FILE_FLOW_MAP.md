@@ -49,9 +49,8 @@ flowchart TD
   n_utils_launcher_settings[utils<br/>launcher_settings.py] --> n_models_launcher_state[models<br/>launcher_state.py]
   n_launcher_desktop_controller[launcher<br/>desktop_controller.py] --> n_utils_launcher_task_controller[utils<br/>launcher_task_controller.py]
   n_utils_launcher_task_controller[utils<br/>launcher_task_controller.py] --> n_utils[utils<br/>__init__.py]
-  n_utils_launcher_task_controller[utils<br/>launcher_task_controller.py] --> n_utils_kb_loader[utils<br/>kb_loader.py]
+  n_utils_launcher_task_controller[utils<br/>launcher_task_controller.py] --> n_utils_launcher_report_task_controller[utils<br/>launcher_report_task_controller.py]
   n_utils_launcher_task_controller[utils<br/>launcher_task_controller.py] --> n_utils_local_task_adapter[utils<br/>local_task_adapter.py]
-  n_utils_launcher_task_controller[utils<br/>launcher_task_controller.py] --> n_utils_store_catalog_registry[utils<br/>store_catalog_registry.py]
   n_launcher_desktop_controller[launcher<br/>desktop_controller.py] --> n_utils_local_task_adapter[utils<br/>local_task_adapter.py]
   n_utils_local_task_adapter[utils<br/>local_task_adapter.py] --> n_models[models<br/>__init__.py]
   n_utils_local_task_adapter[utils<br/>local_task_adapter.py] --> n_models_task_actor[models<br/>task_actor.py]
@@ -597,7 +596,7 @@ flowchart LR
   n_tests[tests] -->|38| n_launcher[launcher]
   n_tests[tests] -->|66| n_models[models]
   n_tests[tests] -->|13| n_scripts[scripts]
-  n_tests[tests] -->|145| n_utils[utils]
+  n_tests[tests] -->|146| n_utils[utils]
   n_utils[utils] -->|70| n_models[models]
   n_utils[utils] -->|4| n_scripts[scripts]
 ```
@@ -777,7 +776,7 @@ flowchart LR
 | `tests/test_launcher_state.py` | test | pytest only | `models/__init__.py`, `models/launcher_state.py` | - | - |
 | `tests/test_launcher_task_controller_exports.py` | test | pytest only | `models/__init__.py`, `models/task_actor.py`, `utils/__init__.py`, `utils/launcher_task_controller.py`, `utils/local_task_adapter.py` | - | - |
 | `tests/test_launcher_task_controller_onboarding.py` | test | pytest only | `models/__init__.py`, `models/task_actor.py`, `utils/__init__.py`, `utils/launcher_task_controller.py`, `utils/local_task_adapter.py` | - | - |
-| `tests/test_launcher_task_controller_reports.py` | test | pytest only | `models/__init__.py`, `models/task_actor.py`, `utils/__init__.py`, `utils/launcher_task_controller.py`, `utils/local_task_adapter.py` | - | - |
+| `tests/test_launcher_task_controller_reports.py` | test | pytest only | `models/__init__.py`, `models/task_actor.py`, `utils/__init__.py`, `utils/launcher_report_task_controller.py`, `utils/launcher_task_controller.py`, +1 more | - | - |
 | `tests/test_local_task_adapter.py` | test | pytest only | `models/__init__.py`, `models/task_actor.py`, `utils/__init__.py`, `utils/local_task_adapter.py` | - | - |
 | `tests/test_local_task_runtime.py` | test | pytest only | `models/__init__.py`, `models/catalog_discovery.py`, `models/schemas.py`, `models/task_actor.py`, `utils/__init__.py`, +5 more | - | - |
 | `tests/test_models.py` | test | pytest only | `models/__init__.py`, `models/schemas.py` | - | - |
@@ -814,7 +813,7 @@ flowchart LR
 
 | File | Role | When it runs | Imports | Imported by | Tests |
 | --- | --- | --- | --- | --- | --- |
-| `utils/__init__.py` | support module | imported by runtime modules | - | `launcher/desktop_controller.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_research.py`, `main.py`, `parsers/auchan.py`, +57 more | `tests/test_api_discovery.py`, `tests/test_api_discovery_context.py`, `tests/test_api_discovery_report_details.py`, +49 more |
+| `utils/__init__.py` | support module | imported by runtime modules | - | `launcher/desktop_controller.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_research.py`, `main.py`, `parsers/auchan.py`, +58 more | `tests/test_api_discovery.py`, `tests/test_api_discovery_context.py`, `tests/test_api_discovery_report_details.py`, +49 more |
 | `utils/antibot.py` | support module | imported by runtime modules | - | `parsers/pyaterochka.py`, `scripts/smoke_pyaterochka_camoufox.py`, `scripts/smoke_pyaterochka_support.py`, `utils/browser_catalog_discovery.py` | `tests/test_proxy_and_antibot.py` |
 | `utils/api_discovery.py` | support module | imported by runtime modules | `utils/__init__.py`, `utils/api_discovery_report.py`, `utils/api_first_extractor.py`, `utils/interception.py`, `utils/proxy.py` | `scripts/discover_pyaterochka_api.py` | `tests/test_api_discovery.py`, `tests/test_api_discovery_context.py`, `tests/test_api_discovery_report_details.py` |
 | `utils/api_discovery_report.py` | report/export | during report/filter/export generation | - | `utils/api_discovery.py` | - |
@@ -857,10 +856,11 @@ flowchart LR
 | `utils/interception_profiles.py` | support module | imported by runtime modules | - | `scripts/discover_pyaterochka_api.py`, `utils/interception.py`, `utils/network_capture.py` | `tests/test_interception_profiles.py` |
 | `utils/kb_interception.py` | support module | imported by runtime modules | - | `utils/kb_loader.py` | - |
 | `utils/kb_loader.py` | support module | manual/debug command | `utils/__init__.py`, `utils/kb_interception.py` | `parsers/auchan.py`, `parsers/base.py`, `parsers/base_parser.py`, `parsers/base_support.py`, `parsers/lenta.py`, +12 more | `tests/test_kb_loader.py`, `tests/test_parsers_smoke.py` |
+| `utils/launcher_report_task_controller.py` | report/export | during report/filter/export generation | `utils/__init__.py`, `utils/kb_loader.py`, `utils/local_task_adapter.py`, `utils/store_catalog_registry.py` | `utils/launcher_task_controller.py` | `tests/test_launcher_task_controller_reports.py` |
 | `utils/launcher_settings.py` | support module | imported by runtime modules | `models/__init__.py`, `models/launcher_state.py` | `launcher/desktop_controller.py` | `tests/test_launcher_settings.py` |
-| `utils/launcher_task_controller.py` | local task bridge | imported by runtime modules | `utils/__init__.py`, `utils/kb_loader.py`, `utils/local_task_adapter.py`, `utils/store_catalog_registry.py` | `launcher/desktop_controller.py` | `tests/test_launcher_task_controller_exports.py`, `tests/test_launcher_task_controller_onboarding.py`, `tests/test_launcher_task_controller_reports.py` |
+| `utils/launcher_task_controller.py` | local task bridge | imported by runtime modules | `utils/__init__.py`, `utils/launcher_report_task_controller.py`, `utils/local_task_adapter.py` | `launcher/desktop_controller.py` | `tests/test_launcher_task_controller_exports.py`, `tests/test_launcher_task_controller_onboarding.py`, `tests/test_launcher_task_controller_reports.py` |
 | `utils/launcher_task_view.py` | support module | imported by runtime modules | `models/__init__.py`, `models/task_actor.py` | `utils/local_task_adapter.py` | - |
-| `utils/local_task_adapter.py` | local task bridge | when launcher or CLI runs a local task | `models/__init__.py`, `models/task_actor.py`, `utils/__init__.py`, `utils/launcher_task_view.py` | `launcher/desktop_controller.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_research.py`, `utils/launcher_task_controller.py` | `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_research.py`, `tests/test_launcher_task_controller_exports.py`, +3 more |
+| `utils/local_task_adapter.py` | local task bridge | when launcher or CLI runs a local task | `models/__init__.py`, `models/task_actor.py`, `utils/__init__.py`, `utils/launcher_task_view.py` | `launcher/desktop_controller.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_research.py`, `utils/launcher_report_task_controller.py`, `utils/launcher_task_controller.py` | `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_research.py`, `tests/test_launcher_task_controller_exports.py`, +3 more |
 | `utils/local_task_registry.py` | local task bridge | when launcher or CLI runs a local task | `models/__init__.py`, `models/report_request.py`, `models/task_actor.py`, `utils/__init__.py`, `utils/kb_loader.py`, +5 more | `scripts/run_local_task.py` | `tests/test_local_task_runtime.py`, `tests/test_onboarding_manifest_fields.py`, `tests/test_store_report_export_task_summary.py` |
 | `utils/logger.py` | support module | manual/debug command | - | `main.py` | - |
 | `utils/network_capture.py` | support module | imported by runtime modules | `utils/__init__.py`, `utils/interception.py`, `utils/interception_profiles.py`, `utils/proxy.py` | `scripts/discover_pyaterochka_api.py`, `scripts/smoke_pyaterochka_camoufox.py` | `tests/test_network_capture.py` |
@@ -890,7 +890,7 @@ flowchart LR
 | `utils/site_probe.py` | support module | no direct local importer detected | `utils/__init__.py`, `utils/catalog_discovery.py` | - | - |
 | `utils/smoke_report.py` | report/export | during report/filter/export generation | - | `scripts/smoke_pyaterochka_support.py` | `tests/test_smoke_report.py` |
 | `utils/storage_report_builder.py` | storage/repository | during report/filter/export generation | `models/__init__.py`, `models/report_request.py`, `models/schemas.py`, `utils/__init__.py`, `utils/excel_report.py`, +3 more | `scripts/export_store_report.py`, `utils/local_task_registry.py` | `tests/test_report_export_summary.py`, `tests/test_storage_report_builder.py` |
-| `utils/store_catalog_registry.py` | support module | imported by runtime modules | `utils/__init__.py`, `utils/category_intents.py`, `utils/pyaterochka_catalog_capture.py` | `scripts/export_pyaterochka_products.py`, `scripts/export_store_catalog.py`, `utils/catalog_tree_discovery/runner.py`, `utils/launcher_task_controller.py`, `utils/local_task_registry.py`, +3 more | `tests/test_onboarding_registries.py` |
+| `utils/store_catalog_registry.py` | support module | imported by runtime modules | `utils/__init__.py`, `utils/category_intents.py`, `utils/pyaterochka_catalog_capture.py` | `scripts/export_pyaterochka_products.py`, `scripts/export_store_catalog.py`, `utils/catalog_tree_discovery/runner.py`, `utils/launcher_report_task_controller.py`, `utils/local_task_registry.py`, +3 more | `tests/test_onboarding_registries.py` |
 | `utils/store_export_runtime.py` | support module | imported by runtime modules | `models/__init__.py`, `models/schemas.py`, `scripts/discover_pyaterochka_api.py`, `utils/__init__.py`, `utils/excel_report.py`, +5 more | `scripts/export_pyaterochka_products.py`, `scripts/export_store_catalog.py`, `utils/local_task_registry.py` | `tests/test_store_catalog_export_backend.py`, `tests/test_store_catalog_export_wine.py` |
 | `utils/wine_product_classification.py` | support module | imported by runtime modules | `models/__init__.py`, `models/schemas.py` | `utils/pyaterochka_export.py`, `utils/storage_report_builder.py` | - |
 

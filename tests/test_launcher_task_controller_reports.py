@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 import utils.launcher_task_controller as launcher_task_controller
+import utils.launcher_report_task_controller as launcher_report_task_controller
 from models.task_actor import RunManifest
 from utils.local_task_adapter import LocalTaskProcessResult
 
@@ -30,7 +31,7 @@ def test_run_launcher_report_export_uses_named_task_and_payload(tmp_path: Path) 
         captured.update(kwargs)
         return _fake_result("store_report_export", shop="pyaterochka", intent="wine_catalog")
 
-    launcher_task_controller.run_local_task_subprocess = fake_run_local_task_subprocess
+    launcher_report_task_controller.run_local_task_subprocess = fake_run_local_task_subprocess
 
     result = launcher_task_controller.run_launcher_report_export(
         root_dir=tmp_path,
@@ -63,7 +64,7 @@ def test_run_launcher_report_filter_options_uses_named_task_and_payload(tmp_path
         captured.update(kwargs)
         return _fake_result("store_report_filter_options", shop="pyaterochka", intent="wine_catalog")
 
-    launcher_task_controller.run_local_task_subprocess = fake_run_local_task_subprocess
+    launcher_report_task_controller.run_local_task_subprocess = fake_run_local_task_subprocess
 
     result = launcher_task_controller.run_launcher_report_filter_options(
         root_dir=tmp_path,
@@ -90,7 +91,7 @@ def test_run_launcher_fish_report_export_resolves_categories_from_backend(tmp_pa
         captured.update(kwargs)
         return _fake_result("store_report_export", shop="pyaterochka", intent="fish_catalog")
 
-    launcher_task_controller.run_local_task_subprocess = fake_run_local_task_subprocess
+    launcher_report_task_controller.run_local_task_subprocess = fake_run_local_task_subprocess
 
     launcher_task_controller.run_launcher_fish_report_export(
         root_dir=tmp_path,
@@ -113,7 +114,7 @@ def test_run_launcher_wine_report_export_keeps_explicit_categories(tmp_path: Pat
         captured.update(kwargs)
         return _fake_result("store_report_export", shop="pyaterochka", intent="wine_catalog")
 
-    launcher_task_controller.run_local_task_subprocess = fake_run_local_task_subprocess
+    launcher_report_task_controller.run_local_task_subprocess = fake_run_local_task_subprocess
 
     launcher_task_controller.run_launcher_wine_report_export(
         root_dir=tmp_path,
@@ -140,7 +141,7 @@ def test_run_launcher_wine_report_filter_options_resolves_categories(tmp_path: P
         captured.update(kwargs)
         return _fake_result("store_report_filter_options", shop="pyaterochka", intent="wine_catalog")
 
-    launcher_task_controller.run_local_task_subprocess = fake_run_local_task_subprocess
+    launcher_report_task_controller.run_local_task_subprocess = fake_run_local_task_subprocess
 
     launcher_task_controller.run_launcher_wine_report_filter_options(root_dir=tmp_path)
 
@@ -183,7 +184,7 @@ def test_run_launcher_report_export_exposes_first_class_report_summary(tmp_path:
             launcher_view={"task_name": "store_report_export", "report_summary": report_summary},
         )
 
-    launcher_task_controller.run_local_task_subprocess = fake_run_local_task_subprocess
+    launcher_report_task_controller.run_local_task_subprocess = fake_run_local_task_subprocess
 
     result = launcher_task_controller.run_launcher_report_export(
         root_dir=tmp_path,
@@ -204,7 +205,7 @@ def test_run_launcher_report_export_passes_selected_product_ids(tmp_path: Path) 
         captured.update(kwargs)
         return _fake_result("store_report_export", shop="pyaterochka", intent="fish_catalog")
 
-    launcher_task_controller.run_local_task_subprocess = fake_run_local_task_subprocess
+    launcher_report_task_controller.run_local_task_subprocess = fake_run_local_task_subprocess
 
     launcher_task_controller.run_launcher_report_export(
         root_dir=tmp_path,

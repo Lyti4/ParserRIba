@@ -39,10 +39,12 @@ def test_run_launcher_report_export_uses_named_task_and_payload(tmp_path: Path) 
         categories=["Безалкогольное вино"],
         filters={"suppliers": ["Free Feather"]},
         output_name="wine_free_feather",
+        timeout_seconds=123,
     )
 
     assert result.manifest.task_name == "store_report_export"
     assert captured["task_name"] == "store_report_export"
+    assert captured["timeout_seconds"] == 123
     task_input = captured["task_input"]
     assert task_input["selection"] == {
         "shop": "pyaterochka",
@@ -68,10 +70,12 @@ def test_run_launcher_report_filter_options_uses_named_task_and_payload(tmp_path
         shop="pyaterochka",
         intent="wine_catalog",
         categories=["Безалкогольное вино"],
+        timeout_seconds=124,
     )
 
     assert result.manifest.task_name == "store_report_filter_options"
     assert captured["task_name"] == "store_report_filter_options"
+    assert captured["timeout_seconds"] == 124
     assert captured["task_input"]["selection"] == {
         "shop": "pyaterochka",
         "intent": "wine_catalog",

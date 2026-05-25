@@ -132,6 +132,7 @@ class DesktopLauncherController:
             manual_wait=self.state.settings.manual_wait,
             listen_seconds=self.state.settings.listen_seconds,
             research_mode=self.state.research.mode,
+            timeout_seconds=_task_timeout_seconds(self.state.settings.listen_seconds),
         )
 
     def run_selected_export(self) -> LocalTaskProcessResult:
@@ -156,6 +157,7 @@ class DesktopLauncherController:
             "headless": self.state.settings.headless,
             "manual_wait": self.state.settings.manual_wait,
             "expand_intent": False,
+            "timeout_seconds": _task_timeout_seconds(self.state.settings.listen_seconds),
         }
         self._start_task(task_name)
         results: list[LocalTaskProcessResult] = []
@@ -190,6 +192,7 @@ class DesktopLauncherController:
             selected_product_ids=self.state.selection.selected_product_ids,
             filters=self.state.filters.model_dump(mode="json"),
             output_name=output_name,
+            timeout_seconds=120,
         )
 
     def load_filter_options(self) -> LocalTaskProcessResult:
@@ -200,6 +203,7 @@ class DesktopLauncherController:
             runner=runner,
             root_dir=self.root_dir,
             categories=self.state.selection.categories,
+            timeout_seconds=120,
         )
         if not has_rich_filter_counts(self.state.result.launcher_view.get("available_filter_counts")):
             self.state.task.message = empty_filter_options_message()
@@ -288,7 +292,7 @@ class DesktopLauncherController:
     def _refresh_filter_counts_after_export(self, categories: list[str]) -> None:
         runner = self.wine_filter_options_runner if self.state.selection.intent == "wine_catalog" else self.fish_filter_options_runner
         try:
-            filter_result = runner(root_dir=self.root_dir, categories=categories)
+            filter_result = runner(root_dir=self.root_dir, categories=categories, timeout_seconds=120)
         except Exception:
             return
         counts = dict(filter_result.available_filter_counts or {})
@@ -321,3 +325,8 @@ def open_path_with_system_handler(path: str) -> None:
         return
     command = ["open", path] if sys.platform == "darwin" else ["xdg-open", path]
     subprocess.Popen(command)
+
+
+def _task_timeout_seconds(listen_seconds: int) -> int:
+    """Return a bounded subprocess timeout derived from launcher wait settings."""
+    return max(180, int(listen_seconds) + 120)

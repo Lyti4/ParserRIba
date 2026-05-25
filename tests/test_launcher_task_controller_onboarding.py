@@ -35,6 +35,7 @@ def test_run_launcher_onboarding_discovery_uses_local_task_adapter(tmp_path: Pat
         research_mode="quiet",
         python_executable="python.exe",
         show_summary=True,
+        timeout_seconds=321,
     )
 
     assert result.manifest.task_name == "site_onboarding_discovery"
@@ -44,6 +45,7 @@ def test_run_launcher_onboarding_discovery_uses_local_task_adapter(tmp_path: Pat
     assert captured["root_dir"] == tmp_path
     assert captured["python_executable"] == "python.exe"
     assert captured["show_summary"] is True
+    assert captured["timeout_seconds"] == 321
     assert captured["task_input"] == {
         "site_url": "https://unknown-store.example",
         "intent": "fish_catalog",

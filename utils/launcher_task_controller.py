@@ -23,6 +23,7 @@ def run_launcher_onboarding_discovery(
     research_mode: str = "live",
     python_executable: str | None = None,
     show_summary: bool = False,
+    timeout_seconds: int = 900,
 ) -> LocalTaskProcessResult:
     """Run the launcher onboarding discovery task through the local task adapter."""
     return run_local_task_subprocess(
@@ -40,6 +41,7 @@ def run_launcher_onboarding_discovery(
         root_dir=Path(root_dir),
         python_executable=python_executable,
         show_summary=show_summary,
+        timeout_seconds=timeout_seconds,
     )
 
 
@@ -55,6 +57,7 @@ def run_launcher_fish_export(
     expand_intent: bool = True,
     python_executable: str | None = None,
     show_summary: bool = False,
+    timeout_seconds: int = 900,
 ) -> LocalTaskProcessResult:
     """Run the launcher fish export task through the local task adapter."""
     return run_local_task_subprocess(
@@ -71,6 +74,7 @@ def run_launcher_fish_export(
         root_dir=Path(root_dir),
         python_executable=python_executable,
         show_summary=show_summary,
+        timeout_seconds=timeout_seconds,
     )
 
 
@@ -86,6 +90,7 @@ def run_launcher_wine_export(
     expand_intent: bool = True,
     python_executable: str | None = None,
     show_summary: bool = False,
+    timeout_seconds: int = 900,
 ) -> LocalTaskProcessResult:
     """Run the launcher wine export task through the local task adapter."""
     return run_local_task_subprocess(
@@ -102,6 +107,7 @@ def run_launcher_wine_export(
         root_dir=Path(root_dir),
         python_executable=python_executable,
         show_summary=show_summary,
+        timeout_seconds=timeout_seconds,
     )
 
 
@@ -116,6 +122,7 @@ def run_launcher_report_export(
     output_name: str = "",
     python_executable: str | None = None,
     show_summary: bool = False,
+    timeout_seconds: int = 900,
 ) -> LocalTaskProcessResult:
     """Run the launcher report export task through the local task adapter."""
     return run_local_task_subprocess(
@@ -133,6 +140,7 @@ def run_launcher_report_export(
         root_dir=Path(root_dir),
         python_executable=python_executable,
         show_summary=show_summary,
+        timeout_seconds=timeout_seconds,
     )
 
 
@@ -144,6 +152,7 @@ def run_launcher_report_filter_options(
     categories: list[str] | None = None,
     python_executable: str | None = None,
     show_summary: bool = False,
+    timeout_seconds: int = 900,
 ) -> LocalTaskProcessResult:
     """Run the launcher report filter-options task through the local task adapter."""
     return run_local_task_subprocess(
@@ -160,6 +169,7 @@ def run_launcher_report_filter_options(
         root_dir=Path(root_dir),
         python_executable=python_executable,
         show_summary=show_summary,
+        timeout_seconds=timeout_seconds,
     )
 
 
@@ -172,6 +182,7 @@ def run_launcher_fish_report_export(
     output_name: str = "pyaterochka_fish_report",
     python_executable: str | None = None,
     show_summary: bool = False,
+    timeout_seconds: int = 900,
 ) -> LocalTaskProcessResult:
     """Run the launcher fish report export using KB-resolved categories."""
     resolved_categories = _resolve_report_categories(
@@ -190,6 +201,7 @@ def run_launcher_fish_report_export(
         output_name=output_name,
         python_executable=python_executable,
         show_summary=show_summary,
+        timeout_seconds=timeout_seconds,
     )
 
 
@@ -199,6 +211,7 @@ def run_launcher_fish_report_filter_options(
     categories: list[str] | None = None,
     python_executable: str | None = None,
     show_summary: bool = False,
+    timeout_seconds: int = 900,
 ) -> LocalTaskProcessResult:
     """Run the launcher fish filter-options task using KB-resolved categories."""
     resolved_categories = _resolve_report_categories(
@@ -214,6 +227,7 @@ def run_launcher_fish_report_filter_options(
         categories=resolved_categories,
         python_executable=python_executable,
         show_summary=show_summary,
+        timeout_seconds=timeout_seconds,
     )
 
 
@@ -226,6 +240,7 @@ def run_launcher_wine_report_export(
     output_name: str = "pyaterochka_wine_report",
     python_executable: str | None = None,
     show_summary: bool = False,
+    timeout_seconds: int = 900,
 ) -> LocalTaskProcessResult:
     """Run the launcher wine report export using KB-resolved categories."""
     resolved_categories = _resolve_report_categories(
@@ -244,6 +259,7 @@ def run_launcher_wine_report_export(
         output_name=output_name,
         python_executable=python_executable,
         show_summary=show_summary,
+        timeout_seconds=timeout_seconds,
     )
 
 
@@ -253,6 +269,7 @@ def run_launcher_wine_report_filter_options(
     categories: list[str] | None = None,
     python_executable: str | None = None,
     show_summary: bool = False,
+    timeout_seconds: int = 900,
 ) -> LocalTaskProcessResult:
     """Run the launcher wine filter-options task using KB-resolved categories."""
     resolved_categories = _resolve_report_categories(
@@ -268,6 +285,7 @@ def run_launcher_wine_report_filter_options(
         categories=resolved_categories,
         python_executable=python_executable,
         show_summary=show_summary,
+        timeout_seconds=timeout_seconds,
     )
 
 

@@ -431,6 +431,7 @@ def test_desktop_launcher_controller_passes_selected_products_to_report_runner(t
 
     assert captured["categories"] == ["Рыба"]
     assert captured["selected_product_ids"] == ["fish-2", "fish-5"]
+    assert captured["timeout_seconds"] == 120
 
 
 def test_desktop_launcher_controller_passes_selected_catalog_node_urls_to_export(tmp_path: Path) -> None:
@@ -464,4 +465,27 @@ def test_desktop_launcher_controller_passes_selected_catalog_node_urls_to_export
     controller.run_selected_export()
 
     assert captured == [("\u0417\u0430\u0432\u0442\u0440\u0430\u043a\u0438", "https://5ka.ru/catalog/zavtraki--251C12891/")]
+
+
+def test_desktop_launcher_controller_passes_bounded_task_timeout(tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_onboarding_runner(**kwargs):
+        captured.update(kwargs)
+        return build_local_task_process_result(
+            manifest=RunManifest(
+                task_name="site_onboarding_discovery",
+                shop="pyaterochka",
+                intent="fish_catalog",
+                status="runtime_ready",
+            )
+        )
+
+    controller = DesktopLauncherController(root_dir=tmp_path, onboarding_runner=fake_onboarding_runner)
+    controller.set_settings({"listen_seconds": 15})
+
+    controller.run_onboarding_discovery(site_url="https://5ka.ru")
+
+    assert captured["listen_seconds"] == 15
+    assert captured["timeout_seconds"] == 180
 

@@ -7,28 +7,51 @@ from typing import Any
 from launcher.desktop_ui_text import RESEARCH_MODE_LABELS
 
 
-def build_actions_box(shell: Any, qtwidgets: Any) -> Any:
-    """Build the main launcher actions section."""
-    box = qtwidgets.QGroupBox("Действия")
-    layout = qtwidgets.QGridLayout(box)
-    layout.setContentsMargins(8, 8, 8, 8)
-    layout.setHorizontalSpacing(8)
-    layout.setVerticalSpacing(6)
-    actions = (
-        ("onboarding", "Исследование", shell._on_run_onboarding, 0),
-        ("run_export", "Запустить выгрузку", shell._on_run_export, 1),
-        ("load_filters", "Загрузить фильтры", shell._on_load_filters, 2),
-        ("build_report", "Собрать Excel", shell._on_build_report, 3),
-        ("save_settings", "Сохранить настройки", shell._on_save_settings, 4),
+def build_research_actions_box(shell: Any, qtwidgets: Any) -> Any:
+    """Build compact research-stage action controls."""
+    return _build_action_row_box(
+        shell,
+        qtwidgets,
+        "Действия",
+        (
+            ("onboarding", "Исследование", shell._on_run_onboarding),
+            ("save_settings", "Сохранить настройки", shell._on_save_settings),
+        ),
     )
-    for key, label, handler, column in actions:
-        button = qtwidgets.QPushButton(label)
-        button.clicked.connect(handler)
-        shell.action_buttons[key] = button
-        layout.addWidget(button, 0, column)
-    for column in range(5):
-        layout.setColumnStretch(column, 1)
-    return box
+
+
+def build_catalog_actions_box(shell: Any, qtwidgets: Any) -> Any:
+    """Build catalog-stage product collection controls."""
+    return _build_action_row_box(
+        shell,
+        qtwidgets,
+        "Сбор товаров",
+        (("run_export", "Собрать товары по выбранным разделам", shell._on_run_export),),
+    )
+
+
+def build_filter_actions_box(shell: Any, qtwidgets: Any) -> Any:
+    """Build filter-stage loading controls."""
+    return _build_action_row_box(
+        shell,
+        qtwidgets,
+        "Фильтры",
+        (("load_filters", "Загрузить найденные фильтры", shell._on_load_filters),),
+    )
+
+
+def build_report_box(shell: Any, qtwidgets: Any) -> Any:
+    """Build report-stage controls."""
+    return _build_action_row_box(
+        shell,
+        qtwidgets,
+        "Отчёт",
+        (
+            ("build_report", "Собрать Excel", shell._on_build_report),
+            ("open_excel", "Открыть Excel", shell._on_open_excel),
+            ("open_folder", "Открыть папку", shell._on_open_report_dir),
+        ),
+    )
 
 
 def build_settings_box(shell: Any, qtwidgets: Any) -> Any:
@@ -56,6 +79,7 @@ def build_settings_box(shell: Any, qtwidgets: Any) -> Any:
     layout.addWidget(qtwidgets.QLabel("Секунд ожидания"), 1, 2)
     layout.addWidget(shell.listen_seconds_spin, 1, 3)
     layout.setColumnStretch(4, 1)
+    box.setMaximumHeight(96)
     return box
 
 
@@ -67,15 +91,14 @@ def build_status_box(shell: Any, qtwidgets: Any) -> Any:
     shell.summary_label = qtwidgets.QLabel("")
     shell.status_label.setWordWrap(True)
     shell.summary_label.setWordWrap(True)
-    box.setMaximumHeight(170)
     layout.addWidget(shell.status_label)
     layout.addWidget(shell.summary_label)
     return box
 
 
 def build_results_box(shell: Any, qtwidgets: Any) -> Any:
-    """Build the launcher results section."""
-    box = qtwidgets.QGroupBox("Результаты")
+    """Build the product/result table section."""
+    box = qtwidgets.QGroupBox("Товары")
     layout = qtwidgets.QVBoxLayout(box)
     shell.result_caption_label = qtwidgets.QLabel("")
     shell.result_caption_label.setWordWrap(True)
@@ -84,23 +107,40 @@ def build_results_box(shell: Any, qtwidgets: Any) -> Any:
     shell.result_table.setHorizontalHeaderLabels(["Категория", "Товар", "Бренд", "Цена", "Наличие"])
     layout.addWidget(shell.result_caption_label)
     layout.addWidget(shell.result_table)
-    button_grid = qtwidgets.QGridLayout()
-    button_grid.setContentsMargins(0, 0, 0, 0)
-    button_grid.setHorizontalSpacing(8)
-    for index, (key, label, handler) in enumerate(
-        (
-            ("select_products", "Выбрать показанные", shell._on_select_all_results),
-            ("clear_products", "Снять выбор", shell._on_clear_selected_products),
-            ("open_excel", "Открыть Excel", shell._on_open_excel),
-            ("open_folder", "Открыть папку", shell._on_open_report_dir),
-            ("open_json", "Открыть JSON", shell._on_open_json),
+    layout.addWidget(
+        _build_button_row(
+            shell,
+            qtwidgets,
+            (
+                ("select_products", "Выбрать показанные", shell._on_select_all_results),
+                ("clear_products", "Снять выбор", shell._on_clear_selected_products),
+                ("open_json", "Открыть JSON", shell._on_open_json),
+            ),
         )
-    ):
+    )
+    return box
+
+
+def _build_action_row_box(shell: Any, qtwidgets: Any, title: str, actions: tuple[tuple[str, str, Any], ...]) -> Any:
+    """Build one compact stage action row."""
+    box = qtwidgets.QGroupBox(title)
+    layout = qtwidgets.QVBoxLayout(box)
+    layout.setContentsMargins(8, 8, 8, 8)
+    layout.addWidget(_build_button_row(shell, qtwidgets, actions))
+    box.setMaximumHeight(72)
+    return box
+
+
+def _build_button_row(shell: Any, qtwidgets: Any, actions: tuple[tuple[str, str, Any], ...]) -> Any:
+    """Build one row of registered action buttons."""
+    row = qtwidgets.QWidget()
+    layout = qtwidgets.QGridLayout(row)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setHorizontalSpacing(8)
+    for index, (key, label, handler) in enumerate(actions):
         button = qtwidgets.QPushButton(label)
         button.clicked.connect(handler)
         shell.action_buttons[key] = button
-        button_grid.addWidget(button, 0, index)
-    for column in range(5):
-        button_grid.setColumnStretch(column, 1)
-    layout.addLayout(button_grid)
-    return box
+        layout.addWidget(button, 0, index)
+        layout.setColumnStretch(index, 1)
+    return row

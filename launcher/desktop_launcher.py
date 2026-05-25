@@ -10,7 +10,6 @@ from launcher.desktop_background_task import start_background_action
 from launcher.desktop_controller import DesktopLauncherController
 from launcher.desktop_filter_panel import (
     FILTER_WIDGET_KEYS,
-    build_filter_box,
     collect_filter_selections,
     refresh_filter_widgets,
 )
@@ -18,8 +17,6 @@ from launcher.desktop_interaction_state import apply_widget_enabled_state
 from launcher.desktop_result_table import build_result_table
 from launcher.desktop_result_table_widget import populate_result_table_widget
 from launcher.desktop_selection_panel import (
-    build_catalog_selection_box,
-    build_store_selection_box,
     refresh_catalog_tree,
     refresh_category_list,
     sync_catalog_selection_from_widgets,
@@ -34,12 +31,7 @@ from launcher.desktop_shell_helpers import (
 )
 from launcher.desktop_ui_text import WINDOW_TITLE
 from launcher.desktop_view_helpers import build_result_caption_text, build_status_text, build_summary_text
-from launcher.desktop_window_sections import (
-    build_actions_box,
-    build_results_box,
-    build_settings_box,
-    build_status_box,
-)
+from launcher.desktop_workflow_tabs import build_workflow_tabs
 
 class DesktopLauncherShell:
     """Desktop shell over the local launcher controller and task layer."""
@@ -114,7 +106,7 @@ class DesktopLauncherShell:
         controls_layout = qtwidgets.QVBoxLayout(controls_widget)
         controls_layout.setContentsMargins(0, 0, 0, 0)
         controls_layout.setSpacing(8)
-        controls_layout.addWidget(self._build_workflow_tabs(qtwidgets))
+        controls_layout.addWidget(build_workflow_tabs(self, qtwidgets))
         controls_scroll = qtwidgets.QScrollArea()
         controls_scroll.setObjectName("launcherControlsScrollArea")
         controls_scroll.setWidgetResizable(True)
@@ -123,22 +115,6 @@ class DesktopLauncherShell:
         controls_scroll.setWidget(controls_widget)
         layout.addWidget(controls_scroll, stretch=1)
         return container
-
-    def _build_workflow_tabs(self, qtwidgets: Any) -> Any:
-        tabs = qtwidgets.QTabWidget()
-        tabs.addTab(self._build_research_tab(qtwidgets), "Исследование")
-        tabs.addTab(build_catalog_selection_box(self, qtwidgets), "Каталог")
-        tabs.addTab(build_results_box(self, qtwidgets), "Товары")
-        tabs.addTab(build_filter_box(self, qtwidgets), "Фильтры")
-        return tabs
-
-    def _build_research_tab(self, qtwidgets: Any) -> Any:
-        widget = qtwidgets.QWidget()
-        layout = qtwidgets.QVBoxLayout(widget)
-        layout.addWidget(build_store_selection_box(self, qtwidgets))
-        for builder in (build_actions_box, build_settings_box, build_status_box):
-            layout.addWidget(builder(self, qtwidgets))
-        return widget
 
     def _refresh_ui(self) -> None:
         if self.shop_combo is None or self.intent_combo is None or self.category_list is None:

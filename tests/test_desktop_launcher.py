@@ -73,6 +73,7 @@ def test_desktop_launcher_exposes_workflow_tabs(tmp_path: Path) -> None:
         "Каталог",
         "Товары",
         "Фильтры",
+        "Отчёт",
     ]
 
 
@@ -96,7 +97,7 @@ def test_desktop_launcher_does_not_autoselect_discovered_categories(tmp_path: Pa
 
     shell.create_window()
 
-    assert shell.category_list.count() == 2
+    assert shell.category_list.count() == 0
     assert shell.category_list.selectedItems() == []
 
 
@@ -127,6 +128,8 @@ def test_desktop_launcher_renders_full_catalog_tree_and_syncs_checked_nodes(tmp_
     assert shell.state.selection.selected_catalog_nodes == [
         {"name": "Морепродукты", "url": "https://5ka.ru/catalog/seafood/"}
     ]
+    assert "выбрано 1: Морепродукты" in shell.catalog_context_label.text()
+    assert "структура: плоский пул разделов" in shell.catalog_context_label.text()
 
 
 def test_desktop_launcher_exposes_research_mode_widget(tmp_path: Path) -> None:

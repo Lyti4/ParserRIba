@@ -2,7 +2,8 @@
 
 Date: 2026-05-25
 
-This is the active physical map of the project. Use it together with
+This is the active physical map of the project. The target layer doctrine is in
+`docs/TARGET_ARCHITECTURE.md`. Use both documents together with
 `docs/PROJECT_FILE_FLOW_MAP.md` before moving or archiving code.
 
 ## Active Layers
@@ -79,10 +80,11 @@ This is the active physical map of the project. Use it together with
 - `tests/` mirrors active layers.
 - Large tests should be split only after a passing baseline is preserved.
 
-## Legacy Keep-In-Place
+## Legacy Archive Candidates
 
-These files are legacy or compatibility candidates, but should stay in place
-until replacement contracts and tests are ready:
+These files are not product runtime layers. Keep them in place only until their
+useful mechanics are extracted into target cores or store adapters, then move
+them to `archive/` in small verified slices:
 
 - `main.py`
 - `parsers/base.py`
@@ -95,8 +97,9 @@ until replacement contracts and tests are ready:
 - `utils/session_manager.py`
 - `utils/site_probe.py`
 
-Reason: some are still imported by compatibility paths or tests, and moving
-them now would create noisy import churn without improving the launcher flow.
+Reason: some are still imported by diagnostics, compatibility paths or tests.
+Do not fix them as product code; extract useful behavior, update imports and
+archive them when the active runtime no longer depends on them.
 
 ## Archive
 

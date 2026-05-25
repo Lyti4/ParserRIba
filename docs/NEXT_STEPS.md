@@ -4,10 +4,11 @@ Date: 2026-05-23
 
 ## Active Track
 
-The active track is now split into two coupled layers:
+The active track is now launcher-first and core/layer based:
 
-1. keep Pyaterochka data interception and API-first extraction stable;
-2. rebuild the desktop launcher around a strict discovery-first user flow:
+1. keep the launcher as the canonical user entrypoint;
+2. extract reusable Pyaterochka mechanics into generic cores and store adapters;
+3. rebuild the desktop workflow around strict discovery-first behavior:
    - research store;
    - choose discovered catalog nodes;
    - collect products from selected nodes;
@@ -15,13 +16,14 @@ The active track is now split into two coupled layers:
    - build the final Excel/report output.
 
 Architecture and delivery decisions for this stage are tracked in
-`docs/ROADMAP_V1.md`. Use this file for the main roadmap; use this document for
-the current active execution track.
+`docs/TARGET_ARCHITECTURE.md` and `docs/ROADMAP_V1.md`. Use the target
+architecture for layer boundaries and the roadmap for delivery order.
 
 ## Immediate Plan
 
 Current Launcher V2 source of truth:
 
+- `docs/TARGET_ARCHITECTURE.md`
 - `docs/LAUNCHER_ARCHITECTURE.md`
 - `docs/superpowers/specs/2026-05-23-launcher-v2-discovery-workflow-design.md`
 
@@ -55,13 +57,12 @@ current source of truth for Launcher V2.
      history are isolated per profile;
    - profile settings may include advanced network/proxy diagnostics without
      exposing secrets in the UI or stored artifacts.
-5. Keep Pyaterochka runtime as a legacy reference and temporary store-specific
-   adapter only:
+5. Keep Pyaterochka mechanics as reference material and expose them through a
+   store-specific adapter only:
    - do not make it the generic Launcher V2 engine;
    - extract reusable mechanics only behind generic browser/session/protection
      contracts;
-   - keep the old path for diagnostics and comparison while the store-neutral
-     pipeline matures.
+   - archive old parser/runtime files after their useful mechanics are extracted.
 6. Continue improving `Исследование` as a store-neutral Camoufox walker:
    - serial single-page browser session;
    - menu expansion before tree capture;
@@ -84,8 +85,10 @@ current source of truth for Launcher V2.
   - product workspace state;
   - dynamic filter state;
   - task/result state.
-- Keep `parsers/base.py` as the canonical active parser contract.
-- Keep legacy parser modules quarantined from active runtime.
+- Treat `main.py`, `parsers/`, `strategies/` and `policies/` as legacy archive
+  candidates, not product runtime.
+- Do not repair legacy bugs unless the code is being extracted into a target
+  core or store adapter.
 - Move more store-specific route and API markers into each store KB file as
   those stores are stabilized.
 - Keep installer/update work out of the active code path until GUI MVP exists.

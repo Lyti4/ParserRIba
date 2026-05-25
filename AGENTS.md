@@ -8,10 +8,11 @@ Read these files first in any new chat or automation:
 2. `docs/PROJECT_STATE.md`
 3. `docs/NEXT_STEPS.md`
 4. `docs/ROADMAP_V1.md`
-5. `docs/PROJECT_STRUCTURE.md`
-6. `docs/TOOLS_POLICY.md`
-7. `docs/AUTOMATIONS.md`
-8. `docs/ARCHITECTURE_STEWARD.md`
+5. `docs/TARGET_ARCHITECTURE.md`
+6. `docs/PROJECT_STRUCTURE.md`
+7. `docs/TOOLS_POLICY.md`
+8. `docs/AUTOMATIONS.md`
+9. `docs/ARCHITECTURE_STEWARD.md`
 
 ## Project Rules
 
@@ -39,13 +40,21 @@ Read these files first in any new chat or automation:
 
 ## Current Focus
 
-The current work is not GUI or installer. The current focus is:
+The current product direction is launcher-first. ParserRIba is being organized
+as a local desktop program with separate cores for browser/discovery/catalog,
+products, filters, reports, storage and store profiles.
 
-1. Stabilize Pyaterochka Camoufox discovery.
-2. Build the safe network interception layer.
-3. Capture product API payload candidates.
-4. Build API-first extraction with DOM/card fallback.
-5. Persist products and price history locally before moving to backend work.
+Current priorities:
+
+1. Keep the launcher-first workflow as the canonical user path.
+2. Keep Pyaterochka protected-store mechanics available through a store adapter.
+3. Improve store-neutral discovery and catalog tree/profile storage.
+4. Collect full product cards from explicitly selected catalog nodes.
+5. Build dynamic filters and reports from collected product data.
+
+The old CLI/parser stack is not a product runtime. Keep it only as temporary
+reference until useful mechanics are extracted and the files can move to
+`archive/`.
 
 ## Validation
 
@@ -58,4 +67,6 @@ Run from `C:\tmp\ParserRIba-clean`:
 ```
 
 Expected current state: tests pass, compile succeeds, architecture check has no
-errors but still reports known legacy warnings.
+errors but still reports known legacy warnings. `main.py`, `parsers/`,
+`policies/` and `strategies/` are compiled as compatibility surface only until
+their useful mechanics are extracted and the legacy files are archived.

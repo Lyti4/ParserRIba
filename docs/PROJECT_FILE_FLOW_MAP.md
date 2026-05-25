@@ -919,4 +919,4 @@ These are review candidates, not deletion instructions.
 - `utils/session_manager.py`: keep until replacement path and tests are confirmed.
 
 ### Current untracked/local artifacts
-- none
+- `docs/TARGET_ARCHITECTURE.md`

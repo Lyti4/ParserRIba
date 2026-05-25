@@ -105,8 +105,12 @@ def build_results_box(shell: Any, qtwidgets: Any) -> Any:
     shell.result_table = qtwidgets.QTableWidget(0, 5)
     shell.result_table.itemSelectionChanged.connect(shell._on_result_selection_changed)
     shell.result_table.setHorizontalHeaderLabels(["Категория", "Товар", "Бренд", "Цена", "Наличие"])
+    shell.product_detail_text = qtwidgets.QTextEdit()
+    shell.product_detail_text.setReadOnly(True)
+    shell.product_detail_text.setMinimumHeight(140)
     layout.addWidget(shell.result_caption_label)
     layout.addWidget(shell.result_table)
+    layout.addWidget(shell.product_detail_text)
     layout.addWidget(
         _build_button_row(
             shell,

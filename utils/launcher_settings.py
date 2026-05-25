@@ -38,7 +38,9 @@ class LauncherSettingsStore:
         payload = self._load_json()
         if not payload:
             return LauncherAppState()
-        return LauncherAppState(**payload)
+        state = LauncherAppState(**payload)
+        _clear_transient_selection(state)
+        return state
 
     def save_app_state(self, state: LauncherAppState) -> Path:
         """Persist the full launcher state snapshot."""
@@ -59,3 +61,14 @@ class LauncherSettingsStore:
         if isinstance(payload, dict):
             return payload
         return {}
+
+
+def _clear_transient_selection(state: LauncherAppState) -> None:
+    """Avoid restoring stale active UI selections as fresh user choices."""
+    state.selection.categories = []
+    state.selection.selected_catalog_nodes = []
+    state.selection.selected_product_ids = []
+    if state.task.status == "running":
+        state.task.status = "idle"
+        state.task.message = ""
+        state.task.last_error = ""

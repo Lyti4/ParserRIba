@@ -19,7 +19,7 @@ def test_build_status_text_uses_russian_task_labels() -> None:
     text = build_status_text(state)
 
     assert "Магазин: Пятёрочка" in text
-    assert "Раздел: Вино" in text
+    assert "Раздел:" not in text
     assert "Задача: Сбор Excel" in text
     assert "Статус: выполняется" in text
     assert "Режим исследования: Пошаговое исследование" in text
@@ -79,18 +79,15 @@ def test_build_summary_text_uses_report_and_filter_data() -> None:
     }
 
     summary = build_summary_text(state)
+    caption = build_result_caption_text(state)
 
     assert "Готово" in summary
-    assert "Товаров в отчёте: 12" in summary
-    assert "Категории отчёта: Рыба, Морепродукты" in summary
-    assert "Доступно поставщиков: 2" in summary
-    assert "Топ поставщики в отчёте: Море=7, Океан=5, Река=2" in summary
-    assert "Топ доступных поставщиков: Море=7, Океан=5" in summary
     assert "Файл Excel: fish.xlsx" in summary
     assert "Файл JSON: fish.json" in summary
-    assert "Строк показано: 2" in summary
-    assert "Источник: сводка по сохранённому отчёту" in summary
-    assert "Активные фильтры: поставщики=2, строгий режим=1" in summary
+    assert "Товаров в отчёте" not in summary
+    assert "Строк показано: 2" in caption
+    assert "Источник: сводка по сохранённому отчёту" in caption
+    assert "Активные фильтры: поставщики=2, строгий режим=1" in caption
 
 
 def test_build_summary_text_includes_running_hint_and_last_error() -> None:
@@ -104,7 +101,7 @@ def test_build_summary_text_includes_running_hint_and_last_error() -> None:
     assert "Последняя ошибка: proxy timeout" in summary
 
 
-def test_build_summary_text_includes_wine_breakdown() -> None:
+def test_build_summary_text_keeps_export_breakdown_out_of_research_summary() -> None:
     state = LauncherAppState()
     state.result.launcher_view = {
         "export_summary": {
@@ -120,11 +117,8 @@ def test_build_summary_text_includes_wine_breakdown() -> None:
 
     summary = build_summary_text(state)
 
-    assert "Товаров в выгрузке: 4" in summary
-    assert "Типы вина: Тихое=3, Игристое=1" in summary
-    assert "Алкогольный тип: Безалкогольное=4" in summary
-    assert "Классы сахара: Полусладкое=2, Сухое=2" in summary
-    assert "Цвета: Белое=3, Красное=1" in summary
+    assert "Товаров в выгрузке" not in summary
+    assert "Типы вина" not in summary
 
 
 def test_build_summary_text_marks_report_summary_source() -> None:
@@ -137,9 +131,11 @@ def test_build_summary_text_marks_report_summary_source() -> None:
     }
 
     summary = build_summary_text(state)
+    caption = build_result_caption_text(state)
 
-    assert "Строк показано: 1" in summary
-    assert "Источник: сводка по сохранённому отчёту" in summary
+    assert "Строк показано: 1" not in summary
+    assert "Строк показано: 1" in caption
+    assert "Источник: сводка по сохранённому отчёту" in caption
 
 
 def test_build_result_caption_text_renders_result_context() -> None:

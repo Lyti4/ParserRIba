@@ -148,6 +148,7 @@ class DesktopLauncherController:
             "listen_seconds": self.state.settings.listen_seconds,
             "headless": self.state.settings.headless,
             "manual_wait": self.state.settings.manual_wait,
+            "expand_intent": False,
         }
         self._start_task(task_name)
         results: list[LocalTaskProcessResult] = []

@@ -86,6 +86,47 @@ async def test_build_store_export_payload_runs_backend_categories() -> None:
     assert payload["categories"]
 
 
+async def test_build_store_export_payload_can_skip_intent_expansion() -> None:
+    calls: list[str] = []
+    explicit_category = "Р С‹Р±Р°"
+
+    async def fake_discover(
+        *,
+        category_name: str,
+        listen_seconds: int,
+        headless: bool | str | None,
+        manual_wait: bool,
+    ):
+        calls.append(category_name)
+        return {
+            "shop": "pyaterochka",
+            "category": category_name,
+            "category_url": f"https://example.test/{category_name}",
+            "raw_product_items": [],
+            "dom_link_evidence": {"links_by_id": {}},
+            "attempt": {"status": "empty", "reason": "no_product_payload"},
+        }
+
+    backend = get_store_export_backend("pyaterochka")
+    payload = await build_store_export_payload(
+        backend=backend,
+        category_name=explicit_category,
+        attempts=1,
+        listen_seconds=1,
+        manual_wait=False,
+        headless=True,
+        kb_categories={
+            explicit_category: "https://example.test/fish",
+            "РњРѕСЂРµРїСЂРѕРґСѓРєС‚С‹": "https://example.test/seafood",
+        },
+        discover_func=fake_discover,
+        expand_intent=False,
+    )
+
+    assert calls == [explicit_category]
+    assert payload["categories"] == [explicit_category]
+
+
 def test_write_store_export_writes_run_manifest(tmp_path: Path) -> None:
     payload = {
         "shop": "pyaterochka",

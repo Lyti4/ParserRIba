@@ -69,6 +69,7 @@ async def _run_pyaterochka_fish_export_task(
         manual_wait=bool(task_input.get("manual_wait") or False),
         kb_categories=kb.categories,
         discover_func=discover_func,
+        expand_intent=bool(task_input.get("expand_intent", True)),
     )
     write_store_export(payload, output_dir, task_name="pyaterochka_fish_export")
     return RunManifest(**payload["run_manifest"])
@@ -92,6 +93,7 @@ async def _run_pyaterochka_wine_export_task(
         manual_wait=bool(task_input.get("manual_wait") or False),
         kb_categories=kb.categories,
         discover_func=discover_func,
+        expand_intent=bool(task_input.get("expand_intent", True)),
     )
     write_store_export(payload, output_dir, task_name="pyaterochka_wine_export")
     return RunManifest(**payload["run_manifest"])

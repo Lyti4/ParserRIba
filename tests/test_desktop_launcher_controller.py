@@ -148,6 +148,7 @@ def test_desktop_launcher_controller_runs_selected_export_for_every_category(tmp
     json_dir.mkdir(parents=True)
 
     def fake_fish_export_runner(**kwargs):
+        assert kwargs["expand_intent"] is False
         category_name = kwargs["category"]
         seen_categories.append(category_name)
         json_path = json_dir / f"{category_name}.json"

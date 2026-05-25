@@ -84,6 +84,19 @@ def test_desktop_launcher_research_button_is_renamed(tmp_path: Path) -> None:
     assert shell.action_buttons["onboarding"].text() == "Исследование"
 
 
+def test_desktop_launcher_keeps_export_intent_out_of_research_tab(tmp_path: Path) -> None:
+    shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
+    window = shell.create_window()
+
+    tabs = window.findChild(shell._qtwidgets.QTabWidget)
+    research_labels = [item.text() for item in tabs.widget(0).findChildren(shell._qtwidgets.QLabel)]
+    catalog_labels = [item.text() for item in tabs.widget(1).findChildren(shell._qtwidgets.QLabel)]
+
+    assert "Раздел" not in research_labels
+    assert "Тип сбора" in catalog_labels
+    assert shell.intent_combo is not None
+
+
 def test_desktop_launcher_does_not_autoselect_discovered_categories(tmp_path: Path) -> None:
     shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
     shell.state.result.launcher_view = {
@@ -183,6 +196,31 @@ def test_desktop_launcher_can_select_all_visible_products(tmp_path: Path) -> Non
     shell._on_select_all_results()
 
     assert shell.state.selection.selected_product_ids == ["fish-1", "fish-2"]
+
+
+def test_desktop_launcher_shows_selected_product_details(tmp_path: Path) -> None:
+    json_path = tmp_path / "products.json"
+    json_path.write_text(
+        (
+            '{"products":['
+            '{"id":"fish-1","category":"Рыба","name":"Треска","brand":"Море",'
+            '"price":{"current":199.99},"in_stock":true,'
+            '"product_link":"https://example.test/product/fish-1",'
+            '"raw_data":{"supplier":"Океан","producer":"Завод","fat":"12%"}}'
+            ']}'
+        ),
+        encoding="utf-8",
+    )
+    shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
+    shell.state.result.json_path = str(json_path)
+    shell.create_window()
+
+    shell._on_select_all_results()
+
+    details = shell.product_detail_text.toPlainText()
+    assert "Товар: Треска" in details
+    assert "Ссылка: https://example.test/product/fish-1" in details
+    assert '"fat": "12%"' in details
 
 
 def test_desktop_launcher_can_clear_selected_products(tmp_path: Path) -> None:

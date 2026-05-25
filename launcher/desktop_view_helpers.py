@@ -6,7 +6,6 @@ from pathlib import Path
 
 from launcher.desktop_result_table import build_result_table
 from launcher.desktop_ui_text import (
-    display_intent,
     display_research_mode,
     display_research_phase,
     display_shop,
@@ -22,7 +21,6 @@ def build_status_text(state: LauncherAppState) -> str:
     research = state.research
     parts = [
         f"Магазин: {display_shop(state.selection.shop)}",
-        f"Раздел: {display_intent(state.selection.intent)}",
         f"Задача: {display_task_name(task.task_name or '-')}",
         f"Статус: {display_task_status(task.status)}",
         f"Режим исследования: {display_research_mode(research.mode)}",
@@ -38,38 +36,13 @@ def build_summary_text(state: LauncherAppState) -> str:
     """Build a compact human-readable summary for the current launcher result."""
     view = state.result.launcher_view
     lines: list[str] = []
-    if state.task.message.strip():
+    if state.task.task_name in {"site_onboarding_discovery", ""} and state.task.message.strip():
         lines.append(state.task.message.strip())
     if state.task.status == "running":
         lines.append("Лаунчер ожидает завершения текущего действия.")
     if state.task.last_error:
         lines.append(f"Последняя ошибка: {state.task.last_error}")
     _append_research_summary(lines, state)
-    _append_result_context(lines, state)
-
-    report_summary = view.get("report_summary")
-    if isinstance(report_summary, dict):
-        if report_summary.get("products_count") is not None:
-            lines.append(f"Товаров в отчёте: {report_summary['products_count']}")
-        if isinstance(report_summary.get("categories"), list) and report_summary["categories"]:
-            lines.append(f"Категории отчёта: {', '.join(str(item) for item in report_summary['categories'])}")
-        _append_top_counts(lines, "Топ поставщики в отчёте", report_summary.get("supplier_counts"))
-        _append_wine_breakdown(lines, report_summary.get("wine_breakdown"))
-
-    export_summary = view.get("export_summary")
-    if isinstance(export_summary, dict):
-        if export_summary.get("products_count") is not None:
-            lines.append(f"Товаров в выгрузке: {export_summary['products_count']}")
-        if isinstance(export_summary.get("categories"), list) and export_summary["categories"]:
-            lines.append(f"Категории выгрузки: {', '.join(str(item) for item in export_summary['categories'])}")
-        _append_wine_breakdown(lines, export_summary.get("wine_breakdown"))
-
-    filter_counts = view.get("available_filter_counts")
-    if isinstance(filter_counts, dict):
-        suppliers = filter_counts.get("suppliers")
-        if isinstance(suppliers, dict) and suppliers:
-            lines.append(f"Доступно поставщиков: {len(suppliers)}")
-            _append_top_counts(lines, "Топ доступных поставщиков", suppliers)
 
     catalog_discovery = view.get("catalog_discovery")
     if isinstance(catalog_discovery, dict) and catalog_discovery.get("surface_type"):

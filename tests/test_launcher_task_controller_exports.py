@@ -44,6 +44,7 @@ def test_run_launcher_wine_export_uses_named_task_and_payload(tmp_path: Path) ->
     assert task_input["listen_seconds"] == 6
     assert task_input["headless"] is True
     assert task_input["manual_wait"] is False
+    assert task_input["expand_intent"] is True
     assert isinstance(task_input["category"], str)
     assert task_input["category"]
 
@@ -86,4 +87,5 @@ def test_run_launcher_fish_export_uses_named_task_and_payload(tmp_path: Path) ->
         "listen_seconds": 4,
         "headless": False,
         "manual_wait": True,
+        "expand_intent": True,
     }

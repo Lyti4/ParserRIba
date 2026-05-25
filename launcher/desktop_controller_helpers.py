@@ -222,7 +222,11 @@ def default_category_name(intent: str) -> str:
 def selected_export_categories(categories: list[str], intent: str) -> list[str]:
     """Normalize selected categories for discovery-first export actions."""
     del intent
-    selected = [str(item).strip() for item in categories if str(item).strip()]
+    selected: list[str] = []
+    for item in categories:
+        category_name = str(item).strip()
+        if category_name and category_name not in selected:
+            selected.append(category_name)
     return selected
 
 

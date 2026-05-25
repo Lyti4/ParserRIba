@@ -14,6 +14,7 @@ from launcher.desktop_filter_panel import (
     refresh_filter_widgets,
 )
 from launcher.desktop_interaction_state import apply_widget_enabled_state
+from launcher.desktop_product_details import build_product_detail_text
 from launcher.desktop_result_table import build_result_table
 from launcher.desktop_result_table_widget import populate_result_table_widget
 from launcher.desktop_selection_panel import (
@@ -57,6 +58,7 @@ class DesktopLauncherShell:
         self.summary_label: Any | None = None
         self.result_caption_label: Any | None = None
         self.result_table: Any | None = None
+        self.product_detail_text: Any | None = None
         self.action_buttons: dict[str, Any] = {}
         self.filter_widgets: dict[str, Any] = {}
         self.filter_field_widgets: dict[str, Any] = {}
@@ -154,6 +156,7 @@ class DesktopLauncherShell:
                 self.state.selection.selected_product_ids,
             )
             self._sync_selected_products_from_table()
+            self._refresh_product_detail()
 
     def _update_state_from_widgets(self) -> None:
         sync_catalog_selection_from_widgets(self)
@@ -201,7 +204,9 @@ class DesktopLauncherShell:
     def _on_open_excel(self) -> None: self._open_controller_action(self.controller.open_excel)
     def _on_open_report_dir(self) -> None: self._open_controller_action(self.controller.open_report_dir)
     def _on_open_json(self) -> None: self._open_controller_action(self.controller.open_json)
-    def _on_result_selection_changed(self) -> None: self._sync_selected_products_from_table()
+    def _on_result_selection_changed(self) -> None:
+        self._sync_selected_products_from_table()
+        self._refresh_product_detail()
     def _on_catalog_tree_changed(self, _item: Any, _column: int) -> None:
         if self.catalog_tree is None or self._qt is None:
             return
@@ -261,6 +266,16 @@ class DesktopLauncherShell:
             if product_id and product_id not in selected_product_ids:
                 selected_product_ids.append(product_id)
         self.controller.set_selection(selected_product_ids=selected_product_ids)
+
+    def _refresh_product_detail(self) -> None:
+        if self.product_detail_text is None:
+            return
+        self.product_detail_text.setPlainText(
+            build_product_detail_text(
+                self.state.result.json_path,
+                self.state.selection.selected_product_ids,
+            )
+        )
 
     @staticmethod
     def _current_combo_value(combo: Any) -> str:

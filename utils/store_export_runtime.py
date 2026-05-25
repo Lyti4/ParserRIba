@@ -29,10 +29,15 @@ async def build_store_export_payload(
     manual_wait: bool,
     kb_categories: dict[str, str],
     discover_func: DiscoverFunc | None = None,
+    expand_intent: bool = True,
 ) -> dict[str, Any]:
     """Build a normalized export payload for one store backend."""
     runner = discover_func or backend.discover_func
-    target_categories = backend.resolve_categories(category_name, kb_categories)
+    target_categories = (
+        backend.resolve_categories(category_name, kb_categories)
+        if expand_intent
+        else [str(category_name or backend.default_category).strip() or backend.default_category]
+    )
     last_result: dict[str, Any] | None = None
     products: list[Product] = []
     category_results: list[dict[str, Any]] = []

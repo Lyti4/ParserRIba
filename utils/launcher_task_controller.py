@@ -51,6 +51,7 @@ def run_launcher_fish_export(
     listen_seconds: int = 15,
     headless: bool | str | None = None,
     manual_wait: bool = False,
+    expand_intent: bool = True,
     python_executable: str | None = None,
     show_summary: bool = False,
 ) -> LocalTaskProcessResult:
@@ -63,6 +64,7 @@ def run_launcher_fish_export(
             "listen_seconds": listen_seconds,
             "headless": headless,
             "manual_wait": manual_wait,
+            "expand_intent": expand_intent,
         },
         root_dir=Path(root_dir),
         python_executable=python_executable,
@@ -78,6 +80,7 @@ def run_launcher_wine_export(
     listen_seconds: int = 15,
     headless: bool | str | None = None,
     manual_wait: bool = False,
+    expand_intent: bool = True,
     python_executable: str | None = None,
     show_summary: bool = False,
 ) -> LocalTaskProcessResult:
@@ -90,6 +93,7 @@ def run_launcher_wine_export(
             "listen_seconds": listen_seconds,
             "headless": headless,
             "manual_wait": manual_wait,
+            "expand_intent": expand_intent,
         },
         root_dir=Path(root_dir),
         python_executable=python_executable,

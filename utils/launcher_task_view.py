@@ -21,6 +21,7 @@ def build_launcher_task_view(
     diagnostics_summary: dict[str, Any] | None = None,
     catalog_discovery: dict[str, Any] | None = None,
     intent_category_links: list[dict[str, Any]] | None = None,
+    found_filters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build one unified launcher view-model for any local task result."""
     summary = dict(manifest.summary or {})
@@ -43,6 +44,7 @@ def build_launcher_task_view(
         "report_summary": dict(report_summary or {}),
         "export_summary": dict(export_summary or {}),
         "available_filter_counts": dict(available_filter_counts or {}),
+        "found_filters": dict(found_filters or {}),
         "diagnostics_summary": dict(diagnostics_summary or {}),
         "catalog_discovery": dict(catalog_discovery or {}),
         "intent_category_links": list(intent_category_links or []),

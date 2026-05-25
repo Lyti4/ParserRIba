@@ -34,6 +34,7 @@ class LocalTaskProcessResult:
     diagnostics_summary: dict[str, Any] | None = None
     catalog_discovery: dict[str, Any] | None = None
     intent_category_links: list[dict[str, Any]] | None = None
+    found_filters: dict[str, Any] | None = None
     launcher_view: dict[str, Any] | None = None
 
 
@@ -116,6 +117,7 @@ def build_local_task_process_result(
         diagnostics_summary=_summary_dict(summary, "diagnostics_summary"),
         catalog_discovery=_summary_dict(summary, "catalog_discovery"),
         intent_category_links=_summary_dict_list(summary, "intent_category_links"),
+        found_filters=_summary_dict(summary, "found_filters"),
         launcher_view=build_launcher_task_view(
             manifest=manifest,
             summary_text=stderr.strip(),
@@ -129,6 +131,7 @@ def build_local_task_process_result(
             diagnostics_summary=_summary_dict(summary, "diagnostics_summary"),
             catalog_discovery=_summary_dict(summary, "catalog_discovery"),
             intent_category_links=_summary_dict_list(summary, "intent_category_links"),
+            found_filters=_summary_dict(summary, "found_filters"),
         ),
     )
 

@@ -27,6 +27,7 @@ from launcher.desktop_controller_reports import (
 )
 from launcher.desktop_controller_selection import update_selection_state
 from launcher.desktop_controller_research import sync_research_state
+from launcher.desktop_controller_workspace import sync_workspace_state
 from launcher.desktop_user_messages import (
     friendly_error_message,
     no_selected_categories_message,
@@ -248,6 +249,7 @@ class DesktopLauncherController:
         self.state.result.json_path = artifact_or_existing(artifacts.get("json_path"), self.state.result.json_path)
         self.state.result.report_dir = report_dir_from_artifacts(artifacts, existing_report_dir=self.state.result.report_dir)
         apply_filter_counts_from_export_json(self)
+        sync_workspace_state(self.state, result)
         self.state.task.status = "succeeded" if result.manifest.status != "failed" else "failed"
         self.state.task.message = result_message(result)
         self.state.task.last_error = result.manifest.error

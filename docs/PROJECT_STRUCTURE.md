@@ -1,6 +1,6 @@
 # ParserRIba Project Structure
 
-Date: 2026-05-25
+Date: 2026-05-26
 
 This is the active physical map of the project. The target layer doctrine is in
 `docs/TARGET_ARCHITECTURE.md`. Use both documents together with
@@ -15,8 +15,9 @@ moving or archiving code.
 - Entry point: `scripts/run_desktop_launcher.py`.
 - The launcher must call controller/task APIs, not parser scripts directly.
 - Key modules: `desktop_launcher.py`, `desktop_controller.py`,
-  `desktop_workflow_tabs.py`, `desktop_catalog_tree_widget.py`,
-  `desktop_dynamic_filter_panel.py`, `desktop_product_details.py`.
+  `desktop_controller_workspace.py`, `desktop_workflow_tabs.py`,
+  `desktop_catalog_tree_widget.py`, `desktop_dynamic_filter_panel.py`,
+  `desktop_product_details.py`.
 
 ### Launcher Task Bridge
 

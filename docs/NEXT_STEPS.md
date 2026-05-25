@@ -1,6 +1,6 @@
 # ParserRIba Next Steps
 
-Date: 2026-05-23
+Date: 2026-05-26
 
 ## Active Track
 
@@ -81,10 +81,13 @@ current source of truth for Launcher V2.
   candidates.
 - Use `docs/LEGACY_MIGRATION_BACKLOG.md` for the exact order of legacy archive
   slices.
-- Wire Launcher V2 state models into controller workflows:
-  - populate profile state from discovery profile snapshots;
-  - mirror catalog tree and selected nodes into catalog state;
-  - mirror captured products and dynamic filter schema into workspace state.
+- Continue wiring Launcher V2 state models into visible launcher workflows:
+  - use the synchronized profile/catalog/products/filter/result state as the
+    source for UI panels where it is more explicit than raw `launcher_view`;
+  - persist per-site profile snapshots with catalog tree, diagnostics, selected
+    nodes and report artifacts;
+  - keep `launcher_view` as a compatibility/view-model surface until every tab
+    consumes the structured workspace state directly.
 - Keep controller/test files below the architecture-check line budget when adding
   new Launcher V2 behavior.
 - Treat `main.py`, `parsers/`, `strategies/` and `policies/` as legacy archive

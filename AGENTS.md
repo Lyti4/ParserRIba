@@ -8,9 +8,10 @@ Read these files first in any new chat or automation:
 2. `docs/PROJECT_STATE.md`
 3. `docs/NEXT_STEPS.md`
 4. `docs/ROADMAP_V1.md`
-5. `docs/TOOLS_POLICY.md`
-6. `docs/AUTOMATIONS.md`
-7. `docs/ARCHITECTURE_STEWARD.md`
+5. `docs/PROJECT_STRUCTURE.md`
+6. `docs/TOOLS_POLICY.md`
+7. `docs/AUTOMATIONS.md`
+8. `docs/ARCHITECTURE_STEWARD.md`
 
 ## Project Rules
 

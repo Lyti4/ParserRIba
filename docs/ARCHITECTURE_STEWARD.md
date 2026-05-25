@@ -67,6 +67,7 @@ tests or a compatibility path, then remove or archive the old behavior.
 ## Supporting Plans
 
 - `docs/ROADMAP_V1.md`: primary architecture and delivery roadmap.
+- `docs/PROJECT_STRUCTURE.md`: active folder/layer map and archive policy.
 - `docs/PROJECT_FILE_FLOW_MAP.md`: generated physical map of Python file
   dependencies, launch paths, runtime circumstances and cleanup candidates.
 - `docs/PLATFORM_FOUNDATION.md`: platform primitives and refactor base.

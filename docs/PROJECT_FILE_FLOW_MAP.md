@@ -38,6 +38,9 @@ flowchart TD
   n_launcher_desktop_controller_research[launcher<br/>desktop_controller_research.py] --> n_models_launcher_state[models<br/>launcher_state.py]
   n_launcher_desktop_controller_research[launcher<br/>desktop_controller_research.py] --> n_utils[utils<br/>__init__.py]
   n_launcher_desktop_controller_research[launcher<br/>desktop_controller_research.py] --> n_utils_local_task_adapter[utils<br/>local_task_adapter.py]
+  n_launcher_desktop_controller[launcher<br/>desktop_controller.py] --> n_launcher_desktop_controller_selection[launcher<br/>desktop_controller_selection.py]
+  n_launcher_desktop_controller_selection[launcher<br/>desktop_controller_selection.py] --> n_models[models<br/>__init__.py]
+  n_launcher_desktop_controller_selection[launcher<br/>desktop_controller_selection.py] --> n_models_launcher_state[models<br/>launcher_state.py]
   n_launcher_desktop_controller[launcher<br/>desktop_controller.py] --> n_launcher_desktop_export_facets[launcher<br/>desktop_export_facets.py]
   n_launcher_desktop_controller[launcher<br/>desktop_controller.py] --> n_launcher_desktop_user_messages[launcher<br/>desktop_user_messages.py]
   n_launcher_desktop_controller[launcher<br/>desktop_controller.py] --> n_utils[utils<br/>__init__.py]
@@ -56,17 +59,26 @@ flowchart TD
   n_utils_local_task_adapter[utils<br/>local_task_adapter.py] --> n_utils_launcher_task_view[utils<br/>launcher_task_view.py]
   n_launcher_desktop_launcher[launcher<br/>desktop_launcher.py] --> n_launcher_desktop_filter_panel[launcher<br/>desktop_filter_panel.py]
   n_launcher_desktop_filter_panel[launcher<br/>desktop_filter_panel.py] --> n_launcher[launcher<br/>__init__.py]
+  n_launcher_desktop_filter_panel[launcher<br/>desktop_filter_panel.py] --> n_launcher_desktop_dynamic_filter_panel[launcher<br/>desktop_dynamic_filter_panel.py]
+  n_launcher_desktop_dynamic_filter_panel[launcher<br/>desktop_dynamic_filter_panel.py] --> n_launcher[launcher<br/>__init__.py]
+  n_launcher_desktop_dynamic_filter_panel[launcher<br/>desktop_dynamic_filter_panel.py] --> n_launcher_desktop_ui_text[launcher<br/>desktop_ui_text.py]
   n_launcher_desktop_filter_panel[launcher<br/>desktop_filter_panel.py] --> n_launcher_desktop_filter_helpers[launcher<br/>desktop_filter_helpers.py]
   n_launcher_desktop_filter_panel[launcher<br/>desktop_filter_panel.py] --> n_launcher_desktop_ui_text[launcher<br/>desktop_ui_text.py]
   n_launcher_desktop_launcher[launcher<br/>desktop_launcher.py] --> n_launcher_desktop_interaction_state[launcher<br/>desktop_interaction_state.py]
+  n_launcher_desktop_launcher[launcher<br/>desktop_launcher.py] --> n_launcher_desktop_product_details[launcher<br/>desktop_product_details.py]
   n_launcher_desktop_launcher[launcher<br/>desktop_launcher.py] --> n_launcher_desktop_result_table[launcher<br/>desktop_result_table.py]
   n_launcher_desktop_result_table[launcher<br/>desktop_result_table.py] --> n_launcher[launcher<br/>__init__.py]
   n_launcher_desktop_result_table[launcher<br/>desktop_result_table.py] --> n_launcher_desktop_ui_text[launcher<br/>desktop_ui_text.py]
   n_launcher_desktop_result_table[launcher<br/>desktop_result_table.py] --> n_models[models<br/>__init__.py]
   n_launcher_desktop_result_table[launcher<br/>desktop_result_table.py] --> n_models_launcher_state[models<br/>launcher_state.py]
   n_launcher_desktop_launcher[launcher<br/>desktop_launcher.py] --> n_launcher_desktop_result_table_widget[launcher<br/>desktop_result_table_widget.py]
+  n_launcher_desktop_launcher[launcher<br/>desktop_launcher.py] --> n_launcher_desktop_selection_panel[launcher<br/>desktop_selection_panel.py]
+  n_launcher_desktop_selection_panel[launcher<br/>desktop_selection_panel.py] --> n_launcher[launcher<br/>__init__.py]
+  n_launcher_desktop_selection_panel[launcher<br/>desktop_selection_panel.py] --> n_launcher_desktop_catalog_tree_widget[launcher<br/>desktop_catalog_tree_widget.py]
+  n_launcher_desktop_selection_panel[launcher<br/>desktop_selection_panel.py] --> n_launcher_desktop_ui_text[launcher<br/>desktop_ui_text.py]
   n_launcher_desktop_launcher[launcher<br/>desktop_launcher.py] --> n_launcher_desktop_shell_helpers[launcher<br/>desktop_shell_helpers.py]
   n_launcher_desktop_shell_helpers[launcher<br/>desktop_shell_helpers.py] --> n_launcher[launcher<br/>__init__.py]
+  n_launcher_desktop_shell_helpers[launcher<br/>desktop_shell_helpers.py] --> n_launcher_desktop_catalog_tree_widget[launcher<br/>desktop_catalog_tree_widget.py]
   n_launcher_desktop_shell_helpers[launcher<br/>desktop_shell_helpers.py] --> n_launcher_desktop_list_widget_helpers[launcher<br/>desktop_list_widget_helpers.py]
   n_launcher_desktop_launcher[launcher<br/>desktop_launcher.py] --> n_launcher_desktop_ui_text[launcher<br/>desktop_ui_text.py]
   n_launcher_desktop_launcher[launcher<br/>desktop_launcher.py] --> n_launcher_desktop_view_helpers[launcher<br/>desktop_view_helpers.py]
@@ -75,7 +87,11 @@ flowchart TD
   n_launcher_desktop_view_helpers[launcher<br/>desktop_view_helpers.py] --> n_launcher_desktop_ui_text[launcher<br/>desktop_ui_text.py]
   n_launcher_desktop_view_helpers[launcher<br/>desktop_view_helpers.py] --> n_models[models<br/>__init__.py]
   n_launcher_desktop_view_helpers[launcher<br/>desktop_view_helpers.py] --> n_models_launcher_state[models<br/>launcher_state.py]
-  n_launcher_desktop_launcher[launcher<br/>desktop_launcher.py] --> n_launcher_desktop_window_sections[launcher<br/>desktop_window_sections.py]
+  n_launcher_desktop_launcher[launcher<br/>desktop_launcher.py] --> n_launcher_desktop_workflow_tabs[launcher<br/>desktop_workflow_tabs.py]
+  n_launcher_desktop_workflow_tabs[launcher<br/>desktop_workflow_tabs.py] --> n_launcher[launcher<br/>__init__.py]
+  n_launcher_desktop_workflow_tabs[launcher<br/>desktop_workflow_tabs.py] --> n_launcher_desktop_filter_panel[launcher<br/>desktop_filter_panel.py]
+  n_launcher_desktop_workflow_tabs[launcher<br/>desktop_workflow_tabs.py] --> n_launcher_desktop_selection_panel[launcher<br/>desktop_selection_panel.py]
+  n_launcher_desktop_workflow_tabs[launcher<br/>desktop_workflow_tabs.py] --> n_launcher_desktop_window_sections[launcher<br/>desktop_window_sections.py]
   n_launcher_desktop_window_sections[launcher<br/>desktop_window_sections.py] --> n_launcher[launcher<br/>__init__.py]
   n_launcher_desktop_window_sections[launcher<br/>desktop_window_sections.py] --> n_launcher_desktop_ui_text[launcher<br/>desktop_ui_text.py]
   n_scripts_run_desktop_launcher[scripts<br/>run_desktop_launcher.py] --> n_scripts_smoke_desktop_launcher[scripts<br/>smoke_desktop_launcher.py]
@@ -566,7 +582,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-  n_launcher[launcher] -->|10| n_models[models]
+  n_launcher[launcher] -->|12| n_models[models]
   n_launcher[launcher] -->|8| n_utils[utils]
   n_main_py[main.py] -->|1| n_scripts[scripts]
   n_main_py[main.py] -->|2| n_utils[utils]
@@ -578,7 +594,7 @@ flowchart LR
   n_scripts[scripts] -->|11| n_launcher[launcher]
   n_scripts[scripts] -->|4| n_models[models]
   n_scripts[scripts] -->|69| n_utils[utils]
-  n_tests[tests] -->|34| n_launcher[launcher]
+  n_tests[tests] -->|38| n_launcher[launcher]
   n_tests[tests] -->|66| n_models[models]
   n_tests[tests] -->|13| n_scripts[scripts]
   n_tests[tests] -->|145| n_utils[utils]
@@ -604,26 +620,32 @@ flowchart LR
 
 | File | Role | When it runs | Imports | Imported by | Tests |
 | --- | --- | --- | --- | --- | --- |
-| `launcher/__init__.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/browser_preview.py`, `launcher/desktop_controller.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_filter_panel.py`, `launcher/desktop_launcher.py`, +9 more | `tests/test_browser_preview.py`, `tests/test_desktop_action_state.py`, `tests/test_desktop_export_facets.py`, +11 more |
+| `launcher/__init__.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/browser_preview.py`, `launcher/desktop_controller.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_dynamic_filter_panel.py`, `launcher/desktop_filter_panel.py`, +12 more | `tests/test_browser_preview.py`, `tests/test_desktop_action_state.py`, `tests/test_desktop_catalog_tree_widget.py`, +12 more |
 | `launcher/browser_preview.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_filter_helpers.py`, `launcher/desktop_filter_panel.py`, `launcher/desktop_result_table.py`, `launcher/desktop_view_helpers.py`, +2 more | `scripts/build_launcher_browser_preview.py` | `tests/test_browser_preview.py` |
 | `launcher/desktop_action_state.py` | desktop launcher UI/controller | when desktop launcher is opened | `models/__init__.py`, `models/launcher_state.py` | `launcher/desktop_launcher.py` | `tests/test_desktop_action_state.py` |
 | `launcher/desktop_background_task.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_launcher.py` | - |
-| `launcher/desktop_controller.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_export_facets.py`, `launcher/desktop_user_messages.py`, +4 more | `launcher/desktop_launcher.py`, `scripts/build_launcher_browser_preview.py` | `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_research.py` |
-| `launcher/desktop_controller_helpers.py` | desktop launcher UI/controller | when desktop launcher is opened | `utils/__init__.py`, `utils/local_task_adapter.py` | `launcher/desktop_controller.py` | - |
+| `launcher/desktop_catalog_tree_widget.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_selection_panel.py`, `launcher/desktop_shell_helpers.py` | `tests/test_desktop_catalog_tree_widget.py` |
+| `launcher/desktop_controller.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_controller_selection.py`, `launcher/desktop_export_facets.py`, +5 more | `launcher/desktop_launcher.py`, `scripts/build_launcher_browser_preview.py` | `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_research.py` |
+| `launcher/desktop_controller_helpers.py` | desktop launcher UI/controller | when desktop launcher is opened | `utils/__init__.py`, `utils/local_task_adapter.py` | `launcher/desktop_controller.py` | `tests/test_desktop_launcher_controller.py` |
 | `launcher/desktop_controller_research.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_ui_text.py`, `models/__init__.py`, `models/launcher_state.py`, `utils/__init__.py`, +1 more | `launcher/desktop_controller.py` | - |
+| `launcher/desktop_controller_selection.py` | desktop launcher UI/controller | when desktop launcher is opened | `models/__init__.py`, `models/launcher_state.py` | `launcher/desktop_controller.py` | - |
+| `launcher/desktop_dynamic_filter_panel.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_ui_text.py` | `launcher/desktop_filter_panel.py` | - |
 | `launcher/desktop_export_facets.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_controller.py` | `tests/test_desktop_export_facets.py` |
 | `launcher/desktop_filter_helpers.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/browser_preview.py`, `launcher/desktop_filter_panel.py` | `tests/test_desktop_filter_helpers.py` |
-| `launcher/desktop_filter_panel.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_filter_helpers.py`, `launcher/desktop_ui_text.py` | `launcher/browser_preview.py`, `launcher/desktop_launcher.py` | `tests/test_desktop_filter_panel.py` |
+| `launcher/desktop_filter_panel.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_dynamic_filter_panel.py`, `launcher/desktop_filter_helpers.py`, `launcher/desktop_ui_text.py` | `launcher/browser_preview.py`, `launcher/desktop_launcher.py`, `launcher/desktop_workflow_tabs.py` | `tests/test_desktop_filter_panel.py` |
 | `launcher/desktop_interaction_state.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_launcher.py` | `tests/test_desktop_interaction_state.py` |
-| `launcher/desktop_launcher.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_action_state.py`, `launcher/desktop_background_task.py`, `launcher/desktop_controller.py`, `launcher/desktop_filter_panel.py`, +7 more | `scripts/capture_desktop_launcher_preview.py`, `scripts/run_desktop_launcher.py`, `scripts/smoke_desktop_launcher.py` | `tests/test_desktop_filter_panel.py`, `tests/test_desktop_launcher.py`, `tests/test_desktop_result_table_widget.py` |
+| `launcher/desktop_launcher.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_action_state.py`, `launcher/desktop_background_task.py`, `launcher/desktop_controller.py`, `launcher/desktop_filter_panel.py`, +9 more | `scripts/capture_desktop_launcher_preview.py`, `scripts/run_desktop_launcher.py`, `scripts/smoke_desktop_launcher.py` | `tests/test_desktop_catalog_tree_widget.py`, `tests/test_desktop_filter_panel.py`, `tests/test_desktop_launcher.py`, +1 more |
 | `launcher/desktop_list_widget_helpers.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_shell_helpers.py` | `tests/test_desktop_list_widget_helpers.py` |
+| `launcher/desktop_product_details.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_launcher.py` | - |
 | `launcher/desktop_result_table.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_ui_text.py`, `models/__init__.py`, `models/launcher_state.py` | `launcher/browser_preview.py`, `launcher/desktop_launcher.py`, `launcher/desktop_view_helpers.py` | `tests/test_desktop_result_table.py` |
 | `launcher/desktop_result_table_widget.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_launcher.py` | `tests/test_desktop_result_table_widget.py` |
-| `launcher/desktop_shell_helpers.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_list_widget_helpers.py` | `launcher/desktop_launcher.py`, `scripts/create_launcher_shortcut.py` | `tests/test_desktop_launcher.py` |
-| `launcher/desktop_ui_text.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_controller_research.py`, `launcher/desktop_filter_panel.py`, `launcher/desktop_launcher.py`, `launcher/desktop_result_table.py`, `launcher/desktop_view_helpers.py`, +1 more | - |
+| `launcher/desktop_selection_panel.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_catalog_tree_widget.py`, `launcher/desktop_ui_text.py` | `launcher/desktop_launcher.py`, `launcher/desktop_workflow_tabs.py` | - |
+| `launcher/desktop_shell_helpers.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_catalog_tree_widget.py`, `launcher/desktop_list_widget_helpers.py` | `launcher/desktop_launcher.py`, `scripts/create_launcher_shortcut.py` | `tests/test_desktop_launcher.py` |
+| `launcher/desktop_ui_text.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_controller_research.py`, `launcher/desktop_dynamic_filter_panel.py`, `launcher/desktop_filter_panel.py`, `launcher/desktop_launcher.py`, `launcher/desktop_result_table.py`, +3 more | - |
 | `launcher/desktop_user_messages.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_controller.py` | `tests/test_desktop_launcher.py`, `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_research.py` |
 | `launcher/desktop_view_helpers.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_result_table.py`, `launcher/desktop_ui_text.py`, `models/__init__.py`, `models/launcher_state.py` | `launcher/browser_preview.py`, `launcher/desktop_launcher.py` | `tests/test_desktop_research_view_helpers.py`, `tests/test_desktop_view_helpers.py` |
-| `launcher/desktop_window_sections.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_ui_text.py` | `launcher/desktop_launcher.py` | - |
+| `launcher/desktop_window_sections.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_ui_text.py` | `launcher/desktop_workflow_tabs.py` | - |
+| `launcher/desktop_workflow_tabs.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_filter_panel.py`, `launcher/desktop_selection_panel.py`, `launcher/desktop_window_sections.py` | `launcher/desktop_launcher.py` | - |
 
 ### main.py
 
@@ -635,9 +657,9 @@ flowchart LR
 
 | File | Role | When it runs | Imports | Imported by | Tests |
 | --- | --- | --- | --- | --- | --- |
-| `models/__init__.py` | Pydantic/domain model | imported by runtime modules | - | `launcher/browser_preview.py`, `launcher/desktop_action_state.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_result_table.py`, `launcher/desktop_view_helpers.py`, +39 more | `tests/test_browser_catalog_discovery.py`, `tests/test_browser_preview.py`, `tests/test_catalog_tree_discovery_runner.py`, +27 more |
+| `models/__init__.py` | Pydantic/domain model | imported by runtime modules | - | `launcher/browser_preview.py`, `launcher/desktop_action_state.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_controller_selection.py`, `launcher/desktop_result_table.py`, +40 more | `tests/test_browser_catalog_discovery.py`, `tests/test_browser_preview.py`, `tests/test_catalog_tree_discovery_runner.py`, +27 more |
 | `models/catalog_discovery.py` | Pydantic/domain model | imported by runtime modules | - | `utils/browser_catalog_discovery.py`, `utils/catalog_discovery.py`, `utils/catalog_tree_discovery/embedded_extractors.py`, `utils/catalog_tree_discovery/entrypoint_collectors.py`, `utils/catalog_tree_discovery/event_capture.py`, +12 more | `tests/test_browser_catalog_discovery.py`, `tests/test_catalog_tree_discovery_runner.py`, `tests/test_discovery_profile_repository.py`, +4 more |
-| `models/launcher_state.py` | Pydantic/domain model | imported by runtime modules | - | `launcher/browser_preview.py`, `launcher/desktop_action_state.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_result_table.py`, `launcher/desktop_view_helpers.py`, +1 more | `tests/test_browser_preview.py`, `tests/test_desktop_action_state.py`, `tests/test_desktop_filter_panel.py`, +6 more |
+| `models/launcher_state.py` | Pydantic/domain model | imported by runtime modules | - | `launcher/browser_preview.py`, `launcher/desktop_action_state.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_controller_selection.py`, `launcher/desktop_result_table.py`, +2 more | `tests/test_browser_preview.py`, `tests/test_desktop_action_state.py`, `tests/test_desktop_filter_panel.py`, +6 more |
 | `models/onboarding.py` | Pydantic/domain model | imported by runtime modules | - | `utils/onboarding_artifacts.py`, `utils/onboarding_storage.py`, `utils/run_manifest.py`, `utils/site_onboarding.py`, `utils/site_onboarding_support.py` | `tests/test_product_storage.py` |
 | `models/product.py` | Pydantic/domain model | imported by runtime modules | - | `parsers/base_parser.py`, `parsers/playwright_parser.py` | - |
 | `models/report_request.py` | Pydantic/domain model | during report/filter/export generation | - | `scripts/export_store_report.py`, `utils/local_task_registry.py`, `utils/report_filter_facets.py`, `utils/storage_report_builder.py` | `tests/test_report_export_summary.py`, `tests/test_report_requests.py`, `tests/test_storage_report_builder.py` |
@@ -724,12 +746,13 @@ flowchart LR
 | `tests/test_coderabbit_review.py` | test | pytest only | `utils/__init__.py`, `utils/coderabbit_review.py` | - | - |
 | `tests/test_create_launcher_shortcut.py` | test | pytest only | `scripts/create_launcher_shortcut.py` | - | - |
 | `tests/test_desktop_action_state.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_action_state.py`, `models/__init__.py`, `models/launcher_state.py` | - | - |
+| `tests/test_desktop_catalog_tree_widget.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_catalog_tree_widget.py`, `launcher/desktop_launcher.py` | - | - |
 | `tests/test_desktop_export_facets.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_export_facets.py` | - | - |
 | `tests/test_desktop_filter_helpers.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_filter_helpers.py` | - | - |
 | `tests/test_desktop_filter_panel.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_filter_panel.py`, `launcher/desktop_launcher.py`, `models/__init__.py`, `models/launcher_state.py` | - | - |
 | `tests/test_desktop_interaction_state.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_interaction_state.py`, `models/__init__.py`, `models/launcher_state.py` | - | - |
 | `tests/test_desktop_launcher.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_launcher.py`, `launcher/desktop_shell_helpers.py`, `launcher/desktop_user_messages.py` | - | - |
-| `tests/test_desktop_launcher_controller.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_controller.py`, `launcher/desktop_user_messages.py`, `models/__init__.py`, `models/task_actor.py`, +2 more | - | - |
+| `tests/test_desktop_launcher_controller.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_controller.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_user_messages.py`, `models/__init__.py`, +3 more | - | - |
 | `tests/test_desktop_launcher_controller_research.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_controller.py`, `launcher/desktop_user_messages.py`, `models/__init__.py`, `models/task_actor.py`, +2 more | - | - |
 | `tests/test_desktop_list_widget_helpers.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_list_widget_helpers.py` | - | - |
 | `tests/test_desktop_research_view_helpers.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_view_helpers.py`, `models/__init__.py`, `models/launcher_state.py` | - | - |
@@ -898,7 +921,4 @@ These are review candidates, not deletion instructions.
 - `utils/session_manager.py`: keep until replacement path and tests are confirmed.
 
 ### Current untracked/local artifacts
-- `.playwright-mcp/`
-- `"ParserRIba Launcher.lnk"`
-- `data/`
-- `generated_scaffolds/`
+- none

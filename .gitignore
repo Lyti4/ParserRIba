@@ -21,6 +21,7 @@ config.local.yaml
 
 # Logs and generated diagnostics
 logs/
+data/
 *.log
 profiles/
 data/*.html
@@ -38,4 +39,9 @@ dist/
 
 # Codex/browser-act local installs
 .agents/
+.playwright-mcp/
 skills-lock.json
+
+# Local desktop/generated artifacts
+generated_scaffolds/
+*.lnk

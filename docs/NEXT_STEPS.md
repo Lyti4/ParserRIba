@@ -25,8 +25,9 @@ Current Launcher V2 source of truth:
 - `docs/LAUNCHER_ARCHITECTURE.md`
 - `docs/superpowers/specs/2026-05-23-launcher-v2-discovery-workflow-design.md`
 
-Older implementation plans in `docs/superpowers/plans/` are retained as
-history only. They are not the current source of truth for Launcher V2.
+Older implementation plans were moved to
+`archive/project_history/superpowers/plans/` as history only. They are not the
+current source of truth for Launcher V2.
 
 1. Keep the current local task layer stable:
    - onboarding discovery;
@@ -73,7 +74,8 @@ history only. They are not the current source of truth for Launcher V2.
 
 ## Next Refactors
 
-- Use `docs/PROJECT_FILE_FLOW_MAP.md` before deleting or quarantining code:
+- Use `docs/PROJECT_STRUCTURE.md` and `docs/PROJECT_FILE_FLOW_MAP.md` before
+  deleting or quarantining code:
   it shows launch paths, local imports, test-only imports and cleanup review
   candidates.
 - Add Launcher V2 state models:

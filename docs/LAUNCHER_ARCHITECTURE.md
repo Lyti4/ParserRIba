@@ -22,8 +22,8 @@ Launcher V2 design is now tracked in:
 - `docs/superpowers/specs/2026-05-23-launcher-v2-discovery-workflow-design.md`
 
 That spec supersedes the older one-screen launcher rebuild plans. Older plans
-remain in `docs/superpowers/plans/` as implementation history, not as current
-architecture.
+remain in `archive/project_history/superpowers/plans/` as implementation
+history, not as current architecture.
 
 ## Current Layers
 

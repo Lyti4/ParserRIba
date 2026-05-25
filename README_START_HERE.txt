@@ -39,7 +39,7 @@ ParserRIba - быстрый старт
 Документация:
 
    docs\WINDOWS_QUICKSTART.md
-   docs\DISTRIBUTION_PLAN.md
+   docs\INSTALLER_ROADMAP.md
 
 Если программа не запускается, сначала отправьте разработчику вывод команды:
 

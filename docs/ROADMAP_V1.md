@@ -10,8 +10,8 @@ reviewing scope, or deciding whether a change belongs in v1 or later.
 
 Launcher V2 details are tracked in
 `docs/superpowers/specs/2026-05-23-launcher-v2-discovery-workflow-design.md`.
-Older launcher and walker plans in `docs/superpowers/plans/` are retained as
-implementation history only.
+Older launcher and walker plans in `archive/project_history/superpowers/plans/`
+are retained as implementation history only.
 
 ## Current Product Direction
 

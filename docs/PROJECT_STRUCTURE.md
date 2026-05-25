@@ -4,7 +4,8 @@ Date: 2026-05-25
 
 This is the active physical map of the project. The target layer doctrine is in
 `docs/TARGET_ARCHITECTURE.md`. Use both documents together with
-`docs/PROJECT_FILE_FLOW_MAP.md` before moving or archiving code.
+`docs/LEGACY_MIGRATION_BACKLOG.md` and `docs/PROJECT_FILE_FLOW_MAP.md` before
+moving or archiving code.
 
 ## Active Layers
 
@@ -84,7 +85,8 @@ This is the active physical map of the project. The target layer doctrine is in
 
 These files are not product runtime layers. Keep them in place only until their
 useful mechanics are extracted into target cores or store adapters, then move
-them to `archive/` in small verified slices:
+them to `archive/` in small verified slices. The ordered migration plan is in
+`docs/LEGACY_MIGRATION_BACKLOG.md`.
 
 - `main.py`
 - `parsers/base.py`

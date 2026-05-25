@@ -12,7 +12,8 @@ canonical workflow:
 
 The old CLI/parser stack is not a product runtime. It can remain only as a
 temporary reference while useful mechanics are extracted, then it should move to
-`archive/`.
+`archive/`. The migration order is tracked in
+`docs/LEGACY_MIGRATION_BACKLOG.md`.
 
 ## Product Workflow
 
@@ -127,7 +128,8 @@ The following are not product runtime layers:
 
 Do not fix legacy bugs for their own sake. If useful behavior exists there,
 extract it into a target core or store adapter with tests. Then move the legacy
-file to `archive/` in a small, verified slice.
+file to `archive/` in a small, verified slice. Use
+`docs/LEGACY_MIGRATION_BACKLOG.md` as the source of truth for move order.
 
 ## Near-Term Refactor Rules
 

@@ -79,6 +79,8 @@ current source of truth for Launcher V2.
   deleting or quarantining code:
   it shows launch paths, local imports, test-only imports and cleanup review
   candidates.
+- Use `docs/LEGACY_MIGRATION_BACKLOG.md` for the exact order of legacy archive
+  slices.
 - Add Launcher V2 state models:
   - profile state;
   - catalog tree selection state;

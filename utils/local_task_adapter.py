@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import json
 import subprocess
 import sys
@@ -41,21 +40,16 @@ class LocalTaskProcessResult:
 def build_local_task_command(
     *,
     task_name: str,
-    task_input: dict[str, Any],
     python_executable: str | None = None,
 ) -> list[str]:
-    """Build one shell-safe local task command using base64 JSON transport."""
-    encoded = base64.b64encode(
-        json.dumps(task_input, ensure_ascii=False).encode("utf-8")
-    ).decode("ascii")
+    """Build one launcher task command using stdin JSON transport."""
     python_path = python_executable or sys.executable
     return [
         python_path,
         str(RUN_LOCAL_TASK_SCRIPT),
         "--task",
         str(task_name),
-        "--input-base64",
-        encoded,
+        "--input-stdin",
     ]
 
 
@@ -66,15 +60,16 @@ def run_local_task_subprocess(
     root_dir: Path | str,
     python_executable: str | None = None,
     show_summary: bool = False,
+    timeout_seconds: int = 900,
 ) -> LocalTaskProcessResult:
     """Run one local task via subprocess and parse the returned result."""
     command = build_local_task_command(
         task_name=task_name,
-        task_input=task_input,
         python_executable=python_executable,
     )
     if show_summary:
         command.append("--summary")
+    input_payload = json.dumps(task_input, ensure_ascii=False)
     try:
         result = subprocess.run(
             command,
@@ -83,9 +78,13 @@ def run_local_task_subprocess(
             capture_output=True,
             text=True,
             encoding="utf-8",
+            input=input_payload,
+            timeout=timeout_seconds,
         )
     except subprocess.CalledProcessError as error:
         raise RuntimeError(_build_subprocess_failure_message(error)) from error
+    except subprocess.TimeoutExpired as error:
+        raise RuntimeError(_build_subprocess_timeout_message(error, timeout_seconds)) from error
     manifest = RunManifest(**_extract_manifest_payload(result.stdout))
     return build_local_task_process_result(
         manifest=manifest,
@@ -199,3 +198,14 @@ def _build_subprocess_failure_message(error: subprocess.CalledProcessError) -> s
     if stdout:
         return f"Local task subprocess failed before manifest JSON was returned. Stdout: {stdout[:300]}"
     return f"Local task subprocess failed with exit code {error.returncode}."
+
+
+def _build_subprocess_timeout_message(
+    error: subprocess.TimeoutExpired,
+    timeout_seconds: int,
+) -> str:
+    """Render one compact launcher-safe subprocess timeout message."""
+    command = getattr(error, "cmd", None)
+    command_text = " ".join(str(part) for part in command) if isinstance(command, list) else str(command or "")
+    suffix = f" Command: {command_text[:160]}" if command_text else ""
+    return f"Local task subprocess timed out after {timeout_seconds} seconds.{suffix}"

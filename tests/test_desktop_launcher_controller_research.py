@@ -99,3 +99,43 @@ def test_desktop_launcher_controller_syncs_quiet_research_state_without_stream(t
     assert controller.state.research.active_profile_id == "profile-9"
     assert controller.state.research.active_profile_version_id == "version-10"
     assert controller.state.research.streamed_categories == []
+
+
+def test_desktop_launcher_controller_research_does_not_carry_selected_categories(tmp_path: Path) -> None:
+    captured_input: dict[str, object] = {}
+
+    def fake_onboarding_runner(**kwargs):
+        captured_input.update(kwargs)
+        return build_local_task_process_result(
+            manifest=RunManifest(
+                task_name="site_onboarding_discovery",
+                shop="pyaterochka",
+                intent="fish_catalog",
+                status="runtime_ready",
+                artifact_paths={},
+                summary={
+                    "category_count": 2,
+                    "selected_categories": ["Рыба", "Вино"],
+                    "category_tree": [
+                        {"name": "Рыба", "url": "https://example.test/fish"},
+                        {"name": "Вино", "url": "https://example.test/wine"},
+                    ],
+                },
+            )
+        )
+
+    controller = DesktopLauncherController(root_dir=tmp_path, onboarding_runner=fake_onboarding_runner)
+    controller.set_selection(
+        intent="fish_catalog",
+        categories=["Рыба", "Вино"],
+        selected_catalog_nodes=[{"name": "Рыба", "url": "https://example.test/fish"}],
+        selected_product_ids=["fish-1"],
+    )
+
+    controller.run_onboarding_discovery(site_url="https://5ka.ru")
+
+    assert captured_input["selected_categories"] == []
+    assert controller.state.selection.categories == []
+    assert controller.state.selection.selected_catalog_nodes == []
+    assert controller.state.selection.selected_product_ids == []
+    assert controller.state.result.launcher_view["selected_categories"] == ["Рыба", "Вино"]

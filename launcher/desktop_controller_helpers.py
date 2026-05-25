@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +28,7 @@ def discovered_category_names(launcher_view: dict[str, Any]) -> list[str]:
 def combine_export_results(
     results: list[LocalTaskProcessResult],
     selected_categories: list[str],
+    captured_payloads: list[dict[str, Any]] | None = None,
 ) -> LocalTaskProcessResult:
     """Combine sequential single-category exports into one launcher result."""
     if len(results) == 1:
@@ -49,12 +52,84 @@ def combine_export_results(
         "products_count": total_products,
         "categories": combined_categories or list(selected_categories),
     }
-    manifest = last_result.manifest.model_copy(update={"summary": summary})
+    artifact_paths = dict(last_result.manifest.artifact_paths or {})
+    combined_json_path = write_combined_export_payload(
+        last_result=last_result,
+        selected_categories=selected_categories,
+        captured_payloads=list(captured_payloads or []),
+    )
+    if combined_json_path:
+        artifact_paths["json_path"] = combined_json_path
+    manifest = last_result.manifest.model_copy(update={"summary": summary, "artifact_paths": artifact_paths})
     return build_local_task_process_result(
         manifest=manifest,
         stdout=last_result.stdout,
         stderr=last_result.stderr,
     )
+
+
+def capture_export_payload(result: LocalTaskProcessResult) -> dict[str, Any] | None:
+    """Read one export JSON payload while it still represents the finished category."""
+    artifacts = dict(result.manifest.artifact_paths or {})
+    path = Path(str(artifacts.get("json_path") or ""))
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def write_combined_export_payload(
+    *,
+    last_result: LocalTaskProcessResult,
+    selected_categories: list[str],
+    captured_payloads: list[dict[str, Any]],
+) -> str:
+    """Write one launcher-visible JSON for a multi-category export."""
+    products = _merged_payload_products(captured_payloads)
+    if not products:
+        return ""
+    artifacts = dict(last_result.manifest.artifact_paths or {})
+    last_json_path = Path(str(artifacts.get("json_path") or ""))
+    if not last_json_path.parent.exists():
+        return ""
+    payload = dict(captured_payloads[-1])
+    payload["category"] = ", ".join(selected_categories)
+    payload["categories"] = list(selected_categories)
+    payload["products"] = products
+    payload["products_count"] = len(products)
+    payload["combined_export"] = True
+    payload["combined_from_categories"] = list(selected_categories)
+    payload["exported_at"] = datetime.now().isoformat(timespec="seconds")
+    export_summary = dict(payload.get("export_summary") or {})
+    export_summary["products_count"] = len(products)
+    export_summary["categories"] = list(selected_categories)
+    payload["export_summary"] = export_summary
+    target_path = last_json_path.with_name(f"{last_json_path.stem}_selected.json")
+    target_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return str(target_path)
+
+
+def _merged_payload_products(captured_payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    products: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for payload in captured_payloads:
+        raw_products = payload.get("products")
+        if not isinstance(raw_products, list):
+            continue
+        for item in raw_products:
+            if not isinstance(item, dict):
+                continue
+            key = str(item.get("id") or item.get("product_id") or item.get("product_link") or "").strip()
+            if not key:
+                key = f"row:{len(products)}"
+            if key in seen:
+                continue
+            seen.add(key)
+            products.append(dict(item))
+    return products
 
 
 def report_dir_from_artifacts(artifacts: dict[str, str], *, existing_report_dir: str) -> str:
@@ -119,7 +194,6 @@ def reset_result_state_for_onboarding(launcher_view: dict[str, Any]) -> dict[str
         "full_catalog_tree",
         "full_catalog_links",
         "full_catalog_count",
-        "selected_categories",
         "diagnostics_summary",
         "catalog_discovery",
         "intent_category_links",

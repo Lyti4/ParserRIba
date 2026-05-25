@@ -8,6 +8,7 @@ from typing import Any, Callable
 
 from launcher.desktop_controller_helpers import (
     artifact_or_existing,
+    capture_export_payload,
     combine_export_results,
     discovered_category_names,
     has_rich_filter_counts,
@@ -17,6 +18,7 @@ from launcher.desktop_controller_helpers import (
     result_message,
     selected_export_categories,
 )
+from launcher.desktop_controller_selection import update_selection_state
 from launcher.desktop_controller_research import sync_research_state
 from launcher.desktop_export_facets import build_available_filter_counts_from_export_json
 from launcher.desktop_user_messages import (
@@ -81,24 +83,14 @@ class DesktopLauncherController:
         selected_catalog_nodes: list[dict[str, Any]] | None = None, selected_product_ids: list[str] | None = None,
     ) -> None:
         """Update current launcher selection state."""
-        selection = self.state.selection
-        if shop is not None:
-            selection.shop = shop
-            selection.selected_catalog_nodes = []
-            selection.selected_product_ids = []
-        if intent is not None:
-            selection.intent = intent
-            selection.selected_catalog_nodes = []
-            selection.selected_product_ids = []
-        if categories is not None:
-            selection.categories = list(categories)
-            if selected_catalog_nodes is None:
-                selection.selected_catalog_nodes = []
-            selection.selected_product_ids = []
-        if selected_catalog_nodes is not None:
-            selection.selected_catalog_nodes = [dict(item) for item in selected_catalog_nodes if isinstance(item, dict)]
-        if selected_product_ids is not None:
-            selection.selected_product_ids = [str(item).strip() for item in selected_product_ids if str(item).strip()]
+        update_selection_state(
+            self.state.selection,
+            shop=shop,
+            intent=intent,
+            categories=categories,
+            selected_catalog_nodes=selected_catalog_nodes,
+            selected_product_ids=selected_product_ids,
+        )
 
     def set_filters(self, filters: dict[str, Any]) -> None:
         """Replace current filter state from a plain mapping."""
@@ -133,7 +125,7 @@ class DesktopLauncherController:
             site_url=site_url,
             root_dir=self.root_dir,
             intent=self.state.selection.intent,
-            selected_categories=self.state.selection.categories,
+            selected_categories=[],
             headless=self.state.settings.headless,
             manual_wait=self.state.settings.manual_wait,
             listen_seconds=self.state.settings.listen_seconds,
@@ -159,14 +151,19 @@ class DesktopLauncherController:
         }
         self._start_task(task_name)
         results: list[LocalTaskProcessResult] = []
+        captured_payloads: list[dict[str, Any]] = []
         try:
             for index, category_name in enumerate(categories, start=1):
                 self.state.task.message = task_progress_message(task_name, category_name, index, len(categories))
-                results.append(runner(category=category_name, **common))
+                result = runner(category=category_name, **common)
+                results.append(result)
+                payload = capture_export_payload(result)
+                if payload is not None:
+                    captured_payloads.append(payload)
         except Exception as error:
             self._fail_task(error)
             raise
-        result = combine_export_results(results, categories)
+        result = combine_export_results(results, categories, captured_payloads=captured_payloads)
         self._apply_result(result)
         self._refresh_filter_counts_after_export(categories)
         self.save_state()
@@ -245,6 +242,8 @@ class DesktopLauncherController:
             self.state.result.json_path = ""
             self.state.result.report_dir = ""
             self.state.result.launcher_view = reset_result_state_for_onboarding(self.state.result.launcher_view)
+            self.state.selection.categories = []
+            self.state.selection.selected_catalog_nodes = []
             self.state.selection.selected_product_ids = []
         artifacts = dict(result.manifest.artifact_paths or {})
         self.state.result.launcher_view = merge_launcher_view(
@@ -261,7 +260,7 @@ class DesktopLauncherController:
         self.state.task.message = result_message(result)
         self.state.task.last_error = result.manifest.error
         selected = self.state.result.launcher_view.get("selected_categories")
-        if isinstance(selected, list) and selected:
+        if result.manifest.task_name != "site_onboarding_discovery" and isinstance(selected, list) and selected:
             self.state.selection.categories = [str(item) for item in selected]
         phase_label = sync_research_state(self.state, result)
         if phase_label:

@@ -93,7 +93,6 @@ until replacement contracts and tests are ready:
 - `policies/engine.py`
 - `strategies/`
 - `utils/session_manager.py`
-- `utils/export.py`
 - `utils/site_probe.py`
 
 Reason: some are still imported by compatibility paths or tests, and moving
@@ -103,7 +102,9 @@ them now would create noisy import churn without improving the launcher flow.
 
 - `archive/project_history/root_docs/` contains superseded root documents.
 - `archive/project_history/superpowers/plans/` contains completed plans.
+- `archive/project_history/superpowers/specs/` contains superseded specs.
 - `archive/project_history/research_notes/` contains old research/report notes.
+- `archive/legacy_code/` contains old code with no active runtime importer.
 
 Do not import from `archive/`. It is retained for human reference only.
 

@@ -10,12 +10,17 @@ current planning paths, but also should not be deleted.
   `docs/NEXT_STEPS.md`.
 - `project_history/superpowers/plans/` - completed implementation plans kept as
   history. Current specs stay in `docs/superpowers/specs/`.
+- `project_history/superpowers/specs/` - superseded specs kept as product and
+  architecture history.
 - `project_history/research_notes/` - old research reports and diagnostics
   notes superseded by current architecture documents.
+- `legacy_code/` - old code that has no active runtime importer, retained for
+  reference only.
 
 ## Rules
 
 - Do not import runtime code from `archive/`.
+- Do not compile or run archived code as part of normal validation.
 - Do not store secrets, cookies, captcha tokens, proxy credentials, profiles,
   databases, logs or generated reports here.
 - If a file is moved here, update every active doc reference in the same change.

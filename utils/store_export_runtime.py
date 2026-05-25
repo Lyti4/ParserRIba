@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import inspect
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,7 @@ async def build_store_export_payload(
     headless: bool | str | None,
     manual_wait: bool,
     kb_categories: dict[str, str],
+    category_url: str = "",
     discover_func: DiscoverFunc | None = None,
     expand_intent: bool = True,
 ) -> dict[str, Any]:
@@ -45,8 +47,11 @@ async def build_store_export_payload(
         category_results = []
         batch_products: list[Product] = []
         for target_category in target_categories:
-            result = await runner(
+            target_category_url = str(category_url or "").strip() if not expand_intent else str(kb_categories.get(target_category, "")).strip()
+            result = await _run_discover_func(
+                runner,
                 category_name=target_category,
+                category_url=target_category_url,
                 listen_seconds=listen_seconds,
                 headless=headless,
                 manual_wait=manual_wait,
@@ -107,6 +112,38 @@ async def build_store_export_payload(
             }
         ),
     }
+
+
+async def _run_discover_func(
+    runner: DiscoverFunc,
+    *,
+    category_name: str,
+    category_url: str,
+    listen_seconds: int,
+    headless: bool | str | None,
+    manual_wait: bool,
+) -> dict[str, Any]:
+    """Call a discover function while keeping older test doubles compatible."""
+    kwargs: dict[str, Any] = {
+        "category_name": category_name,
+        "listen_seconds": listen_seconds,
+        "headless": headless,
+        "manual_wait": manual_wait,
+    }
+    if category_url and _accepts_keyword(runner, "category_url"):
+        kwargs["category_url"] = category_url
+    return await runner(**kwargs)
+
+
+def _accepts_keyword(callable_obj: DiscoverFunc, keyword: str) -> bool:
+    """Return whether a callable accepts a named keyword or arbitrary kwargs."""
+    try:
+        signature = inspect.signature(callable_obj)
+    except (TypeError, ValueError):
+        return True
+    if keyword in signature.parameters:
+        return True
+    return any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in signature.parameters.values())
 
 
 def write_store_export(

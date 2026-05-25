@@ -28,6 +28,7 @@ PROXY_ENV = "PARSER_PROXY"
 async def capture_pyaterochka_catalog(
     *,
     category_name: str = DEFAULT_CATEGORY,
+    category_url: str = "",
     listen_seconds: int = 15,
     headless: bool | str | None = None,
     manual_wait: bool = False,
@@ -37,9 +38,25 @@ async def capture_pyaterochka_catalog(
     configure_windows_console()
     load_dotenv_file(ROOT_DIR / ".env")
     kb = KBLoader(str(ROOT_DIR / "knowledge_base")).load_shop("pyaterochka")
-    category_url = kb.categories.get(category_name)
-    if not category_url:
+    resolved_category_url = str(category_url or "").strip() or str(kb.categories.get(category_name) or "").strip()
+    if not resolved_category_url and not str(category_name or "").strip():
         category_name, category_url = next(iter(kb.categories.items()))
+        resolved_category_url = category_url
+    if not resolved_category_url:
+        return {
+            "shop": "pyaterochka",
+            "category": category_name,
+            "category_url": "",
+            "proxy": "",
+            "geoip_enabled": False,
+            "attempt": {
+                "status": "empty",
+                "reason": "unknown_category_url",
+            },
+            "raw_product_items": [],
+            "dom_link_evidence": {"links_by_id": {}},
+            "captured_product_urls": [],
+        }
     proxy_urls = load_proxy_urls(primary=os.environ.get(PROXY_ENV, ""), pool=os.environ.get("PARSER_PROXIES", ""))
     proxy_url = choose_proxy_for_attempt(proxy_urls, 1)
     geoip_enabled = os.environ.get("PARSER_GEOIP", "").lower() in {"1", "true", "yes"}
@@ -68,8 +85,8 @@ async def capture_pyaterochka_catalog(
         page.on("response", track_response)
         if kb.headers.custom:
             await page.set_extra_http_headers(kb.headers.custom)
-        logger.info("Opening {}", category_url)
-        await page.goto(category_url, wait_until="domcontentloaded", timeout=60_000)
+        logger.info("Opening {}", resolved_category_url)
+        await page.goto(resolved_category_url, wait_until="domcontentloaded", timeout=60_000)
         if manual_wait:
             await asyncio.to_thread(input, "Press Enter after captcha is solved and products are visible...")
         else:
@@ -84,7 +101,7 @@ async def capture_pyaterochka_catalog(
     return {
         "shop": "pyaterochka",
         "category": category_name,
-        "category_url": category_url,
+        "category_url": resolved_category_url,
         "proxy": mask_proxy_url(proxy_url) if proxy_url else "",
         "geoip_enabled": geoip_enabled,
         "attempt": {

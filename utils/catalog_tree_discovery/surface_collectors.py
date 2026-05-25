@@ -84,7 +84,11 @@ def collect_catalog_surface_signals(
     raw_hrefs = _collect_hrefs(soup, base_url)
     documents = _collect_documents(soup, base_url, html)
     dom_categories = _collect_category_links(soup, base_url)
-    embedded_categories = extract_embedded_category_evidence(base_url, html)
+    embedded_categories = [
+        item
+        for item in extract_embedded_category_evidence(base_url, html)
+        if not _is_noise_category_candidate(item.name, item.url)
+    ]
     category_links = _dedup_category_links(dom_categories + embedded_categories)
     blocked_hint = int(status_code) in {401, 403, 429}
     challenge_hint = blocked_hint and any(marker in lowered for marker in CHALLENGE_MARKERS)

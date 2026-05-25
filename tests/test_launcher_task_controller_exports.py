@@ -45,6 +45,7 @@ def test_run_launcher_wine_export_uses_named_task_and_payload(tmp_path: Path) ->
     assert task_input["headless"] is True
     assert task_input["manual_wait"] is False
     assert task_input["expand_intent"] is True
+    assert task_input["category_url"] == ""
     assert isinstance(task_input["category"], str)
     assert task_input["category"]
 
@@ -72,6 +73,7 @@ def test_run_launcher_fish_export_uses_named_task_and_payload(tmp_path: Path) ->
     result = launcher_task_controller.run_launcher_fish_export(
         root_dir=tmp_path,
         category="Р В РЎвЂ№Р В±Р В°",
+        category_url="https://5ka.ru/catalog/zavtraki--251C12891/",
         attempts=1,
         listen_seconds=4,
         headless=False,
@@ -83,6 +85,7 @@ def test_run_launcher_fish_export_uses_named_task_and_payload(tmp_path: Path) ->
     assert captured["task_name"] == "pyaterochka_fish_export"
     assert captured["task_input"] == {
         "category": "Р В РЎвЂ№Р В±Р В°",
+        "category_url": "https://5ka.ru/catalog/zavtraki--251C12891/",
         "attempts": 1,
         "listen_seconds": 4,
         "headless": False,

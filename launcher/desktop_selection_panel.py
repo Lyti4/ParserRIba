@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from launcher.desktop_catalog_tree_widget import collect_checked_catalog_nodes, populate_catalog_tree_widget
-from launcher.desktop_ui_text import INTENT_LABELS, SHOP_LABELS
+from launcher.desktop_ui_text import SHOP_LABELS
 
 
 def build_store_selection_box(shell: Any, qtwidgets: Any) -> Any:
@@ -23,22 +23,6 @@ def build_store_selection_box(shell: Any, qtwidgets: Any) -> Any:
         shell.shop_combo.addItem(label, value)
     shell.shop_combo.currentTextChanged.connect(shell._on_shop_changed)
     layout.addWidget(shell.shop_combo, 1, 1)
-    return box
-
-
-def build_export_intent_box(shell: Any, qtwidgets: Any) -> Any:
-    """Build store-specific product export mode controls."""
-    box = qtwidgets.QGroupBox("Настройка сбора товаров")
-    layout = qtwidgets.QGridLayout(box)
-    layout.setHorizontalSpacing(8)
-    layout.setVerticalSpacing(6)
-    layout.addWidget(qtwidgets.QLabel("Тип сбора"), 0, 0)
-    shell.intent_combo = qtwidgets.QComboBox()
-    for value, label in INTENT_LABELS.items():
-        shell.intent_combo.addItem(label, value)
-    shell.intent_combo.currentTextChanged.connect(shell._on_intent_changed)
-    layout.addWidget(shell.intent_combo, 0, 1)
-    layout.setColumnStretch(2, 1)
     return box
 
 

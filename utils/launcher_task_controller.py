@@ -47,6 +47,7 @@ def run_launcher_fish_export(
     *,
     root_dir: Path | str,
     category: str = "Рыба",
+    category_url: str = "",
     attempts: int = 3,
     listen_seconds: int = 15,
     headless: bool | str | None = None,
@@ -60,6 +61,7 @@ def run_launcher_fish_export(
         task_name="pyaterochka_fish_export",
         task_input={
             "category": category,
+            "category_url": category_url,
             "attempts": attempts,
             "listen_seconds": listen_seconds,
             "headless": headless,
@@ -76,6 +78,7 @@ def run_launcher_wine_export(
     *,
     root_dir: Path | str,
     category: str = "Вино",
+    category_url: str = "",
     attempts: int = 3,
     listen_seconds: int = 15,
     headless: bool | str | None = None,
@@ -89,6 +92,7 @@ def run_launcher_wine_export(
         task_name="pyaterochka_wine_export",
         task_input={
             "category": category,
+            "category_url": category_url,
             "attempts": attempts,
             "listen_seconds": listen_seconds,
             "headless": headless,

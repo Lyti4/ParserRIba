@@ -16,7 +16,7 @@ from launcher.desktop_controller_helpers import (
     report_dir_from_artifacts,
     reset_result_state_for_onboarding,
     result_message,
-    selected_export_categories,
+    selected_export_targets,
 )
 from launcher.desktop_controller_selection import update_selection_state
 from launcher.desktop_controller_research import sync_research_state
@@ -135,8 +135,13 @@ class DesktopLauncherController:
     def run_selected_export(self) -> LocalTaskProcessResult:
         """Run the selected live export for every chosen launcher category."""
         runner, task_name = self._export_runner_and_task()
-        categories = selected_export_categories(self.state.selection.categories, self.state.selection.intent)
-        if not categories:
+        targets = selected_export_targets(
+            self.state.selection.categories,
+            self.state.selection.selected_catalog_nodes,
+            self.state.selection.intent,
+        )
+        categories = [target["name"] for target in targets]
+        if not targets:
             self._start_task(task_name)
             error = ValueError(no_selected_categories_message())
             self._fail_task(error)
@@ -154,9 +159,10 @@ class DesktopLauncherController:
         results: list[LocalTaskProcessResult] = []
         captured_payloads: list[dict[str, Any]] = []
         try:
-            for index, category_name in enumerate(categories, start=1):
+            for index, target in enumerate(targets, start=1):
+                category_name = target["name"]
                 self.state.task.message = task_progress_message(task_name, category_name, index, len(categories))
-                result = runner(category=category_name, **common)
+                result = runner(category=category_name, category_url=target.get("url", ""), **common)
                 results.append(result)
                 payload = capture_export_payload(result)
                 if payload is not None:
@@ -256,7 +262,10 @@ class DesktopLauncherController:
         self.state.result.report_dir = report_dir_from_artifacts(artifacts, existing_report_dir=self.state.result.report_dir)
         filter_counts = build_available_filter_counts_from_export_json(self.state.result.json_path)
         if filter_counts:
+            found_filters = filter_counts.pop("found_filters", {})
             self.state.result.launcher_view["available_filter_counts"] = filter_counts
+            if found_filters:
+                self.state.result.launcher_view["found_filters"] = found_filters
         self.state.task.status = "succeeded" if result.manifest.status != "failed" else "failed"
         self.state.task.message = result_message(result)
         self.state.task.last_error = result.manifest.error
@@ -282,7 +291,10 @@ class DesktopLauncherController:
             return
         counts = dict(filter_result.available_filter_counts or {})
         if counts:
+            found_filters = counts.pop("found_filters", {})
             self.state.result.launcher_view["available_filter_counts"] = counts
+            if found_filters:
+                self.state.result.launcher_view["found_filters"] = found_filters
 
     def _open_path(self, path_value: str) -> bool:
         path = str(path_value or "").strip()

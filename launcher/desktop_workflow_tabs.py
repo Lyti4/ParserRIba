@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from launcher.desktop_filter_panel import build_filter_box
-from launcher.desktop_selection_panel import build_catalog_selection_box, build_export_intent_box, build_store_selection_box
+from launcher.desktop_selection_panel import build_catalog_selection_box, build_store_selection_box
 from launcher.desktop_window_sections import (
     build_catalog_actions_box,
     build_filter_actions_box,
@@ -41,7 +41,6 @@ def _build_research_tab(shell: Any, qtwidgets: Any) -> Any:
 def _build_catalog_tab(shell: Any, qtwidgets: Any) -> Any:
     widget = qtwidgets.QWidget()
     layout = qtwidgets.QVBoxLayout(widget)
-    layout.addWidget(build_export_intent_box(shell, qtwidgets))
     layout.addWidget(build_catalog_selection_box(shell, qtwidgets), stretch=1)
     layout.addWidget(build_catalog_actions_box(shell, qtwidgets))
     return widget

@@ -93,8 +93,8 @@ def test_desktop_launcher_keeps_export_intent_out_of_research_tab(tmp_path: Path
     catalog_labels = [item.text() for item in tabs.widget(1).findChildren(shell._qtwidgets.QLabel)]
 
     assert "Раздел" not in research_labels
-    assert "Тип сбора" in catalog_labels
-    assert shell.intent_combo is not None
+    assert "Тип сбора" not in catalog_labels
+    assert shell.intent_combo is None
 
 
 def test_desktop_launcher_does_not_autoselect_discovered_categories(tmp_path: Path) -> None:

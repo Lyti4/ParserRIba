@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+
 from launcher.desktop_result_table import build_result_table
 from launcher.desktop_ui_text import (
     display_research_mode,
@@ -21,10 +22,11 @@ def build_status_text(state: LauncherAppState) -> str:
     research = state.research
     parts = [
         f"Магазин: {display_shop(state.selection.shop)}",
-        f"Задача: {display_task_name(task.task_name or '-')}",
-        f"Статус: {display_task_status(task.status)}",
         f"Режим исследования: {display_research_mode(research.mode)}",
     ]
+    if task.task_name == "site_onboarding_discovery" or task.status == "running":
+        parts.insert(1, f"Задача: {display_task_name(task.task_name or 'site_onboarding_discovery')}")
+        parts.insert(2, f"Статус: {display_task_status(task.status)}")
     if research.current_phase:
         parts.append(f"Этап: {display_research_phase(research.current_phase)}")
     if task.status == "running":
@@ -71,10 +73,6 @@ def build_summary_text(state: LauncherAppState) -> str:
     elif isinstance(full_catalog_tree, list) and full_catalog_tree:
         lines.append(f"Полный каталог: корневых разделов: {len(full_catalog_tree)}")
 
-    if state.result.excel_path:
-        lines.append(f"Файл Excel: {Path(state.result.excel_path).name}")
-    if state.result.json_path:
-        lines.append(f"Файл JSON: {Path(state.result.json_path).name}")
     return "\n".join(lines) if lines else "Пока нет данных."
 
 
@@ -153,18 +151,18 @@ def _result_context_parts(state: LauncherAppState) -> list[str]:
         parts.append(f"Выбрано товаров: {selected_count}")
     active_filters = _active_filter_parts(state)
     if state.result.json_path and Path(state.result.json_path).exists():
-        parts.append("Источник: отфильтрованный JSON выгрузки" if active_filters else "Источник: JSON выгрузки")
+        parts.append("\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a: \u043e\u0442\u0444\u0438\u043b\u044c\u0442\u0440\u043e\u0432\u0430\u043d\u043d\u044b\u0439 JSON \u0432\u044b\u0433\u0440\u0443\u0437\u043a\u0438" if active_filters else "\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a: JSON \u0432\u044b\u0433\u0440\u0443\u0437\u043a\u0438")
     elif state.result.launcher_view.get("report_summary"):
-        parts.append("Источник: сводка по сохранённому отчёту")
+        parts.append("\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a: \u0441\u0432\u043e\u0434\u043a\u0430 \u043f\u043e \u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d\u043d\u043e\u043c\u0443 \u043e\u0442\u0447\u0451\u0442\u0443")
     elif state.result.launcher_view.get("full_catalog_tree"):
-        parts.append("Источник: полный каталог исследования")
+        parts.append("\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a: \u043f\u043e\u043b\u043d\u044b\u0439 \u043a\u0430\u0442\u0430\u043b\u043e\u0433 \u0438\u0441\u0441\u043b\u0435\u0434\u043e\u0432\u0430\u043d\u0438\u044f")
     elif state.result.launcher_view.get("category_tree"):
-        parts.append("Источник: исследование магазина")
+        parts.append("\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a: \u0438\u0441\u0441\u043b\u0435\u0434\u043e\u0432\u0430\u043d\u0438\u0435 \u043c\u0430\u0433\u0430\u0437\u0438\u043d\u0430")
     if state.result.json_path and Path(state.result.json_path).exists():
         if selected_count:
-            parts.append("Отчёт будет построен по выбранным товарам")
+            parts.append("\u041e\u0442\u0447\u0451\u0442 \u0431\u0443\u0434\u0435\u0442 \u043f\u043e\u0441\u0442\u0440\u043e\u0435\u043d \u043f\u043e \u0432\u044b\u0431\u0440\u0430\u043d\u043d\u044b\u043c \u0442\u043e\u0432\u0430\u0440\u0430\u043c")
         elif row_count:
-            parts.append("Можно выбрать конкретные товары перед сборкой Excel")
+            parts.append("\u041c\u043e\u0436\u043d\u043e \u0432\u044b\u0431\u0440\u0430\u0442\u044c \u043a\u043e\u043d\u043a\u0440\u0435\u0442\u043d\u044b\u0435 \u0442\u043e\u0432\u0430\u0440\u044b \u043f\u0435\u0440\u0435\u0434 \u0441\u0431\u043e\u0440\u043a\u043e\u0439 Excel")
     if active_filters:
         parts.append(f"Активные фильтры: {', '.join(active_filters)}")
     return parts

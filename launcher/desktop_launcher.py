@@ -119,7 +119,7 @@ class DesktopLauncherShell:
         return container
 
     def _refresh_ui(self) -> None:
-        if self.shop_combo is None or self.intent_combo is None or self.category_list is None:
+        if self.shop_combo is None or self.category_list is None:
             return
         self._set_combo_value(self.shop_combo, self.state.selection.shop)
         self._set_combo_value(self.intent_combo, self.state.selection.intent)

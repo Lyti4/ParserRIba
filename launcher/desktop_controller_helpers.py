@@ -230,6 +230,31 @@ def selected_export_categories(categories: list[str], intent: str) -> list[str]:
     return selected
 
 
+def selected_export_targets(
+    categories: list[str],
+    selected_catalog_nodes: list[dict[str, Any]],
+    intent: str,
+) -> list[dict[str, str]]:
+    """Build explicit export targets with catalog URLs when the tree has them."""
+    selected: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for node in selected_catalog_nodes:
+        if not isinstance(node, dict):
+            continue
+        name = str(node.get("name") or "").strip()
+        url = str(node.get("url") or "").strip()
+        if not name:
+            continue
+        key = url or name
+        if key in seen:
+            continue
+        seen.add(key)
+        selected.append({"name": name, "url": url})
+    if selected:
+        return selected
+    return [{"name": name, "url": ""} for name in selected_export_categories(categories, intent)]
+
+
 def result_message(result: LocalTaskProcessResult) -> str:
     """Build one completion message for a normalized local task result."""
     if result.summary_text:

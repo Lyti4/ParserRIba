@@ -63,6 +63,7 @@ async def _run_pyaterochka_fish_export_task(
     payload = await build_store_export_payload(
         backend=backend,
         category_name=str(task_input.get("category") or backend.default_category),
+        category_url=str(task_input.get("category_url") or ""),
         attempts=int(task_input.get("attempts") or 3),
         listen_seconds=int(task_input.get("listen_seconds") or 15),
         headless=task_input.get("headless"),
@@ -87,6 +88,7 @@ async def _run_pyaterochka_wine_export_task(
     payload = await build_store_export_payload(
         backend=backend,
         category_name=str(task_input.get("category") or backend.default_category),
+        category_url=str(task_input.get("category_url") or ""),
         attempts=int(task_input.get("attempts") or 3),
         listen_seconds=int(task_input.get("listen_seconds") or 15),
         headless=task_input.get("headless"),

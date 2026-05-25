@@ -417,3 +417,37 @@ def test_desktop_launcher_controller_passes_selected_products_to_report_runner(t
 
     assert captured["categories"] == ["Рыба"]
     assert captured["selected_product_ids"] == ["fish-2", "fish-5"]
+
+
+def test_desktop_launcher_controller_passes_selected_catalog_node_urls_to_export(tmp_path: Path) -> None:
+    captured: list[tuple[str, str]] = []
+
+    def fake_fish_export_runner(**kwargs):
+        captured.append((kwargs["category"], kwargs["category_url"]))
+        return build_local_task_process_result(
+            manifest=RunManifest(
+                task_name="pyaterochka_fish_export",
+                shop="pyaterochka",
+                intent="fish_catalog",
+                status="ok",
+                artifact_paths={},
+                summary={
+                    "products_count": 0,
+                    "categories": [kwargs["category"]],
+                    "selected_categories": [kwargs["category"]],
+                    "export_summary": {"products_count": 0, "categories": [kwargs["category"]]},
+                },
+            )
+        )
+
+    controller = DesktopLauncherController(root_dir=tmp_path, fish_export_runner=fake_fish_export_runner)
+    controller.set_selection(
+        intent="fish_catalog",
+        categories=["\u0417\u0430\u0432\u0442\u0440\u0430\u043a\u0438"],
+        selected_catalog_nodes=[{"name": "\u0417\u0430\u0432\u0442\u0440\u0430\u043a\u0438", "url": "https://5ka.ru/catalog/zavtraki--251C12891/"}],
+    )
+
+    controller.run_selected_export()
+
+    assert captured == [("\u0417\u0430\u0432\u0442\u0440\u0430\u043a\u0438", "https://5ka.ru/catalog/zavtraki--251C12891/")]
+

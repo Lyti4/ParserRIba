@@ -202,12 +202,7 @@ def build_products_from_product_items(
                 subcategory=classify_wine_style(name, category),
                 in_stock=_extract_availability_from_item(item),
                 raw_data=merge_wine_raw_fields(
-                    {
-                        "source_id": source_id,
-                        "field_sources": {
-                            key: value for key, value in field_sources.items() if value
-                        },
-                    },
+                    _build_raw_product_data(item, source_id=source_id, field_sources=field_sources),
                     alcohol_type=alcohol_type,
                 ),
             )
@@ -246,3 +241,56 @@ def _extract_availability_from_item(item: dict[str, Any]) -> bool:
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             return value > 0
     return True
+
+
+def _build_raw_product_data(
+    item: dict[str, Any],
+    *,
+    source_id: str,
+    field_sources: dict[str, str],
+) -> dict[str, Any]:
+    """Keep useful raw product-card fields for filters and product details."""
+    raw_data: dict[str, Any] = {
+        "source_id": source_id,
+        "field_sources": {
+            key: value for key, value in field_sources.items() if value
+        },
+    }
+    for key in (
+        "brand",
+        "supplier",
+        "producer",
+        "manufacturer",
+        "vendor",
+        "country",
+        "country_of_origin",
+        "origin_country",
+        "composition",
+        "description",
+        "weight",
+        "volume",
+        "unit",
+        "packaging",
+        "fat",
+        "protein",
+        "carbohydrate",
+        "calories",
+        "shelf_life",
+        "storage_conditions",
+    ):
+        value = _raw_filter_value(item.get(key))
+        if value not in ("", [], {}):
+            raw_data[key] = value
+    return raw_data
+
+
+def _raw_filter_value(value: Any) -> Any:
+    if isinstance(value, (str, int, float)) and not isinstance(value, bool):
+        return value
+    if isinstance(value, list):
+        return [_raw_filter_value(item) for item in value if _raw_filter_value(item) not in ("", [], {})]
+    if isinstance(value, dict):
+        for key in ("name", "title", "value", "label"):
+            if key in value:
+                return _raw_filter_value(value[key])
+    return ""

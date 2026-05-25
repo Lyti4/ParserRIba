@@ -28,6 +28,9 @@ def build_available_filter_counts_from_export_json(json_path: str) -> dict[str, 
         "sugar_classes": _counted_values(_sugar_class(item) for item in products if isinstance(item, dict)),
         "colors": _counted_values(_color(item) for item in products if isinstance(item, dict)),
     }
+    found_filters = _build_found_filters(products)
+    if found_filters:
+        counts["found_filters"] = found_filters
     return counts
 
 
@@ -71,3 +74,49 @@ def _counted_values(values: Any) -> dict[str, int]:
 
 def _text_value(value: Any) -> str:
     return str(value or "").strip()
+
+
+def _build_found_filters(products: list[Any]) -> dict[str, dict[str, int]]:
+    """Build dynamic facets from extra raw product fields."""
+    ignored = {
+        "source_id",
+        "field_sources",
+        "categories",
+        "supplier",
+        "producer",
+        "manufacturer",
+        "vendor",
+        "brand",
+        "alcohol_type",
+        "sugar_class",
+        "color",
+    }
+    values_by_field: dict[str, list[str]] = {}
+    for item in products:
+        if not isinstance(item, dict):
+            continue
+        raw_data = item.get("raw_data")
+        raw_dict = raw_data if isinstance(raw_data, dict) else {}
+        for field_name, value in raw_dict.items():
+            key = str(field_name or "").strip()
+            if not key or key in ignored:
+                continue
+            for text in _iter_filter_values(value):
+                values_by_field.setdefault(key, []).append(text)
+    return {
+        field_name: counts
+        for field_name, values in sorted(values_by_field.items())
+        if (counts := _counted_values(values))
+    }
+
+
+def _iter_filter_values(value: Any) -> list[str]:
+    if isinstance(value, (str, int, float)) and not isinstance(value, bool):
+        text = _text_value(value)
+        return [text] if text else []
+    if isinstance(value, list):
+        result: list[str] = []
+        for item in value:
+            result.extend(_iter_filter_values(item))
+        return result
+    return []

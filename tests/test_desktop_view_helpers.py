@@ -82,8 +82,8 @@ def test_build_summary_text_uses_report_and_filter_data() -> None:
     caption = build_result_caption_text(state)
 
     assert "Готово" in summary
-    assert "Файл Excel: fish.xlsx" in summary
-    assert "Файл JSON: fish.json" in summary
+    assert "Файл Excel: fish.xlsx" not in summary
+    assert "Файл JSON: fish.json" not in summary
     assert "Товаров в отчёте" not in summary
     assert "Строк показано: 2" in caption
     assert "Источник: сводка по сохранённому отчёту" in caption

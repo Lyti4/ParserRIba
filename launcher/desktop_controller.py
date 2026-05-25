@@ -13,18 +13,21 @@ from launcher.desktop_controller_helpers import (
     capture_export_payload,
     combine_export_results,
     discovered_category_names,
-    has_rich_filter_counts,
     merge_launcher_view,
     report_dir_from_artifacts,
     reset_result_state_for_onboarding,
     result_message,
     selected_export_targets,
 )
+from launcher.desktop_controller_reports import (
+    apply_filter_counts_from_export_json,
+    load_filter_options,
+    refresh_filter_counts_after_export,
+    run_selected_report_export,
+)
 from launcher.desktop_controller_selection import update_selection_state
 from launcher.desktop_controller_research import sync_research_state
-from launcher.desktop_export_facets import build_available_filter_counts_from_export_json
 from launcher.desktop_user_messages import (
-    empty_filter_options_message,
     friendly_error_message,
     no_selected_categories_message,
     no_output_path_message,
@@ -182,33 +185,11 @@ class DesktopLauncherController:
 
     def run_selected_report_export(self) -> LocalTaskProcessResult:
         """Build the selected local Excel report from stored products."""
-        runner = self.wine_report_runner if self.state.selection.intent == "wine_catalog" else self.fish_report_runner
-        output_name = "pyaterochka_wine_report" if self.state.selection.intent == "wine_catalog" else "pyaterochka_fish_report"
-        return self._run_task(
-            task_name="store_report_export",
-            runner=runner,
-            root_dir=self.root_dir,
-            categories=self.state.selection.categories,
-            selected_product_ids=self.state.selection.selected_product_ids,
-            filters=self.state.filters.model_dump(mode="json"),
-            output_name=output_name,
-            timeout_seconds=120,
-        )
+        return run_selected_report_export(self)
 
     def load_filter_options(self) -> LocalTaskProcessResult:
         """Load post-capture filter options for the current selection."""
-        runner = self.wine_filter_options_runner if self.state.selection.intent == "wine_catalog" else self.fish_filter_options_runner
-        result = self._run_task(
-            task_name="store_report_filter_options",
-            runner=runner,
-            root_dir=self.root_dir,
-            categories=self.state.selection.categories,
-            timeout_seconds=120,
-        )
-        if not has_rich_filter_counts(self.state.result.launcher_view.get("available_filter_counts")):
-            self.state.task.message = empty_filter_options_message()
-            self.save_state()
-        return result
+        return load_filter_options(self)
 
     def open_excel(self) -> bool:
         """Open the latest Excel artifact if it exists."""
@@ -266,12 +247,7 @@ class DesktopLauncherController:
         self.state.result.excel_path = artifact_or_existing(artifacts.get("excel_path"), self.state.result.excel_path)
         self.state.result.json_path = artifact_or_existing(artifacts.get("json_path"), self.state.result.json_path)
         self.state.result.report_dir = report_dir_from_artifacts(artifacts, existing_report_dir=self.state.result.report_dir)
-        filter_counts = build_available_filter_counts_from_export_json(self.state.result.json_path)
-        if filter_counts:
-            found_filters = filter_counts.pop("found_filters", {})
-            self.state.result.launcher_view["available_filter_counts"] = filter_counts
-            if found_filters:
-                self.state.result.launcher_view["found_filters"] = found_filters
+        apply_filter_counts_from_export_json(self)
         self.state.task.status = "succeeded" if result.manifest.status != "failed" else "failed"
         self.state.task.message = result_message(result)
         self.state.task.last_error = result.manifest.error
@@ -290,17 +266,7 @@ class DesktopLauncherController:
         )
 
     def _refresh_filter_counts_after_export(self, categories: list[str]) -> None:
-        runner = self.wine_filter_options_runner if self.state.selection.intent == "wine_catalog" else self.fish_filter_options_runner
-        try:
-            filter_result = runner(root_dir=self.root_dir, categories=categories, timeout_seconds=120)
-        except Exception:
-            return
-        counts = dict(filter_result.available_filter_counts or {})
-        if counts:
-            found_filters = counts.pop("found_filters", {})
-            self.state.result.launcher_view["available_filter_counts"] = counts
-            if found_filters:
-                self.state.result.launcher_view["found_filters"] = found_filters
+        refresh_filter_counts_after_export(self, categories)
 
     def _open_path(self, path_value: str) -> bool:
         path = str(path_value or "").strip()

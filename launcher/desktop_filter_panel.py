@@ -52,11 +52,11 @@ def build_filter_box(shell: Any, qtwidgets: Any) -> Any:
 
 def refresh_filter_widgets(shell: Any) -> None:
     """Refresh filter option lists from available_filter_counts and current state."""
-    launcher_view = shell.state.result.launcher_view
+    filter_counts = shell.state.dynamic_filters.counts or shell.state.result.launcher_view
     filters_state = shell.state.filters
     for filter_name, widget in shell.filter_widgets.items():
         selected = {str(item) for item in getattr(filters_state, filter_name)}
-        counts = extract_filter_counts(launcher_view, filter_name)
+        counts = extract_filter_counts(filter_counts, filter_name)
         widget.clear()
         for value, label in build_filter_option_labels(counts):
             item = shell._qtwidgets.QListWidgetItem(label)

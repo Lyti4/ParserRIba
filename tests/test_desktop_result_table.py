@@ -46,7 +46,7 @@ def test_build_result_table_reads_export_json(tmp_path: Path) -> None:
 
 def test_build_result_table_falls_back_to_report_summary() -> None:
     state = LauncherAppState()
-    state.result.launcher_view = {
+    state.result.summary = {
         "report_summary": {
             "category_counts": {"Рыба": 10},
             "supplier_counts": {"Море": 7},
@@ -63,19 +63,17 @@ def test_build_result_table_falls_back_to_report_summary() -> None:
 
 def test_build_result_table_skips_blank_and_duplicate_catalog_rows() -> None:
     state = LauncherAppState()
-    state.result.launcher_view = {
-        "full_catalog_tree": [
-            {
-                "name": "",
-                "url": "",
-                "children": [
-                    {"name": "Napekli vam skidok", "url": "https://5ka.ru/catalog/napekli/", "children": []},
-                    {"name": "Napekli vam skidok", "url": "https://5ka.ru/catalog/napekli/", "children": []},
-                    {"name": "", "url": "", "children": []},
-                ],
-            }
-        ]
-    }
+    state.catalog.full_tree = [
+        {
+            "name": "",
+            "url": "",
+            "children": [
+                {"name": "Napekli vam skidok", "url": "https://5ka.ru/catalog/napekli/", "children": []},
+                {"name": "Napekli vam skidok", "url": "https://5ka.ru/catalog/napekli/", "children": []},
+                {"name": "", "url": "", "children": []},
+            ],
+        }
+    ]
 
     table = build_result_table(state)
 

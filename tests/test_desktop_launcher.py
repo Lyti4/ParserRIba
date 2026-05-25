@@ -99,14 +99,10 @@ def test_desktop_launcher_keeps_export_intent_out_of_research_tab(tmp_path: Path
 
 def test_desktop_launcher_does_not_autoselect_discovered_categories(tmp_path: Path) -> None:
     shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
-    shell.state.result.launcher_view = {
-        "shop": "pyaterochka",
-        "intent": "fish_catalog",
-        "category_tree": [
-            {"name": "Рыба", "url": "https://example.test/fish"},
-            {"name": "Морепродукты", "url": "https://example.test/seafood"},
-        ],
-    }
+    shell.state.catalog.full_tree = [
+        {"name": "Рыба", "url": "https://example.test/fish"},
+        {"name": "Морепродукты", "url": "https://example.test/seafood"},
+    ]
 
     shell.create_window()
 
@@ -116,21 +112,16 @@ def test_desktop_launcher_does_not_autoselect_discovered_categories(tmp_path: Pa
 
 def test_desktop_launcher_renders_full_catalog_tree_and_syncs_checked_nodes(tmp_path: Path) -> None:
     shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
-    shell.state.result.launcher_view = {
-        "shop": "pyaterochka",
-        "intent": "fish_catalog",
-        "category_tree": [{"name": "Рыба", "url": "https://example.test/fish"}],
-        "full_catalog_tree": [
-            {
-                "name": "Каталог",
-                "url": "https://5ka.ru/catalog/",
-                "children": [
-                    {"name": "Рыба", "url": "https://5ka.ru/catalog/fish/", "children": []},
-                    {"name": "Морепродукты", "url": "https://5ka.ru/catalog/seafood/", "children": []},
-                ],
-            }
-        ],
-    }
+    shell.state.catalog.full_tree = [
+        {
+            "name": "Каталог",
+            "url": "https://5ka.ru/catalog/",
+            "children": [
+                {"name": "Рыба", "url": "https://5ka.ru/catalog/fish/", "children": []},
+                {"name": "Морепродукты", "url": "https://5ka.ru/catalog/seafood/", "children": []},
+            ],
+        }
+    ]
 
     shell.create_window()
     root = shell.catalog_tree.topLevelItem(0)

@@ -82,8 +82,9 @@ current source of truth for Launcher V2.
 - Use `docs/LEGACY_MIGRATION_BACKLOG.md` for the exact order of legacy archive
   slices.
 - Continue wiring Launcher V2 state models into visible launcher workflows:
-  - use the synchronized profile/catalog/products/filter/result state as the
-    source for UI panels where it is more explicit than raw `launcher_view`;
+  - keep catalog/result/filter panels reading synchronized
+    profile/catalog/products/filter/result state first, with raw
+    `launcher_view` only as a compatibility fallback;
   - persist per-site profile snapshots with catalog tree, diagnostics, selected
     nodes and report artifacts;
   - keep `launcher_view` as a compatibility/view-model surface until every tab

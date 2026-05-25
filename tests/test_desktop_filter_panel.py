@@ -23,11 +23,9 @@ def test_filter_panel_collects_multi_select_and_value_filters() -> None:
     app = QApplication.instance() or QApplication([])
     shell = _DummyShell()
     shell._qtwidgets = qtwidgets
-    shell.state.result.launcher_view = {
-        "available_filter_counts": {
-            "suppliers": {"Free Feather": 3},
-            "brands": {"OddBird": 2},
-        }
+    shell.state.dynamic_filters.counts = {
+        "suppliers": {"Free Feather": 3},
+        "brands": {"OddBird": 2},
     }
     shell.state.filters.suppliers = ["Free Feather"]
     box = build_filter_box(shell, qtwidgets)
@@ -101,7 +99,7 @@ def test_filter_panel_renders_found_filters_scroll_area_when_present(
     app = QApplication.instance() or QApplication([])
     shell = _DummyShell()
     shell._qtwidgets = qtwidgets
-    shell.state.result.launcher_view = {"found_filters": found_filters}
+    shell.state.products.discovered_fields = found_filters
 
     box = build_filter_box(shell, qtwidgets)
     refresh_filter_widgets(shell)

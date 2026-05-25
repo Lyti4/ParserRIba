@@ -17,7 +17,7 @@ def build_result_table(state: LauncherAppState) -> ResultTableModel:
     json_table = _table_from_json_export(state.result.json_path, state)
     if json_table["rows"]:
         return json_table
-    return _table_from_launcher_view(state.result.launcher_view)
+    return _table_from_state_summary(state)
 
 
 def _table_from_json_export(
@@ -66,10 +66,14 @@ def _table_from_json_export(
     return {"headers": headers, "rows": rows, "product_ids": product_ids}
 
 
-def _table_from_launcher_view(view: dict[str, Any]) -> ResultTableModel:
-    report_summary = view.get("report_summary")
+def _table_from_state_summary(state: LauncherAppState) -> ResultTableModel:
+    summary = state.result.summary
+    view = state.result.launcher_view
+    report_summary = summary.get("report_summary") if isinstance(summary, dict) else None
     if not isinstance(report_summary, dict):
-        catalog_table = _table_from_full_catalog(view)
+        report_summary = view.get("report_summary")
+    if not isinstance(report_summary, dict):
+        catalog_table = _table_from_full_catalog(state)
         if catalog_table["rows"]:
             return catalog_table
         return {"headers": [], "rows": [], "product_ids": []}
@@ -77,7 +81,7 @@ def _table_from_launcher_view(view: dict[str, Any]) -> ResultTableModel:
     supplier_counts = report_summary.get("supplier_counts")
     brand_counts = report_summary.get("brand_counts")
     if not isinstance(category_counts, dict):
-        catalog_table = _table_from_full_catalog(view)
+        catalog_table = _table_from_full_catalog(state)
         if catalog_table["rows"]:
             return catalog_table
         return {"headers": [], "rows": [], "product_ids": []}
@@ -95,8 +99,8 @@ def _table_from_launcher_view(view: dict[str, Any]) -> ResultTableModel:
     return {"headers": headers, "rows": rows, "product_ids": []}
 
 
-def _table_from_full_catalog(view: dict[str, Any]) -> ResultTableModel:
-    tree = view.get("full_catalog_tree")
+def _table_from_full_catalog(state: LauncherAppState) -> ResultTableModel:
+    tree = state.catalog.full_tree or state.result.launcher_view.get("full_catalog_tree")
     if not isinstance(tree, list) or not tree:
         return {"headers": [], "rows": [], "product_ids": []}
     rows: list[list[str]] = []

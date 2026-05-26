@@ -77,5 +77,16 @@ def available_filter_counts(state: LauncherAppState) -> dict[str, Any]:
     return dict(view_counts) if isinstance(view_counts, dict) else {}
 
 
+def found_filter_fields(state: LauncherAppState) -> dict[str, Any]:
+    """Return dynamic product fields from structured product state first."""
+    if state.products.discovered_fields:
+        return dict(state.products.discovered_fields)
+    fields = state.result.summary.get("found_filters")
+    if isinstance(fields, dict):
+        return dict(fields)
+    view_fields = state.result.launcher_view.get("found_filters")
+    return dict(view_fields) if isinstance(view_fields, dict) else {}
+
+
 def _dict_list(value: Any) -> list[dict[str, Any]]:
     return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []

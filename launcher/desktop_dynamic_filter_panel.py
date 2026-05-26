@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from launcher.desktop_state_readers import found_filter_fields
 from launcher.desktop_ui_text import FILTER_TITLES
 
 FOUND_FILTERS_TITLE = "Найденные фильтры"
@@ -32,11 +33,7 @@ def refresh_found_filters_panel(shell: Any) -> None:
     shell.found_filters_group = None
     shell.found_filter_widgets = {}
 
-    found_filters = _extract_found_filters(
-        shell.state.products.discovered_fields
-        or shell.state.result.launcher_view.get("found_filters")
-        or {}
-    )
+    found_filters = _extract_found_filters(found_filter_fields(shell.state))
     if not found_filters:
         return
 

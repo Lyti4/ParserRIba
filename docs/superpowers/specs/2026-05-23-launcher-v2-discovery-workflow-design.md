@@ -105,13 +105,16 @@ stored in profile snapshots or committed artifacts.
 The existing Pyaterochka runtime must not be carried forward as the generic
 Launcher V2 discovery engine.
 
-It remains in two roles:
+It remains in two compatibility-only roles:
 
-1. legacy reference for proven Camoufox launch, RU proxy, GeoIP, persistent
-   profile, human-like behavior, anti-bot diagnostics and interception
-   mechanics;
-2. temporary store-specific adapter while the new store-neutral pipeline is not
-   yet able to collect full products with the same reliability.
+1. source material for extracting proven Camoufox launch, RU proxy, GeoIP,
+   persistent profile, human-like behavior, anti-bot diagnostics and
+   interception mechanics into target cores;
+2. temporary store-specific adapter until the new store-neutral pipeline can
+   collect full products with the same reliability.
+
+The old parser/runtime path is not a product runtime and should be archived
+after useful mechanics are extracted.
 
 Launcher V2 must evolve around store-neutral contracts:
 

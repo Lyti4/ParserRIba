@@ -135,22 +135,64 @@ def test_local_task_registry_lists_export_and_onboarding_tasks() -> None:
 
 async def test_local_task_registry_runs_onboarding_discovery_task(tmp_path: Path) -> None:
     _prepare_root(tmp_path)
+    import utils.site_onboarding as site_onboarding
 
-    manifest = await run_local_task(
-        "site_onboarding_discovery",
-        {
-            "site_url": "https://unknown-store.example",
-            "intent": "fish_catalog",
-            "selected_categories": ["Р С‹Р±Р°"],
-        },
-        root_dir=tmp_path,
-    )
+    from models.catalog_discovery import CatalogDiscoveryResult, CategoryEvidence, SiteProfileVersion
+    from utils.catalog_tree_discovery.runner import CatalogTreeDiscoveryRunResult
+
+    original_probe = site_onboarding._run_catalog_research_sync
+
+    def fake_probe(*args, **kwargs):
+        del kwargs
+        assert args[1] is None
+        return CatalogTreeDiscoveryRunResult(
+            profile=SiteProfileVersion(
+                profile_id="profile:unknown-store_example",
+                version_id="version-1",
+                shop_slug="unknown-store_example",
+                site_url="https://unknown-store.example/catalog",
+                run_id="run-1",
+                primary_root_ids=["category-1"],
+                nodes=[],
+                edges=[],
+                notes=[],
+            ),
+            phase_events=[],
+            streamed_categories=["Рыба"],
+            current_phase="build_tree",
+            mode="live",
+            partial=False,
+            catalog_discovery=CatalogDiscoveryResult(
+                reachable=True,
+                status_code=200,
+                final_url="https://unknown-store.example/catalog",
+                surface_type="category_tree",
+                category_links=[
+                    CategoryEvidence(name="Рыба", url="https://unknown-store.example/catalog/fish"),
+                ],
+            ),
+            limits={"max_repeat_urls": 3, "max_empty_branches": 5, "max_discovery_depth": 8},
+        )
+
+    site_onboarding._run_catalog_research_sync = fake_probe
+    try:
+        manifest = await run_local_task(
+            "site_onboarding_discovery",
+            {
+                "site_url": "https://unknown-store.example",
+                "intent": "fish_catalog",
+                "selected_categories": ["Р С‹Р±Р°"],
+            },
+            root_dir=tmp_path,
+        )
+    finally:
+        site_onboarding._run_catalog_research_sync = original_probe
 
     assert manifest.task_name == "site_onboarding_discovery"
     assert manifest.shop == "unknown-store_example"
     assert manifest.intent == "fish_catalog"
-    assert manifest.status == "scaffold_ready"
-    assert manifest.summary["category_count"] == 0
+    assert manifest.status == "discovery_only"
+    assert manifest.summary["category_count"] == 1
     assert manifest.summary["selected_categories"] == ["Р С‹Р±Р°"]
     assert Path(manifest.artifact_paths["session_state_path"]).exists()
 

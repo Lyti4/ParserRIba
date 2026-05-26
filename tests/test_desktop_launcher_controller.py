@@ -52,6 +52,46 @@ def test_desktop_launcher_controller_prefers_discovered_categories_for_matching_
     assert controller.list_available_categories() == ["Рыба", "Морепродукты"]
 
 
+def test_desktop_launcher_controller_reads_available_categories_from_structured_catalog(
+    tmp_path: Path,
+) -> None:
+    controller = DesktopLauncherController(root_dir=tmp_path)
+    controller.state.result.launcher_view = {}
+    controller.state.catalog.full_tree = [
+        {
+            "name": "Каталог",
+            "url": "https://example.test/catalog/",
+            "children": [
+                {"name": "Готовая еда", "url": "https://example.test/catalog/ready/"},
+                {"name": "Рыба", "url": "https://example.test/catalog/fish/"},
+            ],
+        }
+    ]
+
+    assert controller.list_available_categories() == ["Готовая еда", "Рыба"]
+
+
+def test_desktop_launcher_controller_prefers_summary_categories_over_catalog_root(
+    tmp_path: Path,
+) -> None:
+    controller = DesktopLauncherController(root_dir=tmp_path)
+    controller.state.result.summary = {
+        "category_tree": [
+            {"name": "Морепродукты", "url": "https://example.test/catalog/seafood/"}
+        ]
+    }
+    controller.state.catalog.full_tree = [
+        {
+            "name": "Каталог",
+            "children": [
+                {"name": "Готовая еда", "url": "https://example.test/catalog/ready/"}
+            ],
+        }
+    ]
+
+    assert controller.list_available_categories() == ["Морепродукты"]
+
+
 def test_desktop_launcher_controller_ignores_stale_discovery_for_other_intent(tmp_path: Path) -> None:
     controller = DesktopLauncherController(root_dir=tmp_path)
     controller.set_selection(intent="wine_catalog")
@@ -155,7 +195,7 @@ def test_desktop_launcher_controller_runs_selected_export_for_every_category(tmp
         json_path.write_text(
             (
                 '{"products":[{"category":"%s","name":"Product %s","brand":"Brand %s",'
-                '"subcategory":"Style %s","raw_data":{"supplier":"Supplier %s","alcohol_type":"Безалкогольное"}}]}'
+                '"subcategory":"Style %s","raw_data":{"supplier":"Supplier %s","alcohol_type":"Безалкогольное","country":"Норвегия"}}]}'
             )
             % (category_name, category_name, category_name, category_name, category_name),
             encoding="utf-8",
@@ -217,6 +257,11 @@ def test_desktop_launcher_controller_runs_selected_export_for_every_category(tmp
         "Supplier Рыба": 1,
         "Supplier Морепродукты": 1,
     }
+    assert controller.state.dynamic_filters.counts["suppliers"] == {
+        "Supplier Рыба": 1,
+        "Supplier Морепродукты": 1,
+    }
+    assert controller.state.products.discovered_fields == {"country": {"Норвегия": 2}}
 
 
 def test_desktop_launcher_controller_save_settings_sets_message(tmp_path: Path) -> None:
@@ -319,6 +364,7 @@ def test_desktop_launcher_controller_preserves_report_result_when_loading_filter
     assert controller.state.result.json_path.endswith("fish.json")
     assert controller.state.result.launcher_view["report_summary"]["products_count"] == 2
     assert controller.state.result.launcher_view["available_filter_counts"]["suppliers"] == {"Море": 2}
+    assert controller.state.dynamic_filters.counts["suppliers"] == {"Море": 2}
 
 
 def test_desktop_launcher_controller_explains_empty_filter_options(tmp_path: Path) -> None:
@@ -401,67 +447,4 @@ def test_desktop_launcher_controller_clears_selected_products_when_categories_ch
 
     assert controller.state.selection.categories == ["Морепродукты"]
     assert controller.state.selection.selected_product_ids == []
-
-
-def test_desktop_launcher_controller_passes_selected_products_to_report_runner(tmp_path: Path) -> None:
-    captured: dict[str, object] = {}
-
-    def fake_fish_report_runner(**kwargs):
-        captured.update(kwargs)
-        return build_local_task_process_result(
-            manifest=RunManifest(
-                task_name="store_report_export",
-                shop="pyaterochka",
-                intent="fish_catalog",
-                status="ok",
-                artifact_paths={"excel_path": str(tmp_path / "data" / "reports" / "fish.xlsx")},
-                summary={"products_count": 1, "categories": ["Рыба"]},
-            ),
-            stderr="Task: store_report_export\nProducts: 1\n",
-        )
-
-    controller = DesktopLauncherController(root_dir=tmp_path, fish_report_runner=fake_fish_report_runner)
-    controller.set_selection(
-        intent="fish_catalog",
-        categories=["Рыба"],
-        selected_product_ids=["fish-2", "fish-5"],
-    )
-
-    controller.run_selected_report_export()
-
-    assert captured["categories"] == ["Рыба"]
-    assert captured["selected_product_ids"] == ["fish-2", "fish-5"]
-
-
-def test_desktop_launcher_controller_passes_selected_catalog_node_urls_to_export(tmp_path: Path) -> None:
-    captured: list[tuple[str, str]] = []
-
-    def fake_fish_export_runner(**kwargs):
-        captured.append((kwargs["category"], kwargs["category_url"]))
-        return build_local_task_process_result(
-            manifest=RunManifest(
-                task_name="pyaterochka_fish_export",
-                shop="pyaterochka",
-                intent="fish_catalog",
-                status="ok",
-                artifact_paths={},
-                summary={
-                    "products_count": 0,
-                    "categories": [kwargs["category"]],
-                    "selected_categories": [kwargs["category"]],
-                    "export_summary": {"products_count": 0, "categories": [kwargs["category"]]},
-                },
-            )
-        )
-
-    controller = DesktopLauncherController(root_dir=tmp_path, fish_export_runner=fake_fish_export_runner)
-    controller.set_selection(
-        intent="fish_catalog",
-        categories=["\u0417\u0430\u0432\u0442\u0440\u0430\u043a\u0438"],
-        selected_catalog_nodes=[{"name": "\u0417\u0430\u0432\u0442\u0440\u0430\u043a\u0438", "url": "https://5ka.ru/catalog/zavtraki--251C12891/"}],
-    )
-
-    controller.run_selected_export()
-
-    assert captured == [("\u0417\u0430\u0432\u0442\u0440\u0430\u043a\u0438", "https://5ka.ru/catalog/zavtraki--251C12891/")]
 

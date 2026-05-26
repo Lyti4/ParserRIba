@@ -303,6 +303,6 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_windows.
 
 Release planning lives in:
 
-- `docs/DISTRIBUTION_PLAN.md`
+- `docs/WINDOWS_QUICKSTART.md`
 - `docs/INSTALLER_ROADMAP.md`
 - `docs/RELEASE_CHECKLIST.md`

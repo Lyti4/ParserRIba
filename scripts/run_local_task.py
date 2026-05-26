@@ -33,6 +33,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--input-base64", default="")
     parser.add_argument("--list", action="store_true", dest="list_tasks")
     parser.add_argument("--summary", action="store_true", dest="show_summary")
+    parser.add_argument("--root-dir", default="")
     return parser.parse_args(argv)
 
 
@@ -140,7 +141,8 @@ if __name__ == "__main__":
         task_input = json.loads(decoded)
     else:
         task_input = json.loads(args.input_json)
-    manifest = asyncio.run(run_local_task(args.task, task_input, root_dir=ROOT_DIR))
+    root_dir = Path(args.root_dir).resolve() if args.root_dir else ROOT_DIR
+    manifest = asyncio.run(run_local_task(args.task, task_input, root_dir=root_dir))
     if args.show_summary:
         sys.stderr.write(_render_summary(manifest.model_dump()) + "\n")
     sys.stdout.write(manifest.model_dump_json(indent=2))

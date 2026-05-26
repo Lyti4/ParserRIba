@@ -22,8 +22,8 @@ Launcher V2 design is now tracked in:
 - `docs/superpowers/specs/2026-05-23-launcher-v2-discovery-workflow-design.md`
 
 That spec supersedes the older one-screen launcher rebuild plans. Older plans
-remain in `docs/superpowers/plans/` as implementation history, not as current
-architecture.
+remain in `archive/project_history/superpowers/plans/` as implementation
+history, not as current architecture.
 
 ## Current Layers
 
@@ -125,10 +125,11 @@ Responsibilities:
 - persist products to SQLite;
 - build reports and filter options from storage.
 
-### Pyaterochka Runtime Preservation
+### Pyaterochka Mechanics Preservation
 
-Pyaterochka is a protected-store runtime baseline and legacy reference, not the
-generic Launcher V2 architecture center. The old runtime remains useful for:
+Pyaterochka is a protected-store mechanics baseline, not the generic Launcher V2
+architecture center. The old parser/runtime path is compatibility-only while
+reusable mechanics are extracted:
 
 - Camoufox launch options from `utils.camoufox_launcher`;
 - RU proxy, GeoIP, persistent profile and session reuse behavior;
@@ -139,9 +140,10 @@ generic Launcher V2 architecture center. The old runtime remains useful for:
 The launcher must not build the new store-neutral discovery/product workspace
 around the old Pyaterochka runtime. Instead:
 
-- keep Pyaterochka as a legacy reference and temporary store-specific adapter;
+- keep only a Pyaterochka store adapter in the product runtime;
 - extract reusable browser/session/protection mechanics only when they fit the
   generic contracts;
+- archive old parser/runtime files after useful mechanics are extracted;
 - keep Launcher V2 contracts centered on store profiles, selected catalog nodes,
   product workspaces, dynamic filters and reports.
 

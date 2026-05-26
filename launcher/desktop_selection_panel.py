@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from launcher.desktop_catalog_tree_widget import collect_checked_catalog_nodes, populate_catalog_tree_widget
+from launcher.desktop_state_readers import full_catalog_links, full_catalog_tree
 from launcher.desktop_ui_text import SHOP_LABELS
 
 
@@ -79,8 +80,7 @@ def refresh_catalog_tree(shell: Any) -> None:
     """Refresh the full discovered catalog tree widget."""
     if shell.catalog_tree is None or shell._qtwidgets is None or shell._qt is None:
         return
-    tree = shell.state.result.launcher_view.get("full_catalog_tree")
-    nodes = tree if isinstance(tree, list) else []
+    nodes = full_catalog_tree(shell.state)
     populate_catalog_tree_widget(shell.catalog_tree, shell._qtwidgets, shell._qt, nodes, shell.state.selection.categories)
     _refresh_catalog_context(shell)
 
@@ -105,10 +105,11 @@ def _refresh_catalog_context(shell: Any) -> None:
     label = getattr(shell, "catalog_context_label", None)
     if label is None:
         return
-    view = shell.state.result.launcher_view
-    total = int(view.get("full_catalog_count") or _catalog_tree_count(view.get("full_catalog_tree")))
+    tree = full_catalog_tree(shell.state)
+    links = full_catalog_links(shell.state)
+    total = len(links) if links else _catalog_tree_count(tree)
     selected = shell.state.selection.categories
-    mode = "плоский пул разделов" if _is_flat_catalog(view.get("full_catalog_tree")) else "дерево разделов"
+    mode = "плоский пул разделов" if _is_flat_catalog(tree) else "дерево разделов"
     preview = ", ".join(selected[:3])
     label.setText(f"Каталог: найдено {total} | выбрано {len(selected)}{(': ' + preview) if preview else ''} | структура: {mode}")
 

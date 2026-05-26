@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from launcher.desktop_state_readers import found_filter_fields
 from launcher.desktop_ui_text import FILTER_TITLES
 
 FOUND_FILTERS_TITLE = "Найденные фильтры"
@@ -24,7 +25,7 @@ def build_found_filters_host(shell: Any, qtwidgets: Any) -> Any:
 
 
 def refresh_found_filters_panel(shell: Any) -> None:
-    """Rebuild the dynamic found-filters panel from launcher_view when available."""
+    """Rebuild the dynamic found-filters panel from structured product fields."""
     layout = getattr(shell, "found_filters_layout", None)
     if layout is None:
         return
@@ -32,7 +33,7 @@ def refresh_found_filters_panel(shell: Any) -> None:
     shell.found_filters_group = None
     shell.found_filter_widgets = {}
 
-    found_filters = _extract_found_filters(shell.state.result.launcher_view)
+    found_filters = _extract_found_filters(found_filter_fields(shell.state))
     if not found_filters:
         return
 
@@ -86,8 +87,7 @@ def _build_found_filter_field_box(shell: Any, qtwidgets: Any, field_name: str, r
     return box
 
 
-def _extract_found_filters(launcher_view: dict[str, Any]) -> dict[str, Any]:
-    found_filters = launcher_view.get("found_filters")
+def _extract_found_filters(found_filters: Any) -> dict[str, Any]:
     if not isinstance(found_filters, dict):
         return {}
     result: dict[str, Any] = {}
@@ -163,4 +163,3 @@ def _clear_layout(layout: Any) -> None:
         elif child_layout is not None:
             _clear_layout(child_layout)
             child_layout.deleteLater()
-

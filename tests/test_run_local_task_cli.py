@@ -6,6 +6,9 @@ from pathlib import Path
 from scripts.run_local_task import _render_summary
 
 
+_FILTER_INPUT = '{"selection":{"shop":"pyaterochka","intent":"fish_catalog","categories":["Рыба"]},"filters":{}}'
+
+
 def test_run_local_task_cli_lists_registered_tasks() -> None:
     result = subprocess.run(
         [
@@ -25,19 +28,18 @@ def test_run_local_task_cli_lists_registered_tasks() -> None:
 
 def test_run_local_task_cli_accepts_input_file(tmp_path: Path) -> None:
     input_path = tmp_path / "task_input.json"
-    input_path.write_text(
-        '{"site_url":"https://unknown-store.example","intent":"fish_catalog","selected_categories":["Рыба"]}',
-        encoding="utf-8",
-    )
+    input_path.write_text(_FILTER_INPUT, encoding="utf-8")
 
     result = subprocess.run(
         [
             sys.executable,
             "scripts/run_local_task.py",
             "--task",
-            "site_onboarding_discovery",
+            "store_report_filter_options",
             "--input-file",
             str(input_path),
+            "--root-dir",
+            str(tmp_path),
         ],
         check=True,
         capture_output=True,
@@ -45,44 +47,47 @@ def test_run_local_task_cli_accepts_input_file(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    assert '"task_name": "site_onboarding_discovery"' in result.stdout
-    assert '"status": "scaffold_ready"' in result.stdout
+    assert '"task_name": "store_report_filter_options"' in result.stdout
+    assert '"status": "empty"' in result.stdout
 
 
-def test_run_local_task_cli_accepts_input_from_stdin() -> None:
+def test_run_local_task_cli_accepts_input_from_stdin(tmp_path: Path) -> None:
     result = subprocess.run(
         [
             sys.executable,
             "scripts/run_local_task.py",
             "--task",
-            "site_onboarding_discovery",
+            "store_report_filter_options",
             "--input-stdin",
+            "--root-dir",
+            str(tmp_path),
         ],
-        input='{"site_url":"https://unknown-store.example","intent":"fish_catalog","selected_categories":["Рыба"]}',
+        input=_FILTER_INPUT,
         check=True,
         capture_output=True,
         text=True,
         encoding="utf-8",
     )
 
-    assert '"task_name": "site_onboarding_discovery"' in result.stdout
-    assert '"status": "scaffold_ready"' in result.stdout
-    assert '"selected_categories": [' in result.stdout
+    assert '"task_name": "store_report_filter_options"' in result.stdout
+    assert '"status": "empty"' in result.stdout
+    assert '"categories": [' in result.stdout
     assert '"Рыба"' in result.stdout
 
 
-def test_run_local_task_cli_accepts_input_base64() -> None:
-    payload = '{"site_url":"https://unknown-store.example","intent":"fish_catalog","selected_categories":["Рыба"]}'
-    encoded = base64.b64encode(payload.encode("utf-8")).decode("ascii")
+def test_run_local_task_cli_accepts_input_base64(tmp_path: Path) -> None:
+    encoded = base64.b64encode(_FILTER_INPUT.encode("utf-8")).decode("ascii")
 
     result = subprocess.run(
         [
             sys.executable,
             "scripts/run_local_task.py",
             "--task",
-            "site_onboarding_discovery",
+            "store_report_filter_options",
             "--input-base64",
             encoded,
+            "--root-dir",
+            str(tmp_path),
         ],
         check=True,
         capture_output=True,
@@ -90,27 +95,26 @@ def test_run_local_task_cli_accepts_input_base64() -> None:
         encoding="utf-8",
     )
 
-    assert '"task_name": "site_onboarding_discovery"' in result.stdout
-    assert '"status": "scaffold_ready"' in result.stdout
-    assert '"selected_categories": [' in result.stdout
+    assert '"task_name": "store_report_filter_options"' in result.stdout
+    assert '"status": "empty"' in result.stdout
+    assert '"categories": [' in result.stdout
     assert '"Рыба"' in result.stdout
 
 
 def test_run_local_task_cli_prints_compact_summary_to_stderr(tmp_path: Path) -> None:
     input_path = tmp_path / "task_input.json"
-    input_path.write_text(
-        '{"site_url":"https://unknown-store.example","intent":"fish_catalog","selected_categories":["Рыба"]}',
-        encoding="utf-8",
-    )
+    input_path.write_text(_FILTER_INPUT, encoding="utf-8")
 
     result = subprocess.run(
         [
             sys.executable,
             "scripts/run_local_task.py",
             "--task",
-            "site_onboarding_discovery",
+            "store_report_filter_options",
             "--input-file",
             str(input_path),
+            "--root-dir",
+            str(tmp_path),
             "--summary",
         ],
         check=True,
@@ -119,11 +123,11 @@ def test_run_local_task_cli_prints_compact_summary_to_stderr(tmp_path: Path) -> 
         encoding="utf-8",
     )
 
-    assert '"task_name": "site_onboarding_discovery"' in result.stdout
-    assert "Task: site_onboarding_discovery" in result.stderr
-    assert "Status: scaffold_ready" in result.stderr
-    assert "Shop: unknown-store_example" in result.stderr
-    assert "Selected categories: Рыба" in result.stderr
+    assert '"task_name": "store_report_filter_options"' in result.stdout
+    assert "Task: store_report_filter_options" in result.stderr
+    assert "Status: empty" in result.stderr
+    assert "Shop: pyaterochka" in result.stderr
+    assert "Products: 0" in result.stderr
 
 
 def test_render_summary_includes_wine_breakdown_sections() -> None:

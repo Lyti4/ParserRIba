@@ -1,13 +1,14 @@
 # ParserRIba Next Steps
 
-Date: 2026-05-23
+Date: 2026-05-26
 
 ## Active Track
 
-The active track is now split into two coupled layers:
+The active track is now launcher-first and core/layer based:
 
-1. keep Pyaterochka data interception and API-first extraction stable;
-2. rebuild the desktop launcher around a strict discovery-first user flow:
+1. keep the launcher as the canonical user entrypoint;
+2. extract reusable Pyaterochka mechanics into generic cores and store adapters;
+3. rebuild the desktop workflow around strict discovery-first behavior:
    - research store;
    - choose discovered catalog nodes;
    - collect products from selected nodes;
@@ -15,18 +16,20 @@ The active track is now split into two coupled layers:
    - build the final Excel/report output.
 
 Architecture and delivery decisions for this stage are tracked in
-`docs/ROADMAP_V1.md`. Use this file for the main roadmap; use this document for
-the current active execution track.
+`docs/TARGET_ARCHITECTURE.md` and `docs/ROADMAP_V1.md`. Use the target
+architecture for layer boundaries and the roadmap for delivery order.
 
 ## Immediate Plan
 
 Current Launcher V2 source of truth:
 
+- `docs/TARGET_ARCHITECTURE.md`
 - `docs/LAUNCHER_ARCHITECTURE.md`
 - `docs/superpowers/specs/2026-05-23-launcher-v2-discovery-workflow-design.md`
 
-Older implementation plans in `docs/superpowers/plans/` are retained as
-history only. They are not the current source of truth for Launcher V2.
+Older implementation plans were moved to
+`archive/project_history/superpowers/plans/` as history only. They are not the
+current source of truth for Launcher V2.
 
 1. Keep the current local task layer stable:
    - onboarding discovery;
@@ -34,6 +37,9 @@ history only. They are not the current source of truth for Launcher V2.
    - Pyaterochka wine export;
    - report export from SQLite;
    - report filter options.
+   - Unknown sites must not return a generated scaffold as progress; active
+     onboarding runs store-neutral discovery and reports `discovery_only` until
+     a real runtime adapter is available.
 2. Keep the unified launcher-facing result contract stable:
    - `LocalTaskProcessResult`;
    - first-class `report_summary`, `export_summary`,
@@ -54,13 +60,12 @@ history only. They are not the current source of truth for Launcher V2.
      history are isolated per profile;
    - profile settings may include advanced network/proxy diagnostics without
      exposing secrets in the UI or stored artifacts.
-5. Keep Pyaterochka runtime as a legacy reference and temporary store-specific
-   adapter only:
+5. Keep Pyaterochka mechanics as reference material and expose them through a
+   store-specific adapter only:
    - do not make it the generic Launcher V2 engine;
    - extract reusable mechanics only behind generic browser/session/protection
      contracts;
-   - keep the old path for diagnostics and comparison while the store-neutral
-     pipeline matures.
+   - archive old parser/runtime files after their useful mechanics are extracted.
 6. Continue improving `Исследование` as a store-neutral Camoufox walker:
    - serial single-page browser session;
    - menu expansion before tree capture;
@@ -73,17 +78,31 @@ history only. They are not the current source of truth for Launcher V2.
 
 ## Next Refactors
 
-- Use `docs/PROJECT_FILE_FLOW_MAP.md` before deleting or quarantining code:
+- Use `docs/PROJECT_STRUCTURE.md` and `docs/PROJECT_FILE_FLOW_MAP.md` before
+  deleting or quarantining code:
   it shows launch paths, local imports, test-only imports and cleanup review
   candidates.
-- Add Launcher V2 state models:
-  - profile state;
-  - catalog tree selection state;
-  - product workspace state;
-  - dynamic filter state;
-  - task/result state.
-- Keep `parsers/base.py` as the canonical active parser contract.
-- Keep legacy parser modules quarantined from active runtime.
+- Use `docs/LEGACY_MIGRATION_BACKLOG.md` for the exact order of legacy archive
+  slices.
+- Continue wiring Launcher V2 state models into visible launcher workflows:
+  - keep catalog/result/filter panels reading synchronized
+    profile/catalog/products/filter/result state first, with raw
+    `launcher_view` only as a compatibility fallback;
+  - keep status summaries and browser preview aligned with the same structured
+    state-first rule;
+  - keep report/filter controller helpers mirroring loaded facets and discovered
+    product fields into `dynamic_filters` and `products.discovered_fields`;
+  - keep Launcher V2 per-site workspace snapshots writing catalog tree,
+    diagnostics, selected nodes and report artifacts without mixing them into
+    discovery-only profile history;
+  - keep `launcher_view` as a compatibility/view-model surface until every tab
+    consumes the structured workspace state directly.
+- Keep controller/test files below the architecture-check line budget when adding
+  new Launcher V2 behavior.
+- Treat `main.py`, `parsers/`, `strategies/` and `policies/` as legacy archive
+  candidates, not product runtime.
+- Do not repair legacy bugs unless the code is being extracted into a target
+  core or store adapter.
 - Move more store-specific route and API markers into each store KB file as
   those stores are stabilized.
 - Keep installer/update work out of the active code path until GUI MVP exists.

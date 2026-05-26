@@ -42,7 +42,7 @@ def test_build_result_rows_reads_export_json(tmp_path: Path) -> None:
 
 def test_build_result_rows_falls_back_to_report_summary() -> None:
     state = LauncherAppState()
-    state.result.launcher_view = {
+    state.result.summary = {
         "report_summary": {
             "category_counts": {
                 "Рыба": 10,
@@ -66,7 +66,7 @@ def test_build_summary_text_uses_report_and_filter_data() -> None:
     state.result.json_path = "C:/tmp/reports/fish.json"
     state.filters.suppliers = ["Море", "Океан"]
     state.filters.strict_missing = True
-    state.result.launcher_view = {
+    state.result.summary = {
         "report_summary": {
             "products_count": 12,
             "categories": ["Рыба", "Морепродукты"],
@@ -123,7 +123,7 @@ def test_build_summary_text_keeps_export_breakdown_out_of_research_summary() -> 
 
 def test_build_summary_text_marks_report_summary_source() -> None:
     state = LauncherAppState()
-    state.result.launcher_view = {
+    state.result.summary = {
         "report_summary": {
             "products_count": 2,
             "category_counts": {"Рыба": 2},
@@ -141,7 +141,7 @@ def test_build_summary_text_marks_report_summary_source() -> None:
 def test_build_result_caption_text_renders_result_context() -> None:
     state = LauncherAppState()
     state.filters.suppliers = ["Море"]
-    state.result.launcher_view = {
+    state.result.summary = {
         "report_summary": {
             "category_counts": {"Рыба": 2},
         }
@@ -208,7 +208,7 @@ def test_build_summary_text_shows_store_research_result() -> None:
     state.research.active_profile_id = "profile-1"
     state.research.active_profile_version_id = "version-2"
     state.research.streamed_categories = ["Рыба", "Морепродукты"]
-    state.result.launcher_view = {
+    state.result.summary = {
         "category_tree": [
             {"name": "Рыба", "url": "https://example.test/fish"},
             {"name": "Морепродукты", "url": "https://example.test/seafood"},
@@ -231,18 +231,18 @@ def test_build_summary_text_shows_store_research_result() -> None:
 
 def test_build_summary_text_shows_full_catalog_result() -> None:
     state = LauncherAppState()
-    state.result.launcher_view = {
-        "full_catalog_tree": [
-            {
-                "name": "Каталог",
-                "url": "https://example.test/catalog",
-                "children": [{"name": "Рыба", "url": "https://example.test/catalog/fish", "children": []}],
-            }
-        ],
-        "full_catalog_links": [
-            {"name": "Каталог", "url": "https://example.test/catalog"},
-            {"name": "Рыба", "url": "https://example.test/catalog/fish"},
-        ],
+    state.catalog.full_tree = [
+        {
+            "name": "Каталог",
+            "url": "https://example.test/catalog",
+            "children": [{"name": "Рыба", "url": "https://example.test/catalog/fish", "children": []}],
+        }
+    ]
+    state.catalog.full_links = [
+        {"name": "Каталог", "url": "https://example.test/catalog"},
+        {"name": "Рыба", "url": "https://example.test/catalog/fish"},
+    ]
+    state.result.summary = {
         "catalog_discovery": {"surface_type": "category_tree"},
     }
 
@@ -263,7 +263,7 @@ def test_build_summary_text_hides_quiet_stream_until_completion() -> None:
     state = LauncherAppState()
     state.research.mode = "quiet"
     state.research.current_phase = "persist_profile"
-    state.result.launcher_view = {
+    state.result.summary = {
         "category_tree": [{"name": "Рыба", "url": "https://example.test/fish"}],
     }
 

@@ -26,8 +26,6 @@ class ArtifactPaths(BaseModel):
     runtime_report_dir: str = ""
     session_state_path: str = ""
     kb_draft_path: str = ""
-    backend_stub_path: str = ""
-    capture_stub_path: str = ""
 
 
 class OnboardingResult(BaseModel):

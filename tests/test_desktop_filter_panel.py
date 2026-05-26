@@ -23,11 +23,9 @@ def test_filter_panel_collects_multi_select_and_value_filters() -> None:
     app = QApplication.instance() or QApplication([])
     shell = _DummyShell()
     shell._qtwidgets = qtwidgets
-    shell.state.result.launcher_view = {
-        "available_filter_counts": {
-            "suppliers": {"Free Feather": 3},
-            "brands": {"OddBird": 2},
-        }
+    shell.state.dynamic_filters.counts = {
+        "suppliers": {"Free Feather": 3},
+        "brands": {"OddBird": 2},
     }
     shell.state.filters.suppliers = ["Free Feather"]
     box = build_filter_box(shell, qtwidgets)
@@ -47,6 +45,49 @@ def test_filter_panel_collects_multi_select_and_value_filters() -> None:
     assert selections["max_price"] == 900.0
     assert selections["in_stock"] is True
     assert selections["strict_missing"] is True
+    box.deleteLater()
+
+
+def test_filter_panel_prefers_structured_filter_counts_over_launcher_view() -> None:
+    QApplication, qtwidgets, _ = load_pyside6()
+    app = QApplication.instance() or QApplication([])
+    shell = _DummyShell()
+    shell._qtwidgets = qtwidgets
+    shell.state.dynamic_filters.counts = {
+        "suppliers": {"Structured": 3},
+    }
+    shell.state.result.launcher_view = {
+        "available_filter_counts": {
+            "suppliers": {"Legacy": 9},
+        }
+    }
+
+    box = build_filter_box(shell, qtwidgets)
+    refresh_filter_widgets(shell)
+
+    suppliers = shell.filter_widgets["suppliers"]
+    assert app is not None
+    assert [suppliers.item(index).text() for index in range(suppliers.count())] == ["Structured (3)"]
+    box.deleteLater()
+
+
+def test_filter_panel_reads_legacy_filter_counts_when_structured_state_empty() -> None:
+    QApplication, qtwidgets, _ = load_pyside6()
+    app = QApplication.instance() or QApplication([])
+    shell = _DummyShell()
+    shell._qtwidgets = qtwidgets
+    shell.state.result.launcher_view = {
+        "available_filter_counts": {
+            "suppliers": {"Legacy": 9},
+        }
+    }
+
+    box = build_filter_box(shell, qtwidgets)
+    refresh_filter_widgets(shell)
+
+    suppliers = shell.filter_widgets["suppliers"]
+    assert app is not None
+    assert [suppliers.item(index).text() for index in range(suppliers.count())] == ["Legacy (9)"]
     box.deleteLater()
 
 
@@ -101,7 +142,7 @@ def test_filter_panel_renders_found_filters_scroll_area_when_present(
     app = QApplication.instance() or QApplication([])
     shell = _DummyShell()
     shell._qtwidgets = qtwidgets
-    shell.state.result.launcher_view = {"found_filters": found_filters}
+    shell.state.products.discovered_fields = found_filters
 
     box = build_filter_box(shell, qtwidgets)
     refresh_filter_widgets(shell)
@@ -117,6 +158,39 @@ def test_filter_panel_renders_found_filters_scroll_area_when_present(
     assert found_group is not None
     assert scroll_area is not None
     assert [widget.item(index).text() for index in range(widget.count())] == expected_items
+    box.deleteLater()
+
+
+def test_filter_panel_prefers_structured_found_filters_over_launcher_view() -> None:
+    QApplication, qtwidgets, _ = load_pyside6()
+    app = QApplication.instance() or QApplication([])
+    shell = _DummyShell()
+    shell._qtwidgets = qtwidgets
+    shell.state.products.discovered_fields = {"supplier_origin": {"Structured": 3}}
+    shell.state.result.launcher_view = {"found_filters": {"supplier_origin": {"Legacy": 9}}}
+
+    box = build_filter_box(shell, qtwidgets)
+    refresh_filter_widgets(shell)
+
+    widget = shell.found_filter_widgets["supplier_origin"]
+    assert app is not None
+    assert [widget.item(index).text() for index in range(widget.count())] == ["Structured (3)"]
+    box.deleteLater()
+
+
+def test_filter_panel_reads_legacy_found_filters_when_structured_state_empty() -> None:
+    QApplication, qtwidgets, _ = load_pyside6()
+    app = QApplication.instance() or QApplication([])
+    shell = _DummyShell()
+    shell._qtwidgets = qtwidgets
+    shell.state.result.launcher_view = {"found_filters": {"supplier_origin": {"Legacy": 9}}}
+
+    box = build_filter_box(shell, qtwidgets)
+    refresh_filter_widgets(shell)
+
+    widget = shell.found_filter_widgets["supplier_origin"]
+    assert app is not None
+    assert [widget.item(index).text() for index in range(widget.count())] == ["Legacy (9)"]
     box.deleteLater()
 
 

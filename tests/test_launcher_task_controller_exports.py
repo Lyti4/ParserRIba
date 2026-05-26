@@ -34,11 +34,13 @@ def test_run_launcher_wine_export_uses_named_task_and_payload(tmp_path: Path) ->
         listen_seconds=6,
         headless=True,
         manual_wait=False,
+        timeout_seconds=222,
     )
 
     assert result.manifest.task_name == "pyaterochka_wine_export"
     assert result.manifest.intent == "wine_catalog"
     assert captured["task_name"] == "pyaterochka_wine_export"
+    assert captured["timeout_seconds"] == 222
     task_input = captured["task_input"]
     assert task_input["attempts"] == 2
     assert task_input["listen_seconds"] == 6
@@ -78,11 +80,13 @@ def test_run_launcher_fish_export_uses_named_task_and_payload(tmp_path: Path) ->
         listen_seconds=4,
         headless=False,
         manual_wait=True,
+        timeout_seconds=333,
     )
 
     assert result.manifest.task_name == "pyaterochka_fish_export"
     assert result.manifest.intent == "fish_catalog"
     assert captured["task_name"] == "pyaterochka_fish_export"
+    assert captured["timeout_seconds"] == 333
     assert captured["task_input"] == {
         "category": "Р В РЎвЂ№Р В±Р В°",
         "category_url": "https://5ka.ru/catalog/zavtraki--251C12891/",

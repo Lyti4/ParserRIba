@@ -15,12 +15,11 @@ FILTER_COUNT_KEYS = {
 }
 
 
-def extract_filter_counts(launcher_view: dict[str, Any], filter_name: str) -> dict[str, int]:
-    """Extract one filter facet count mapping from launcher_view."""
-    available_filter_counts = launcher_view.get("available_filter_counts")
-    if not isinstance(available_filter_counts, dict):
-        return {}
-    facet = available_filter_counts.get(FILTER_COUNT_KEYS[filter_name])
+def extract_filter_counts(source: dict[str, Any], filter_name: str) -> dict[str, int]:
+    """Extract one filter facet count mapping from dynamic-filter counts."""
+    available_filter_counts = source.get("available_filter_counts")
+    counts = available_filter_counts if isinstance(available_filter_counts, dict) else source
+    facet = counts.get(FILTER_COUNT_KEYS[filter_name])
     if not isinstance(facet, dict):
         return {}
     result: dict[str, int] = {}

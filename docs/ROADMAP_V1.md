@@ -4,21 +4,21 @@ Date: 2026-05-20
 
 ## Purpose
 
-This is the primary architecture and delivery roadmap for the current ParserRIba
-stage. Use this file as the first architecture reference when continuing work,
-reviewing scope, or deciding whether a change belongs in v1 or later.
+This is the delivery roadmap for the current ParserRIba stage. The primary
+target architecture and layer doctrine live in `docs/TARGET_ARCHITECTURE.md`.
+Use this file for delivery order and the target architecture for boundaries.
 
 Launcher V2 details are tracked in
 `docs/superpowers/specs/2026-05-23-launcher-v2-discovery-workflow-design.md`.
-Older launcher and walker plans in `docs/superpowers/plans/` are retained as
-implementation history only.
+Older launcher and walker plans in `archive/project_history/superpowers/plans/`
+are retained as implementation history only.
 
 ## Current Product Direction
 
-ParserRIba v1 is a local-first Windows desktop application. The working shape
-is:
+ParserRIba v1 is a local-first Windows desktop application. The canonical
+product flow is:
 
-`Desktop Launcher -> Local Task/Actor -> Store Backend -> Storage -> Reports`
+`Launcher -> Task Orchestrator -> Browser/Discovery Core -> Store Adapter -> Product Core -> Filter Core -> Report Core -> Storage/Profile Core`
 
 The target user experience is: enter a store URL, research the site through the
 project browser/runtime, build a local store profile with discovered catalog
@@ -30,20 +30,17 @@ Current priorities:
 
 1. Keep Pyaterochka stable.
 2. Keep scraping runtime local: Python + Camoufox.
-3. Ship Launcher V2 over generic site profiles and existing task/runtime
-   contracts.
+3. Ship Launcher V2 over generic site profiles, catalog trees, product
+   workspaces, dynamic filters and report contracts.
 4. Use local SQLite, JSON, and Excel as the main artifacts.
 5. Expand to additional stores only through the onboarding/discovery path.
 
-For Pyaterochka, "stable" explicitly means preserving the protected-store
-mechanics already built into the parser path: Camoufox configuration, RU proxy
-and GeoIP handling, persistent profile/session reuse, human-like behavior,
-safe interception, API-first candidate extraction, DOM fallback, and
-anti-bot/proxy/error reporting. Pyaterochka remains a legacy reference and
-temporary store-specific adapter for product export while Launcher V2 evolves as
-a store-neutral profile, catalog, product, filter and report workspace. The new
-launcher must not replace the protected Pyaterochka path with a simplified
-scraper, but it also must not be built around Pyaterochka internals.
+For Pyaterochka, "stable" means preserving protected-store mechanics as reusable
+behavior behind a store adapter: Camoufox configuration, RU proxy and GeoIP
+handling, persistent profile/session reuse, human-like behavior, safe
+interception, API-first candidate extraction, DOM fallback and anti-bot/proxy
+reporting. The old parser layer itself is not the product runtime and should be
+archived after useful mechanics are extracted.
 
 What is explicitly out of scope for v1:
 
@@ -59,7 +56,9 @@ unless promoted by an explicit decision.
 
 ## Runtime Architecture
 
-The current architecture is split into five layers.
+The current code still lives in transitional folders, but the target product
+architecture is split into the cores described in `docs/TARGET_ARCHITECTURE.md`.
+Legacy parser files are not a product layer.
 
 ### 1. Launcher Layer
 
@@ -91,9 +90,9 @@ The current architecture is split into five layers.
   - Pyaterochka wine export;
   - report export from SQLite.
 
-### 3. Store Backend Layer
+### 3. Store Adapter Layer
 
-- Store-specific runtime logic stays behind store backends.
+- Store-specific runtime logic stays behind store adapters.
 - URLs, route markers, category names, and store rules stay in `knowledge_base/`.
 - A new store becomes runtime-ready only after discovery confirms real catalog
   structure and useful payload fields.
@@ -245,6 +244,7 @@ Example:
 
 ## Near-Term Implementation Order
 
+0. Treat `docs/TARGET_ARCHITECTURE.md` as the source of layer boundaries.
 1. Keep task and launcher contracts stable.
 2. Finalize one normalized launcher view-model over task results.
 3. Rebuild the PySide6 shell as Launcher V2:
@@ -256,4 +256,5 @@ Example:
    scraping.
 8. Add one more real store through discovery-first onboarding after the
    Launcher V2 flow is usable for Pyaterochka.
-9. Only then move to packaging, installer, and release flow.
+9. Archive legacy parser/strategy/policy files once active imports are removed.
+10. Only then move to packaging, installer, and release flow.

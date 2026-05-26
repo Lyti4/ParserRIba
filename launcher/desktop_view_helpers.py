@@ -6,6 +6,14 @@ from pathlib import Path
 
 
 from launcher.desktop_result_table import build_result_table
+from launcher.desktop_state_readers import (
+    catalog_discovery,
+    category_tree,
+    diagnostics_summary,
+    full_catalog_links,
+    full_catalog_tree,
+    report_summary,
+)
 from launcher.desktop_ui_text import (
     display_research_mode,
     display_research_phase,
@@ -48,29 +56,29 @@ def build_summary_text(state: LauncherAppState) -> str:
     catalog_type = _catalog_type(state)
     if catalog_type:
         lines.append(f"Тип каталога: {catalog_type}")
-    category_tree = _category_tree(state)
-    if isinstance(category_tree, list) and category_tree:
+    tree = _category_tree(state)
+    if tree:
         names = [
             str(item.get("name") or "").strip()
-            for item in category_tree
-            if isinstance(item, dict) and str(item.get("name") or "").strip()
+            for item in tree
+            if str(item.get("name") or "").strip()
         ]
-        lines.append(f"Разделов каталога найдено: {len(category_tree)}")
+        lines.append(f"Разделов каталога найдено: {len(tree)}")
         if names:
             lines.append(f"Найденные разделы: {', '.join(names[:6])}")
-    full_catalog_links = state.catalog.full_links or _view_list(state, "full_catalog_links")
-    full_catalog_tree = state.catalog.full_tree or _view_list(state, "full_catalog_tree")
-    if isinstance(full_catalog_links, list) and full_catalog_links:
-        lines.append(f"Полный каталог: найдено URL разделов: {len(full_catalog_links)}")
+    catalog_links = full_catalog_links(state)
+    catalog_tree = full_catalog_tree(state)
+    if catalog_links:
+        lines.append(f"Полный каталог: найдено URL разделов: {len(catalog_links)}")
         names = [
             str(item.get("name") or "").strip()
-            for item in full_catalog_links
-            if isinstance(item, dict) and str(item.get("name") or "").strip()
+            for item in catalog_links
+            if str(item.get("name") or "").strip()
         ]
         if names:
             lines.append(f"Первые разделы полного каталога: {', '.join(names[:8])}")
-    elif isinstance(full_catalog_tree, list) and full_catalog_tree:
-        lines.append(f"Полный каталог: корневых разделов: {len(full_catalog_tree)}")
+    elif catalog_tree:
+        lines.append(f"Полный каталог: корневых разделов: {len(catalog_tree)}")
 
     return "\n".join(lines) if lines else "Пока нет данных."
 
@@ -153,7 +161,7 @@ def _result_context_parts(state: LauncherAppState) -> list[str]:
         parts.append("\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a: \u043e\u0442\u0444\u0438\u043b\u044c\u0442\u0440\u043e\u0432\u0430\u043d\u043d\u044b\u0439 JSON \u0432\u044b\u0433\u0440\u0443\u0437\u043a\u0438" if active_filters else "\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a: JSON \u0432\u044b\u0433\u0440\u0443\u0437\u043a\u0438")
     elif _report_summary(state):
         parts.append("\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a: \u0441\u0432\u043e\u0434\u043a\u0430 \u043f\u043e \u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d\u043d\u043e\u043c\u0443 \u043e\u0442\u0447\u0451\u0442\u0443")
-    elif state.catalog.full_tree or state.result.launcher_view.get("full_catalog_tree"):
+    elif full_catalog_tree(state):
         parts.append("\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a: \u043f\u043e\u043b\u043d\u044b\u0439 \u043a\u0430\u0442\u0430\u043b\u043e\u0433 \u0438\u0441\u0441\u043b\u0435\u0434\u043e\u0432\u0430\u043d\u0438\u044f")
     elif _category_tree(state):
         parts.append("\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a: \u0438\u0441\u0441\u043b\u0435\u0434\u043e\u0432\u0430\u043d\u0438\u0435 \u043c\u0430\u0433\u0430\u0437\u0438\u043d\u0430")
@@ -190,42 +198,19 @@ def _active_filter_parts(state: LauncherAppState) -> list[str]:
 
 
 def _report_summary(state: LauncherAppState) -> dict:
-    summary = state.result.summary.get("report_summary")
-    if isinstance(summary, dict):
-        return summary
-    view_summary = state.result.launcher_view.get("report_summary")
-    return view_summary if isinstance(view_summary, dict) else {}
+    return report_summary(state)
 
 
 def _diagnostics(state: LauncherAppState) -> dict:
-    if state.profile.diagnostics:
-        return dict(state.profile.diagnostics)
-    diagnostics = state.result.summary.get("diagnostics_summary")
-    if isinstance(diagnostics, dict):
-        return diagnostics
-    view_diagnostics = state.result.launcher_view.get("diagnostics_summary")
-    return view_diagnostics if isinstance(view_diagnostics, dict) else {}
+    return diagnostics_summary(state)
 
 
 def _category_tree(state: LauncherAppState) -> list:
-    category_tree = state.result.summary.get("category_tree")
-    if isinstance(category_tree, list) and category_tree:
-        return category_tree
-    view_tree = state.result.launcher_view.get("category_tree")
-    if isinstance(view_tree, list) and view_tree:
-        return view_tree
-    return state.catalog.full_tree
+    return category_tree(state)
 
 
 def _catalog_type(state: LauncherAppState) -> str:
     if state.catalog.catalog_type:
         return state.catalog.catalog_type
-    discovery = state.result.summary.get("catalog_discovery")
-    if not isinstance(discovery, dict):
-        discovery = state.result.launcher_view.get("catalog_discovery")
+    discovery = catalog_discovery(state)
     return str(discovery.get("surface_type") or "") if isinstance(discovery, dict) else ""
-
-
-def _view_list(state: LauncherAppState, key: str) -> list:
-    value = state.result.launcher_view.get(key)
-    return value if isinstance(value, list) else []

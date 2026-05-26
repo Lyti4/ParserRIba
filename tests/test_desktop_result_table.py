@@ -80,6 +80,26 @@ def test_build_result_table_skips_blank_and_duplicate_catalog_rows() -> None:
     assert table["rows"] == [["1", "Napekli vam skidok", "https://5ka.ru/catalog/napekli/", "0"]]
 
 
+def test_build_result_table_reads_full_catalog_tree_from_summary() -> None:
+    state = LauncherAppState()
+    state.result.summary = {
+        "full_catalog_tree": [
+            {
+                "name": "Каталог",
+                "url": "https://example.test/catalog/",
+                "children": [{"name": "Рыба", "url": "https://example.test/catalog/fish/"}],
+            }
+        ]
+    }
+
+    table = build_result_table(state)
+
+    assert table["rows"] == [
+        ["0", "Каталог", "https://example.test/catalog/", "1"],
+        ["1", "Рыба", "https://example.test/catalog/fish/", "0"],
+    ]
+
+
 def test_build_result_table_applies_selected_export_filters(tmp_path: Path) -> None:
     json_path = tmp_path / "products.json"
     json_path.write_text(

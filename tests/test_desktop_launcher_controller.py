@@ -155,7 +155,7 @@ def test_desktop_launcher_controller_runs_selected_export_for_every_category(tmp
         json_path.write_text(
             (
                 '{"products":[{"category":"%s","name":"Product %s","brand":"Brand %s",'
-                '"subcategory":"Style %s","raw_data":{"supplier":"Supplier %s","alcohol_type":"Безалкогольное"}}]}'
+                '"subcategory":"Style %s","raw_data":{"supplier":"Supplier %s","alcohol_type":"Безалкогольное","country":"Норвегия"}}]}'
             )
             % (category_name, category_name, category_name, category_name, category_name),
             encoding="utf-8",
@@ -217,6 +217,11 @@ def test_desktop_launcher_controller_runs_selected_export_for_every_category(tmp
         "Supplier Рыба": 1,
         "Supplier Морепродукты": 1,
     }
+    assert controller.state.dynamic_filters.counts["suppliers"] == {
+        "Supplier Рыба": 1,
+        "Supplier Морепродукты": 1,
+    }
+    assert controller.state.products.discovered_fields == {"country": {"Норвегия": 2}}
 
 
 def test_desktop_launcher_controller_save_settings_sets_message(tmp_path: Path) -> None:
@@ -319,6 +324,7 @@ def test_desktop_launcher_controller_preserves_report_result_when_loading_filter
     assert controller.state.result.json_path.endswith("fish.json")
     assert controller.state.result.launcher_view["report_summary"]["products_count"] == 2
     assert controller.state.result.launcher_view["available_filter_counts"]["suppliers"] == {"Море": 2}
+    assert controller.state.dynamic_filters.counts["suppliers"] == {"Море": 2}
 
 
 def test_desktop_launcher_controller_explains_empty_filter_options(tmp_path: Path) -> None:

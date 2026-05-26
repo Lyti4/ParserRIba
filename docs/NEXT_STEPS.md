@@ -87,6 +87,8 @@ current source of truth for Launcher V2.
     `launcher_view` only as a compatibility fallback;
   - keep status summaries and browser preview aligned with the same structured
     state-first rule;
+  - keep report/filter controller helpers mirroring loaded facets and discovered
+    product fields into `dynamic_filters` and `products.discovered_fields`;
   - keep Launcher V2 per-site workspace snapshots writing catalog tree,
     diagnostics, selected nodes and report artifacts without mixing them into
     discovery-only profile history;

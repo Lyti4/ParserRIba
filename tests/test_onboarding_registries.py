@@ -11,6 +11,10 @@ def test_get_artifact_generator_returns_default(tmp_path: Path) -> None:
 
     assert paths.runtime_report_dir.endswith("demo_store")
     assert Path(paths.kb_draft_path).exists()
+    assert "generated_scaffolds" not in paths.kb_draft_path
+    assert "backend_stub_path" not in paths.model_dump()
+    assert "capture_stub_path" not in paths.model_dump()
+    assert not (tmp_path / "generated_scaffolds").exists()
 
 
 def test_get_protection_strategy_returns_pause_for_operator() -> None:

@@ -69,14 +69,18 @@ def test_run_site_onboarding_for_known_site_falls_back_to_kb_categories_after_br
     assert result.diagnostics_summary["category_source"] == "kb_fallback"
 
 
-def test_run_site_onboarding_for_unknown_site_creates_scaffolds(tmp_path: Path) -> None:
+def test_run_site_onboarding_for_unknown_site_creates_real_runtime_artifacts(tmp_path: Path) -> None:
     _prepare_root(tmp_path)
     result = run_site_onboarding(site_url="https://unknown-store.example", root_dir=tmp_path)
     assert result.shop_slug == "unknown-store_example"
     assert result.status == "scaffold_ready"
     assert result.category_tree == []
-    assert Path(result.artifact_paths.backend_stub_path).exists()
-    assert Path(result.artifact_paths.capture_stub_path).exists()
+    assert Path(result.artifact_paths.runtime_report_dir).exists()
+    assert Path(result.artifact_paths.session_state_path).exists()
+    assert Path(result.artifact_paths.kb_draft_path).exists()
+    assert "generated_scaffolds" not in result.artifact_paths.kb_draft_path
+    assert "backend_stub_path" not in result.artifact_paths.model_dump()
+    assert "capture_stub_path" not in result.artifact_paths.model_dump()
 
 
 def test_run_site_onboarding_for_known_non_runtime_site_creates_discovery_only_session(tmp_path: Path) -> None:

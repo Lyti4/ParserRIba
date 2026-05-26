@@ -123,7 +123,8 @@ These paths are local artifacts and should not be committed:
 - `.playwright-mcp/`
 - `ParserRIba Launcher.lnk`
 - `data/`
-- `generated_scaffolds/`
+- `generated_scaffolds/` (legacy local output only; active onboarding does not
+  generate backend/capture stub code)
 - `logs/`
 - `profiles/`
 - `build/`

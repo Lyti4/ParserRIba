@@ -41,17 +41,21 @@ class LocalTaskProcessResult:
 def build_local_task_command(
     *,
     task_name: str,
+    root_dir: Path | str | None = None,
     python_executable: str | None = None,
 ) -> list[str]:
     """Build one launcher task command using stdin JSON transport."""
     python_path = python_executable or sys.executable
-    return [
+    command = [
         python_path,
         str(RUN_LOCAL_TASK_SCRIPT),
         "--task",
         str(task_name),
         "--input-stdin",
     ]
+    if root_dir is not None:
+        command.extend(["--root-dir", str(Path(root_dir))])
+    return command
 
 
 def run_local_task_subprocess(
@@ -66,6 +70,7 @@ def run_local_task_subprocess(
     """Run one local task via subprocess and parse the returned result."""
     command = build_local_task_command(
         task_name=task_name,
+        root_dir=root_dir,
         python_executable=python_executable,
     )
     if show_summary:

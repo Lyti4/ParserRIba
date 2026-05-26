@@ -37,6 +37,9 @@ current source of truth for Launcher V2.
    - Pyaterochka wine export;
    - report export from SQLite;
    - report filter options.
+   - Unknown sites must not return a generated scaffold as progress; active
+     onboarding runs store-neutral discovery and reports `discovery_only` until
+     a real runtime adapter is available.
 2. Keep the unified launcher-facing result contract stable:
    - `LocalTaskProcessResult`;
    - first-class `report_summary`, `export_summary`,

@@ -118,24 +118,6 @@ def _build_onboarding_result(
 ) -> OnboardingResult:
     shop_slug = site_profile.shop if site_profile else derive_shop_slug(site_url)
     artifacts = get_artifact_generator("default")(root_dir, shop_slug)
-    if not site_profile:
-        return OnboardingResult(
-            session_id=session_id or str(uuid.uuid4()),
-            shop_slug=shop_slug,
-            site_url=site_url,
-            intent=intent,
-            status="scaffold_ready",
-            category_tree=[],
-            selected_categories=list(selected_categories or []),
-            artifact_paths=artifacts,
-            diagnostics_summary={
-                "known_backend": False,
-                "runtime_export_ready": False,
-                "category_count": 0,
-                "protection_strategy": "pause_for_operator",
-            },
-        )
-
     research = _run_catalog_research_sync(
         site_url,
         site_profile,
@@ -145,8 +127,8 @@ def _build_onboarding_result(
         research_mode=research_mode,
     )
     discovery = research.catalog_discovery
-    kb_categories = load_kb_categories(root_dir, site_profile.kb_shop)
-    target_categories = resolve_known_site_categories(
+    kb_categories = load_kb_categories(root_dir, site_profile.kb_shop if site_profile else None)
+    target_categories = _resolve_onboarding_categories(
         root_dir=root_dir,
         site_profile=site_profile,
         intent=intent,
@@ -154,6 +136,8 @@ def _build_onboarding_result(
     )
     category_tree = build_category_tree(target_categories, kb_categories, discovery)
     full_catalog_tree = build_full_catalog_tree(discovery)
+    if not category_tree and not site_profile:
+        category_tree = full_catalog_tree
     full_catalog_links = build_full_catalog_links(discovery)
     profile_snapshot_path = persist_research_profile(
         root_dir=root_dir,
@@ -161,8 +145,8 @@ def _build_onboarding_result(
         research=research,
     )
     diagnostics = {
-        "known_backend": True,
-        "runtime_export_ready": bool(site_profile.export_backend_shop),
+        "known_backend": bool(site_profile),
+        "runtime_export_ready": bool(site_profile and site_profile.export_backend_shop),
         "category_count": len(category_tree),
         "full_catalog_count": len(full_catalog_links),
         "category_source": _category_source(discovery, category_tree),
@@ -187,7 +171,7 @@ def _build_onboarding_result(
         shop_slug=shop_slug,
         site_url=site_url,
         intent=intent,
-        status=site_profile.onboarding_status,
+        status=site_profile.onboarding_status if site_profile else "discovery_only",
         category_tree=category_tree,
         selected_categories=list(selected_categories or []),
         active_profile_id=research.profile.profile_id,
@@ -214,7 +198,7 @@ def discover_catalog_for_onboarding(site_url: str) -> CatalogDiscoveryResult:
 
 def _run_catalog_research_sync(
     site_url: str,
-    site_profile: KnownStoreSite,
+    site_profile: KnownStoreSite | None,
     *,
     headless: bool | str | None = None,
     manual_wait: bool = False,
@@ -224,7 +208,7 @@ def _run_catalog_research_sync(
     return asyncio.run(
         run_catalog_tree_discovery(
             site_url,
-            shop=site_profile.shop,
+            shop=site_profile.shop if site_profile else None,
             mode=research_mode,
             headless=headless,
             manual_wait=manual_wait,
@@ -238,3 +222,21 @@ def _category_source(discovery: CatalogDiscoveryResult, category_tree: list[obje
     if discovery.category_links:
         return "browser_discovery"
     return "kb_fallback" if category_tree else "none"
+
+
+def _resolve_onboarding_categories(
+    *,
+    root_dir: Path,
+    site_profile: KnownStoreSite | None,
+    intent: str,
+    discovery: CatalogDiscoveryResult,
+) -> list[str]:
+    """Resolve category candidates for known and store-neutral onboarding."""
+    if site_profile:
+        return resolve_known_site_categories(
+            root_dir=root_dir,
+            site_profile=site_profile,
+            intent=intent,
+            discovery=discovery,
+        )
+    return [item.name or item.url for item in discovery.category_links]

@@ -71,10 +71,39 @@ def test_run_site_onboarding_for_known_site_falls_back_to_kb_categories_after_br
 
 def test_run_site_onboarding_for_unknown_site_creates_real_runtime_artifacts(tmp_path: Path) -> None:
     _prepare_root(tmp_path)
-    result = run_site_onboarding(site_url="https://unknown-store.example", root_dir=tmp_path)
+    import utils.site_onboarding as site_onboarding
+
+    captured: dict[str, object] = {}
+    original_probe = site_onboarding._run_catalog_research_sync
+
+    def fake_probe(*args, **kwargs):
+        captured["site_profile"] = args[1]
+        captured.update(kwargs)
+        return _build_research_result(
+            shop_slug="unknown-store_example",
+            site_url="https://unknown-store.example/catalog",
+            status_code=200,
+            surface_type="category_tree",
+            categories=[
+                ("Р С‹Р±Р°", "https://unknown-store.example/catalog/fish"),
+                ("РњРѕСЂРµРїСЂРѕРґСѓРєС‚С‹", "https://unknown-store.example/catalog/seafood"),
+            ],
+        )
+
+    site_onboarding._run_catalog_research_sync = fake_probe
+    try:
+        result = run_site_onboarding(site_url="https://unknown-store.example", root_dir=tmp_path)
+    finally:
+        site_onboarding._run_catalog_research_sync = original_probe
+
     assert result.shop_slug == "unknown-store_example"
-    assert result.status == "scaffold_ready"
-    assert result.category_tree == []
+    assert result.status == "discovery_only"
+    assert captured["site_profile"] is None
+    assert len(result.category_tree) == 2
+    assert result.diagnostics_summary["known_backend"] is False
+    assert result.diagnostics_summary["runtime_export_ready"] is False
+    assert result.diagnostics_summary["catalog_discovery"]["surface_type"] == "category_tree"
+    assert result.diagnostics_summary["intent_category_links"][0]["url"] == "https://unknown-store.example/catalog/fish"
     assert Path(result.artifact_paths.runtime_report_dir).exists()
     assert Path(result.artifact_paths.session_state_path).exists()
     assert Path(result.artifact_paths.kb_draft_path).exists()

@@ -13,13 +13,17 @@ from utils.local_task_adapter import (
 
 
 def test_build_local_task_command_uses_stdin_transport() -> None:
-    command = build_local_task_command(task_name="site_onboarding_discovery")
+    command = build_local_task_command(
+        task_name="site_onboarding_discovery",
+        root_dir=Path("C:/tmp/ParserRIba-clean"),
+    )
 
     assert command[0] == sys.executable
     assert command[1].endswith("scripts\\run_local_task.py") or command[1].endswith("scripts/run_local_task.py")
     assert "--task" in command
     assert command[command.index("--task") + 1] == "site_onboarding_discovery"
     assert "--input-stdin" in command
+    assert command[command.index("--root-dir") + 1] == str(Path("C:/tmp/ParserRIba-clean"))
     assert "--input-base64" not in command
 
 
@@ -68,11 +72,14 @@ def test_run_local_task_subprocess_returns_manifest(tmp_path: Path) -> None:
     _prepare_root(tmp_path)
 
     result = run_local_task_subprocess(
-        task_name="site_onboarding_discovery",
+        task_name="store_report_filter_options",
         task_input={
-            "site_url": "https://unknown-store.example",
-            "intent": "fish_catalog",
-            "selected_categories": ["Рыба"],
+            "selection": {
+                "shop": "pyaterochka",
+                "intent": "fish_catalog",
+                "categories": ["Рыба"],
+            },
+            "filters": {},
         },
         root_dir=tmp_path,
         python_executable=sys.executable,
@@ -80,20 +87,23 @@ def test_run_local_task_subprocess_returns_manifest(tmp_path: Path) -> None:
 
     assert isinstance(result, LocalTaskProcessResult)
     assert isinstance(result.manifest, RunManifest)
-    assert result.manifest.task_name == "site_onboarding_discovery"
-    assert result.manifest.status == "scaffold_ready"
-    assert result.manifest.summary["selected_categories"] == ["Рыба"]
+    assert result.manifest.task_name == "store_report_filter_options"
+    assert result.manifest.status == "empty"
+    assert result.manifest.summary["categories"] == []
 
 
 def test_run_local_task_subprocess_returns_summary_text(tmp_path: Path) -> None:
     _prepare_root(tmp_path)
 
     result = run_local_task_subprocess(
-        task_name="site_onboarding_discovery",
+        task_name="store_report_filter_options",
         task_input={
-            "site_url": "https://unknown-store.example",
-            "intent": "fish_catalog",
-            "selected_categories": ["Рыба"],
+            "selection": {
+                "shop": "pyaterochka",
+                "intent": "fish_catalog",
+                "categories": ["Рыба"],
+            },
+            "filters": {},
         },
         root_dir=tmp_path,
         python_executable=sys.executable,
@@ -102,9 +112,9 @@ def test_run_local_task_subprocess_returns_summary_text(tmp_path: Path) -> None:
 
     assert isinstance(result, LocalTaskProcessResult)
     assert isinstance(result.manifest, RunManifest)
-    assert result.manifest.status == "scaffold_ready"
-    assert "Task: site_onboarding_discovery" in result.summary_text
-    assert "Selected categories: Рыба" in result.summary_text
+    assert result.manifest.status == "empty"
+    assert "Task: store_report_filter_options" in result.summary_text
+    assert "Products: 0" in result.summary_text
 
 
 def test_build_local_task_process_result_exposes_first_class_report_summary() -> None:

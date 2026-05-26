@@ -7,7 +7,22 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from models.launcher_state import LauncherAppState
 from utils.local_task_adapter import LocalTaskProcessResult, build_local_task_process_result
+
+
+def available_category_names(state: LauncherAppState) -> list[str]:
+    """Return launcher-visible categories from structured state first."""
+    view = state.result.launcher_view
+    if _launcher_view_target_mismatch(view, state.selection.shop, state.selection.intent):
+        return []
+    summary_tree = _dict_list(state.result.summary.get("category_tree"))
+    if summary_tree:
+        return _category_names(summary_tree)
+    full_tree = _dict_list(state.catalog.full_tree)
+    if full_tree:
+        return _category_names(_visible_catalog_roots(full_tree))
+    return discovered_category_names(view)
 
 
 def discovered_category_names(launcher_view: dict[str, Any]) -> list[str]:
@@ -15,14 +30,40 @@ def discovered_category_names(launcher_view: dict[str, Any]) -> list[str]:
     category_tree = launcher_view.get("category_tree")
     if not isinstance(category_tree, list):
         return []
+    return _category_names(_dict_list(category_tree))
+
+
+def _launcher_view_target_mismatch(
+    launcher_view: dict[str, Any],
+    current_shop: str,
+    current_intent: str,
+) -> bool:
+    view_shop = str(launcher_view.get("shop") or "").strip()
+    view_intent = str(launcher_view.get("intent") or "").strip()
+    return bool(
+        (view_shop and view_shop != current_shop)
+        or (view_intent and view_intent != current_intent)
+    )
+
+
+def _visible_catalog_roots(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if len(nodes) != 1:
+        return nodes
+    children = nodes[0].get("children")
+    return _dict_list(children) or nodes
+
+
+def _category_names(nodes: list[dict[str, Any]]) -> list[str]:
     names: list[str] = []
-    for node in category_tree:
-        if not isinstance(node, dict):
-            continue
+    for node in nodes:
         name = str(node.get("name") or "").strip()
         if name:
             names.append(name)
     return names
+
+
+def _dict_list(value: Any) -> list[dict[str, Any]]:
+    return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
 
 
 def combine_export_results(
@@ -212,11 +253,6 @@ def onboarding_result_message(summary: dict[str, Any]) -> str:
             f"Полный каталог: {full_catalog_count} URL."
         )
     return f"Исследование магазина завершено. Найдено разделов: {category_count}"
-
-
-def default_category_name(intent: str) -> str:
-    """Return one fallback category name for the selected launcher intent."""
-    return "Вино" if intent == "wine_catalog" else "Рыба"
 
 
 def selected_export_categories(categories: list[str], intent: str) -> list[str]:

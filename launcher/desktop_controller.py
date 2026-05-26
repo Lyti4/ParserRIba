@@ -10,9 +10,9 @@ from typing import Any, Callable
 
 from launcher.desktop_controller_helpers import (
     artifact_or_existing,
+    available_category_names,
     capture_export_payload,
     combine_export_results,
-    discovered_category_names,
     merge_launcher_view,
     report_dir_from_artifacts,
     reset_result_state_for_onboarding,
@@ -119,10 +119,7 @@ class DesktopLauncherController:
 
     def list_available_categories(self) -> list[str]:
         """Return discovered categories for the currently researched target only."""
-        view = self.state.result.launcher_view
-        if view.get("shop") != self.state.selection.shop or view.get("intent") != self.state.selection.intent:
-            return []
-        return discovered_category_names(view)
+        return available_category_names(self.state)
 
     def run_onboarding_discovery(self, *, site_url: str) -> LocalTaskProcessResult:
         """Run onboarding discovery for a site URL."""

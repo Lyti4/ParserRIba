@@ -52,6 +52,46 @@ def test_desktop_launcher_controller_prefers_discovered_categories_for_matching_
     assert controller.list_available_categories() == ["Рыба", "Морепродукты"]
 
 
+def test_desktop_launcher_controller_reads_available_categories_from_structured_catalog(
+    tmp_path: Path,
+) -> None:
+    controller = DesktopLauncherController(root_dir=tmp_path)
+    controller.state.result.launcher_view = {}
+    controller.state.catalog.full_tree = [
+        {
+            "name": "Каталог",
+            "url": "https://example.test/catalog/",
+            "children": [
+                {"name": "Готовая еда", "url": "https://example.test/catalog/ready/"},
+                {"name": "Рыба", "url": "https://example.test/catalog/fish/"},
+            ],
+        }
+    ]
+
+    assert controller.list_available_categories() == ["Готовая еда", "Рыба"]
+
+
+def test_desktop_launcher_controller_prefers_summary_categories_over_catalog_root(
+    tmp_path: Path,
+) -> None:
+    controller = DesktopLauncherController(root_dir=tmp_path)
+    controller.state.result.summary = {
+        "category_tree": [
+            {"name": "Морепродукты", "url": "https://example.test/catalog/seafood/"}
+        ]
+    }
+    controller.state.catalog.full_tree = [
+        {
+            "name": "Каталог",
+            "children": [
+                {"name": "Готовая еда", "url": "https://example.test/catalog/ready/"}
+            ],
+        }
+    ]
+
+    assert controller.list_available_categories() == ["Морепродукты"]
+
+
 def test_desktop_launcher_controller_ignores_stale_discovery_for_other_intent(tmp_path: Path) -> None:
     controller = DesktopLauncherController(root_dir=tmp_path)
     controller.set_selection(intent="wine_catalog")

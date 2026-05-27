@@ -19,6 +19,7 @@ def test_launcher_app_state_has_desktop_defaults() -> None:
     assert state.profile.profile_id == ""
     assert state.catalog.full_tree == []
     assert state.products.products_count == 0
+    assert state.products.items == []
     assert state.dynamic_filters.available_filters == {}
     assert state.task.progress_current == 0
     assert state.result.launcher_view == {}
@@ -103,6 +104,7 @@ def test_launcher_app_state_round_trips_v2_workspace_sections() -> None:
         },
         products={
             "products_count": 2,
+            "items": [{"id": "fish-1", "name": "Cod"}],
             "source_categories": ["Рыба"],
             "selected_product_ids": ["fish-1"],
             "json_path": "C:/reports/products.json",
@@ -136,6 +138,7 @@ def test_launcher_app_state_round_trips_v2_workspace_sections() -> None:
 
     assert loaded.profile.profile_id == "profile-1"
     assert loaded.catalog.selected_node_urls == ["https://5ka.ru/catalog/ryba/"]
+    assert loaded.products.items == [{"id": "fish-1", "name": "Cod"}]
     assert loaded.products.selected_product_ids == ["fish-1"]
     assert loaded.dynamic_filters.counts == {"brand": {"Nord": 2}}
     assert loaded.task.phase == "collect_products"

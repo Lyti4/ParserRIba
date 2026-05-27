@@ -5,9 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from utils.kb_loader import KBLoader
 from utils.local_task_adapter import LocalTaskProcessResult, run_local_task_subprocess
-from utils.store_catalog_registry import get_store_export_backend
 
 
 def run_launcher_report_export(
@@ -195,14 +193,6 @@ def _resolve_report_categories(
     intent: str,
     categories: list[str] | None,
 ) -> list[str]:
-    """Resolve launcher report categories through the store backend contract."""
-    explicit = [str(item).strip() for item in (categories or []) if str(item).strip()]
-    if explicit:
-        return explicit
-
-    backend = get_store_export_backend(shop, intent)
-    kb_dir = root_dir / "knowledge_base"
-    if not kb_dir.exists():
-        return backend.resolve_categories(backend.default_category, None)
-    kb = KBLoader(str(kb_dir)).load_shop(shop)
-    return backend.resolve_categories(backend.default_category, kb.categories)
+    """Keep report categories limited to explicit launcher selection."""
+    del root_dir, shop, intent
+    return [str(item).strip() for item in (categories or []) if str(item).strip()]

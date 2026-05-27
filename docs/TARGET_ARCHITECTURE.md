@@ -92,6 +92,11 @@ store-specific fields for future filters and reports.
 
 Current sources: `models/schemas.py`, `utils/pyaterochka_export.py`.
 
+Launcher-facing product cards are mirrored into
+`LauncherAppState.products.items`. The desktop `Товары` table and product-card
+details read this structured workspace first, with exported JSON kept as a
+compatibility artifact and report source.
+
 ### Filter Core
 
 Owns dynamic filters derived from collected product data. Filters are not
@@ -106,6 +111,10 @@ Owns Excel/JSON/report output from selected or filtered products.
 
 Current sources: `utils/storage_report_builder.py`, `utils/excel_report.py`,
 `utils/report_export_summary.py`.
+
+Report and filter task wrappers must use explicit launcher selection only. They
+must not synthesize default fish/wine categories when the user has not chosen
+catalog nodes.
 
 ### Storage/Profile Core
 

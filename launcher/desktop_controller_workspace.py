@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 from models.launcher_state import LauncherAppState
@@ -125,6 +127,13 @@ def _sync_product_state(
     state.products.selected_product_ids = list(state.selection.selected_product_ids)
     state.products.json_path = str(artifacts.get("json_path") or state.result.json_path or "")
     state.products.excel_path = str(artifacts.get("excel_path") or state.result.excel_path or "")
+    product_items = _products_from_summary(summary)
+    json_items, json_loaded = _products_from_json_path(state.products.json_path)
+    if not product_items and json_loaded:
+        product_items = json_items
+    if product_items or "products" in summary or json_loaded:
+        state.products.items = product_items
+        state.products.products_count = len(product_items)
     found_fields = view.get("found_filters") or summary.get("found_filters")
     if isinstance(found_fields, dict):
         state.products.discovered_fields = dict(found_fields)
@@ -162,6 +171,22 @@ def _dict_list(value: Any) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
     return [item for item in value if isinstance(item, dict)]
+
+
+def _products_from_summary(summary: dict[str, Any]) -> list[dict[str, Any]]:
+    return _dict_list(summary.get("products"))
+
+
+def _products_from_json_path(json_path: str) -> tuple[list[dict[str, Any]], bool]:
+    path = Path(str(json_path or ""))
+    if not path.exists():
+        return [], False
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return [], False
+    products = payload.get("products")
+    return _dict_list(products), isinstance(products, list)
 
 
 def _str_list(value: Any) -> list[str]:

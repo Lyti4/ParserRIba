@@ -124,6 +124,45 @@ def test_desktop_launcher_controller_syncs_result_summary_and_artifacts(tmp_path
     assert controller.state.result.json_path.endswith("fish.json")
 
 
+def test_desktop_launcher_controller_syncs_products_from_summary(tmp_path: Path) -> None:
+    def fake_fish_report_runner(**kwargs):
+        del kwargs
+        return build_local_task_process_result(
+            manifest=RunManifest(
+                task_name="store_report_export",
+                shop="pyaterochka",
+                intent="fish_catalog",
+                status="ok",
+                summary={
+                    "products_count": 1,
+                    "products": [
+                        {
+                            "id": "fish-1",
+                            "category": "Fish",
+                            "name": "Cod",
+                            "raw_data": {"supplier": "Nord"},
+                        }
+                    ],
+                },
+            )
+        )
+
+    controller = DesktopLauncherController(root_dir=tmp_path, fish_report_runner=fake_fish_report_runner)
+    controller.set_selection(intent="fish_catalog", categories=["Fish"])
+
+    controller.run_selected_report_export()
+
+    assert controller.state.products.products_count == 1
+    assert controller.state.products.items == [
+        {
+            "id": "fish-1",
+            "category": "Fish",
+            "name": "Cod",
+            "raw_data": {"supplier": "Nord"},
+        }
+    ]
+
+
 def test_desktop_launcher_controller_hydrates_workspace_state_from_launcher_view(tmp_path: Path) -> None:
     def fake_onboarding_runner(**kwargs):
         del kwargs

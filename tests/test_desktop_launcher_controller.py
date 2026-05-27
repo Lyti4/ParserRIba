@@ -251,7 +251,7 @@ def test_desktop_launcher_controller_runs_selected_export_for_every_category(tmp
     assert result.export_summary["categories"] == ["Рыба", "Морепродукты"]
     assert controller.state.result.json_path.endswith("_selected.json")
     combined_payload = json.loads(Path(controller.state.result.json_path).read_text(encoding="utf-8"))
-    assert combined_payload["products_count"] == 2
+    assert len(controller.state.products.items) == combined_payload["products_count"] == 2
     assert len(combined_payload["products"]) == 2
     assert controller.state.result.launcher_view["available_filter_counts"]["suppliers"] == {
         "Supplier Рыба": 1,

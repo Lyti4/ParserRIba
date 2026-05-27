@@ -16,6 +16,7 @@ from launcher.desktop_filter_panel import (
 from launcher.desktop_interaction_state import apply_widget_enabled_state
 from launcher.desktop_product_details import build_product_detail_text
 from launcher.desktop_result_table import build_result_table
+from launcher.desktop_state_readers import product_items
 from launcher.desktop_result_table_widget import populate_result_table_widget
 from launcher.desktop_selection_panel import (
     refresh_catalog_tree,
@@ -274,6 +275,7 @@ class DesktopLauncherShell:
             build_product_detail_text(
                 self.state.result.json_path,
                 self.state.selection.selected_product_ids,
+                product_items(self.state),
             )
         )
 

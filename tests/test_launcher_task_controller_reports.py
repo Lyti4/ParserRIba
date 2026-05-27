@@ -84,7 +84,43 @@ def test_run_launcher_report_filter_options_uses_named_task_and_payload(tmp_path
     }
 
 
-def test_run_launcher_fish_report_export_resolves_categories_from_backend(tmp_path: Path) -> None:
+def test_run_launcher_report_export_keeps_empty_categories_explicit(tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run_local_task_subprocess(**kwargs: object) -> LocalTaskProcessResult:
+        captured.update(kwargs)
+        return _fake_result("store_report_export", shop="pyaterochka", intent="fish_catalog")
+
+    launcher_report_task_controller.run_local_task_subprocess = fake_run_local_task_subprocess
+
+    launcher_task_controller.run_launcher_report_export(
+        root_dir=tmp_path,
+        shop="pyaterochka",
+        intent="fish_catalog",
+    )
+
+    assert captured["task_input"]["selection"]["categories"] == []
+
+
+def test_run_launcher_report_filter_options_keeps_empty_categories_explicit(tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run_local_task_subprocess(**kwargs: object) -> LocalTaskProcessResult:
+        captured.update(kwargs)
+        return _fake_result("store_report_filter_options", shop="pyaterochka", intent="fish_catalog")
+
+    launcher_report_task_controller.run_local_task_subprocess = fake_run_local_task_subprocess
+
+    launcher_task_controller.run_launcher_report_filter_options(
+        root_dir=tmp_path,
+        shop="pyaterochka",
+        intent="fish_catalog",
+    )
+
+    assert captured["task_input"]["selection"]["categories"] == []
+
+
+def test_run_launcher_fish_report_export_keeps_categories_explicit(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
     def fake_run_local_task_subprocess(**kwargs: object) -> LocalTaskProcessResult:
@@ -101,7 +137,7 @@ def test_run_launcher_fish_report_export_resolves_categories_from_backend(tmp_pa
     task_input = captured["task_input"]
     assert task_input["selection"]["shop"] == "pyaterochka"
     assert task_input["selection"]["intent"] == "fish_catalog"
-    assert len(task_input["selection"]["categories"]) == 4
+    assert task_input["selection"]["categories"] == []
     assert task_input["selection"]["selected_product_ids"] == []
     assert task_input["filters"] == {"suppliers": ["Русское море"]}
     assert task_input["output_name"] == "pyaterochka_fish_report"
@@ -134,7 +170,7 @@ def test_run_launcher_wine_report_export_keeps_explicit_categories(tmp_path: Pat
     assert task_input["output_name"] == "wine_free_feather"
 
 
-def test_run_launcher_wine_report_filter_options_resolves_categories(tmp_path: Path) -> None:
+def test_run_launcher_wine_report_filter_options_keeps_categories_explicit(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
     def fake_run_local_task_subprocess(**kwargs: object) -> LocalTaskProcessResult:
@@ -148,7 +184,7 @@ def test_run_launcher_wine_report_filter_options_resolves_categories(tmp_path: P
     task_input = captured["task_input"]
     assert task_input["selection"]["shop"] == "pyaterochka"
     assert task_input["selection"]["intent"] == "wine_catalog"
-    assert len(task_input["selection"]["categories"]) == 1
+    assert task_input["selection"]["categories"] == []
     assert task_input["filters"] == {}
     assert task_input["output_name"] == ""
 

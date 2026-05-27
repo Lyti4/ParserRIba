@@ -7,12 +7,16 @@ from pathlib import Path
 from typing import Any
 
 
-def build_product_detail_text(json_path: str, selected_product_ids: list[str]) -> str:
+def build_product_detail_text(
+    json_path: str,
+    selected_product_ids: list[str],
+    products: list[dict[str, Any]] | None = None,
+) -> str:
     """Build one readable detail block for the first selected product."""
     product_id = _first_selected_product_id(selected_product_ids)
     if not product_id:
         return "Выберите товар в таблице, чтобы увидеть полную карточку."
-    product = _find_product_by_id(json_path, product_id)
+    product = _find_product_in_items(products or [], product_id) or _find_product_by_id(json_path, product_id)
     if not product:
         return "Карточка выбранного товара не найдена в текущем JSON."
     lines = _product_header_lines(product)
@@ -49,10 +53,20 @@ def _find_product_by_id(json_path: str, product_id: str) -> dict[str, Any] | Non
     for item in products:
         if not isinstance(item, dict):
             continue
-        current_id = str(item.get("id") or item.get("product_id") or "").strip()
-        if current_id == product_id:
+        if _product_id(item) == product_id:
             return item
     return None
+
+
+def _find_product_in_items(products: list[dict[str, Any]], product_id: str) -> dict[str, Any] | None:
+    for item in products:
+        if _product_id(item) == product_id:
+            return item
+    return None
+
+
+def _product_id(product: dict[str, Any]) -> str:
+    return str(product.get("id") or product.get("product_id") or "").strip()
 
 
 def _product_header_lines(product: dict[str, Any]) -> list[str]:

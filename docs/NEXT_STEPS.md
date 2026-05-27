@@ -54,6 +54,12 @@ current source of truth for Launcher V2.
    - one dynamic scrollable filter panel derived from collected product/card
      fields;
    - report generation from selected or filtered products.
+   - product workspace state is the primary source for the `Товары` tab:
+     collected cards are mirrored into `state.products.items`, then the table,
+     details panel, filters and report flow read that structured state before
+     falling back to legacy JSON/view payloads.
+   - report/filter task wrappers must not inject fish/wine default categories
+     when the launcher did not send an explicit catalog-node selection.
 4. Make `StoreProfile` the central launcher object:
    - one site/domain maps to one profile;
    - catalog, selected nodes, product workspace, filters, diagnostics and price

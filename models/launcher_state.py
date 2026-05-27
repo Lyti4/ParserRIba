@@ -47,6 +47,7 @@ class LauncherProductWorkspaceState(BaseModel):
     """Current collected-product workspace summary."""
 
     products_count: int = 0
+    items: list[dict[str, Any]] = Field(default_factory=list)
     source_categories: list[str] = Field(default_factory=list)
     selected_product_ids: list[str] = Field(default_factory=list)
     json_path: str = ""

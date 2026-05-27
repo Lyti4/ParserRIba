@@ -44,6 +44,37 @@ def test_build_result_table_reads_export_json(tmp_path: Path) -> None:
     assert table["product_ids"] == ["wine-1"]
 
 
+def test_build_result_table_reads_structured_product_workspace_first(tmp_path: Path) -> None:
+    state = LauncherAppState()
+    state.products.items = [
+        {
+            "id": "fish-1",
+            "category": "Fish",
+            "name": "Cod",
+            "brand": "Nord",
+            "raw_data": {"supplier": "Nord supplier"},
+            "price": {"current": 199.99},
+            "in_stock": True,
+            "product_link": "https://example.test/product/fish-1",
+        }
+    ]
+
+    table = build_result_table(state)
+
+    assert table["rows"][0] == [
+        "Fish",
+        "Cod",
+        "Nord",
+        "Nord supplier",
+        "",
+        "",
+        "199.99",
+        "В наличии",
+        "https://example.test/product/fish-1",
+    ]
+    assert table["product_ids"] == ["fish-1"]
+
+
 def test_build_result_table_falls_back_to_report_summary() -> None:
     state = LauncherAppState()
     state.result.summary = {

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from launcher.desktop_ui_text import REPORT_TABLE_HEADERS, RESULT_TABLE_HEADERS, display_stock_label
-from launcher.desktop_state_readers import full_catalog_tree, report_summary
+from launcher.desktop_state_readers import full_catalog_tree, product_items, report_summary
 from models.launcher_state import LauncherAppState
 
 ResultTableModel = dict[str, list[list[str]] | list[str]]
@@ -15,6 +15,9 @@ ResultTableModel = dict[str, list[list[str]] | list[str]]
 
 def build_result_table(state: LauncherAppState) -> ResultTableModel:
     """Build a normalized result table model for the current launcher state."""
+    state_table = _table_from_products(product_items(state), state)
+    if state_table["rows"]:
+        return state_table
     json_table = _table_from_json_export(state.result.json_path, state)
     if json_table["rows"]:
         return json_table
@@ -34,6 +37,15 @@ def _table_from_json_export(
         return {"headers": [], "rows": [], "product_ids": []}
     products = payload.get("products")
     if not isinstance(products, list):
+        return {"headers": [], "rows": [], "product_ids": []}
+    return _table_from_products([item for item in products if isinstance(item, dict)], state)
+
+
+def _table_from_products(
+    products: list[dict[str, Any]],
+    state: LauncherAppState,
+) -> ResultTableModel:
+    if not products:
         return {"headers": [], "rows": [], "product_ids": []}
     headers = RESULT_TABLE_HEADERS
     rows: list[list[str]] = []

@@ -214,6 +214,30 @@ def test_desktop_launcher_shows_selected_product_details(tmp_path: Path) -> None
     assert '"fat": "12%"' in details
 
 
+def test_desktop_launcher_shows_product_details_from_structured_workspace(tmp_path: Path) -> None:
+    shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
+    shell.state.products.items = [
+        {
+            "id": "fish-1",
+            "category": "Fish",
+            "name": "Cod",
+            "brand": "Nord",
+            "price": {"current": 199.99},
+            "in_stock": True,
+            "product_link": "https://example.test/product/fish-1",
+            "raw_data": {"supplier": "Nord supplier", "fat": "12%"},
+        }
+    ]
+    shell.create_window()
+
+    shell._on_select_all_results()
+
+    details = shell.product_detail_text.toPlainText()
+    assert "Cod" in details
+    assert "https://example.test/product/fish-1" in details
+    assert '"fat": "12%"' in details
+
+
 def test_desktop_launcher_can_clear_selected_products(tmp_path: Path) -> None:
     json_path = tmp_path / "products.json"
     json_path.write_text(

@@ -140,7 +140,8 @@ def test_desktop_launcher_controller_syncs_products_from_summary(tmp_path: Path)
                             "id": "fish-1",
                             "category": "Fish",
                             "name": "Cod",
-                            "raw_data": {"supplier": "Nord"},
+                            "brand": "Nord",
+                            "raw_data": {"supplier": "Nord supplier", "country": "Norway"},
                         }
                     ],
                 },
@@ -158,9 +159,13 @@ def test_desktop_launcher_controller_syncs_products_from_summary(tmp_path: Path)
             "id": "fish-1",
             "category": "Fish",
             "name": "Cod",
-            "raw_data": {"supplier": "Nord"},
+            "brand": "Nord",
+            "raw_data": {"supplier": "Nord supplier", "country": "Norway"},
         }
     ]
+    assert controller.state.dynamic_filters.counts["suppliers"] == {"Nord supplier": 1}
+    assert controller.state.dynamic_filters.counts["brands"] == {"Nord": 1}
+    assert controller.state.products.discovered_fields == {"country": {"Norway": 1}}
 
 
 def test_desktop_launcher_controller_hydrates_workspace_state_from_launcher_view(tmp_path: Path) -> None:

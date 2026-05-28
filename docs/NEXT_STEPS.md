@@ -58,6 +58,11 @@ current source of truth for Launcher V2.
      collected cards are mirrored into `state.products.items`, then the table,
      details panel, filters and report flow read that structured state before
      falling back to legacy JSON/view payloads.
+   - dynamic filter counts are derived from collected product cards when the
+     product workspace already has items, so filters do not require a separate
+     JSON-only pass.
+   - multi-node product collection exposes structured task progress with
+     `task_kind`, `phase`, `progress_current` and `progress_total`.
    - report/filter task wrappers must not inject fish/wine default categories
      when the launcher did not send an explicit catalog-node selection.
 4. Make `StoreProfile` the central launcher object:

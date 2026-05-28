@@ -19,16 +19,24 @@ def build_available_filter_counts_from_export_json(json_path: str) -> dict[str, 
     products = payload.get("products")
     if not isinstance(products, list):
         return {}
+    return build_available_filter_counts_from_products(products)
+
+
+def build_available_filter_counts_from_products(products: list[Any]) -> dict[str, dict[str, int]]:
+    """Build launcher filter counts directly from collected product cards."""
+    product_dicts = [item for item in products if isinstance(item, dict)]
+    if not product_dicts:
+        return {}
     counts = {
-        "suppliers": _counted_values(_supplier(item) for item in products if isinstance(item, dict)),
-        "brands": _counted_values(_text_value(item.get("brand")) for item in products if isinstance(item, dict)),
-        "categories": _counted_values(_text_value(item.get("category")) for item in products if isinstance(item, dict)),
-        "wine_styles": _counted_values(_text_value(item.get("subcategory")) for item in products if isinstance(item, dict)),
-        "alcohol_types": _counted_values(_alcohol_type(item) for item in products if isinstance(item, dict)),
-        "sugar_classes": _counted_values(_sugar_class(item) for item in products if isinstance(item, dict)),
-        "colors": _counted_values(_color(item) for item in products if isinstance(item, dict)),
+        "suppliers": _counted_values(_supplier(item) for item in product_dicts),
+        "brands": _counted_values(_text_value(item.get("brand")) for item in product_dicts),
+        "categories": _counted_values(_text_value(item.get("category")) for item in product_dicts),
+        "wine_styles": _counted_values(_text_value(item.get("subcategory")) for item in product_dicts),
+        "alcohol_types": _counted_values(_alcohol_type(item) for item in product_dicts),
+        "sugar_classes": _counted_values(_sugar_class(item) for item in product_dicts),
+        "colors": _counted_values(_color(item) for item in product_dicts),
     }
-    found_filters = _build_found_filters(products)
+    found_filters = _build_found_filters(product_dicts)
     if found_filters:
         counts["found_filters"] = found_filters
     return counts

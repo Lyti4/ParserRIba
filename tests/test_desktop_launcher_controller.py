@@ -5,13 +5,7 @@ import pytest
 
 from launcher.desktop_controller import DesktopLauncherController, open_path_with_system_handler
 from launcher.desktop_controller_helpers import selected_export_categories
-from launcher.desktop_user_messages import (
-    empty_filter_options_message,
-    no_selected_categories_message,
-    no_output_path_message,
-    opened_path_message,
-    settings_saved_message,
-)
+from launcher.desktop_user_messages import empty_filter_options_message, no_selected_categories_message, no_output_path_message, opened_path_message, settings_saved_message
 from models.task_actor import RunManifest
 from utils.local_task_adapter import build_local_task_process_result
 
@@ -184,6 +178,7 @@ def test_desktop_launcher_controller_rejects_export_without_selected_categories(
 
 def test_desktop_launcher_controller_runs_selected_export_for_every_category(tmp_path: Path) -> None:
     seen_categories: list[str] = []
+    progress_snapshots: list[tuple[str, int, int, str]] = []
     json_dir = tmp_path / "data"
     json_dir.mkdir(parents=True)
 
@@ -191,6 +186,14 @@ def test_desktop_launcher_controller_runs_selected_export_for_every_category(tmp
         assert kwargs["expand_intent"] is False
         category_name = kwargs["category"]
         seen_categories.append(category_name)
+        progress_snapshots.append(
+            (
+                controller.state.task.phase,
+                controller.state.task.progress_current,
+                controller.state.task.progress_total,
+                category_name,
+            )
+        )
         json_path = json_dir / f"{category_name}.json"
         json_path.write_text(
             (
@@ -246,6 +249,13 @@ def test_desktop_launcher_controller_runs_selected_export_for_every_category(tmp
     result = controller.run_selected_export()
 
     assert seen_categories == ["Рыба", "Морепродукты"]
+    assert progress_snapshots == [
+        ("collect_products", 1, 2, seen_categories[0]),
+        ("collect_products", 2, 2, seen_categories[1]),
+    ]
+    assert controller.state.task.task_kind == "product_export"
+    assert controller.state.task.progress_current == 2
+    assert controller.state.task.progress_total == 2
     assert result.export_summary is not None
     assert result.export_summary["products_count"] == 4
     assert result.export_summary["categories"] == ["Рыба", "Морепродукты"]

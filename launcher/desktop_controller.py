@@ -19,12 +19,7 @@ from launcher.desktop_controller_helpers import (
     result_message,
     selected_export_targets,
 )
-from launcher.desktop_controller_reports import (
-    apply_filter_counts_from_export_json,
-    load_filter_options,
-    refresh_filter_counts_after_export,
-    run_selected_report_export,
-)
+from launcher.desktop_controller_reports import apply_filter_counts_from_export_json, load_filter_options, refresh_filter_counts_after_export, run_selected_report_export
 from launcher.desktop_controller_profile import persist_launcher_profile_snapshot
 from launcher.desktop_controller_selection import update_selection_state
 from launcher.desktop_controller_research import sync_research_state
@@ -162,11 +157,15 @@ class DesktopLauncherController:
             "timeout_seconds": _task_timeout_seconds(self.state.settings.listen_seconds),
         }
         self._start_task(task_name)
+        self.state.task.task_kind = "product_export"
+        self.state.task.phase = "collect_products"
+        self.state.task.progress_total = len(targets)
         results: list[LocalTaskProcessResult] = []
         captured_payloads: list[dict[str, Any]] = []
         try:
             for index, target in enumerate(targets, start=1):
                 category_name = target["name"]
+                self.state.task.progress_current = index
                 self.state.task.message = task_progress_message(task_name, category_name, index, len(categories))
                 result = runner(category=category_name, category_url=target.get("url", ""), **common)
                 results.append(result)
@@ -215,6 +214,10 @@ class DesktopLauncherController:
     def _start_task(self, task_name: str) -> None:
         self.state.task.status = "running"
         self.state.task.task_name = task_name
+        self.state.task.task_kind = ""
+        self.state.task.phase = ""
+        self.state.task.progress_current = 0
+        self.state.task.progress_total = 0
         self.state.task.message = task_running_message(task_name)
         self.state.task.last_error = ""
         if task_name == "site_onboarding_discovery":

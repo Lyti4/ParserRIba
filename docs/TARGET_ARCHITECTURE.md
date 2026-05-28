@@ -97,6 +97,9 @@ Launcher-facing product cards are mirrored into
 details read this structured workspace first, with exported JSON kept as a
 compatibility artifact and report source.
 
+Dynamic filter counts and discovered raw-field filters are built from the same
+collected product workspace whenever product cards are already available.
+
 ### Filter Core
 
 Owns dynamic filters derived from collected product data. Filters are not

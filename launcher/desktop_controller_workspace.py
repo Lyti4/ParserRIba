@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from launcher.desktop_export_facets import build_available_filter_counts_from_products
 from models.launcher_state import LauncherAppState
 from utils.local_task_adapter import LocalTaskProcessResult
 
@@ -19,7 +20,7 @@ def sync_workspace_state(state: LauncherAppState, result: LocalTaskProcessResult
     _sync_profile_state(state, result, summary, view)
     _sync_catalog_state(state, summary, view)
     _sync_product_state(state, summary, artifacts, view)
-    _sync_dynamic_filter_state(state, view)
+    _sync_dynamic_filter_state(state, view, state.products.items)
 
 
 def _sync_result_state(
@@ -139,9 +140,15 @@ def _sync_product_state(
         state.products.discovered_fields = dict(found_fields)
 
 
-def _sync_dynamic_filter_state(state: LauncherAppState, view: dict[str, Any]) -> None:
-    available = view.get("available_filter_counts")
-    found = view.get("found_filters")
+def _sync_dynamic_filter_state(
+    state: LauncherAppState,
+    view: dict[str, Any],
+    product_items: list[dict[str, Any]],
+) -> None:
+    product_counts = build_available_filter_counts_from_products(product_items)
+    found_from_products = product_counts.pop("found_filters", {})
+    available = view.get("available_filter_counts") or product_counts
+    found = view.get("found_filters") or found_from_products
     state.dynamic_filters.available_filters = {}
     state.dynamic_filters.counts = {}
     state.dynamic_filters.ranges = {}
@@ -153,6 +160,7 @@ def _sync_dynamic_filter_state(state: LauncherAppState, view: dict[str, Any]) ->
             for key in available
         }
     if isinstance(found, dict) and found:
+        state.products.discovered_fields = dict(found)
         state.dynamic_filters.available_filters.update(
             {
                 str(key): {"kind": "found_field", "source": "found_filters"}

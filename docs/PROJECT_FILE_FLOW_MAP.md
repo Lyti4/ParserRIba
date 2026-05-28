@@ -29,6 +29,8 @@ flowchart TD
   n_launcher_desktop_launcher[launcher<br/>desktop_launcher.py] --> n_launcher_desktop_controller[launcher<br/>desktop_controller.py]
   n_launcher_desktop_controller[launcher<br/>desktop_controller.py] --> n_launcher[launcher<br/>__init__.py]
   n_launcher_desktop_controller[launcher<br/>desktop_controller.py] --> n_launcher_desktop_controller_helpers[launcher<br/>desktop_controller_helpers.py]
+  n_launcher_desktop_controller_helpers[launcher<br/>desktop_controller_helpers.py] --> n_models[models<br/>__init__.py]
+  n_launcher_desktop_controller_helpers[launcher<br/>desktop_controller_helpers.py] --> n_models_launcher_state[models<br/>launcher_state.py]
   n_launcher_desktop_controller_helpers[launcher<br/>desktop_controller_helpers.py] --> n_utils[utils<br/>__init__.py]
   n_launcher_desktop_controller_helpers[launcher<br/>desktop_controller_helpers.py] --> n_utils_local_task_adapter[utils<br/>local_task_adapter.py]
   n_launcher_desktop_controller[launcher<br/>desktop_controller.py] --> n_launcher_desktop_controller_profile[launcher<br/>desktop_controller_profile.py]
@@ -39,6 +41,8 @@ flowchart TD
   n_launcher_desktop_controller_reports[launcher<br/>desktop_controller_reports.py] --> n_launcher_desktop_controller_helpers[launcher<br/>desktop_controller_helpers.py]
   n_launcher_desktop_controller_reports[launcher<br/>desktop_controller_reports.py] --> n_launcher_desktop_export_facets[launcher<br/>desktop_export_facets.py]
   n_launcher_desktop_controller_reports[launcher<br/>desktop_controller_reports.py] --> n_launcher_desktop_user_messages[launcher<br/>desktop_user_messages.py]
+  n_launcher_desktop_controller_reports[launcher<br/>desktop_controller_reports.py] --> n_models[models<br/>__init__.py]
+  n_launcher_desktop_controller_reports[launcher<br/>desktop_controller_reports.py] --> n_models_task_actor[models<br/>task_actor.py]
   n_launcher_desktop_controller_reports[launcher<br/>desktop_controller_reports.py] --> n_utils[utils<br/>__init__.py]
   n_launcher_desktop_controller_reports[launcher<br/>desktop_controller_reports.py] --> n_utils_local_task_adapter[utils<br/>local_task_adapter.py]
   n_launcher_desktop_controller[launcher<br/>desktop_controller.py] --> n_launcher_desktop_controller_research[launcher<br/>desktop_controller_research.py]
@@ -52,6 +56,8 @@ flowchart TD
   n_launcher_desktop_controller_selection[launcher<br/>desktop_controller_selection.py] --> n_models[models<br/>__init__.py]
   n_launcher_desktop_controller_selection[launcher<br/>desktop_controller_selection.py] --> n_models_launcher_state[models<br/>launcher_state.py]
   n_launcher_desktop_controller[launcher<br/>desktop_controller.py] --> n_launcher_desktop_controller_workspace[launcher<br/>desktop_controller_workspace.py]
+  n_launcher_desktop_controller_workspace[launcher<br/>desktop_controller_workspace.py] --> n_launcher[launcher<br/>__init__.py]
+  n_launcher_desktop_controller_workspace[launcher<br/>desktop_controller_workspace.py] --> n_launcher_desktop_export_facets[launcher<br/>desktop_export_facets.py]
   n_launcher_desktop_controller_workspace[launcher<br/>desktop_controller_workspace.py] --> n_models[models<br/>__init__.py]
   n_launcher_desktop_controller_workspace[launcher<br/>desktop_controller_workspace.py] --> n_models_launcher_state[models<br/>launcher_state.py]
   n_launcher_desktop_controller_workspace[launcher<br/>desktop_controller_workspace.py] --> n_utils[utils<br/>__init__.py]
@@ -74,13 +80,18 @@ flowchart TD
   n_launcher_desktop_filter_panel[launcher<br/>desktop_filter_panel.py] --> n_launcher[launcher<br/>__init__.py]
   n_launcher_desktop_filter_panel[launcher<br/>desktop_filter_panel.py] --> n_launcher_desktop_dynamic_filter_panel[launcher<br/>desktop_dynamic_filter_panel.py]
   n_launcher_desktop_dynamic_filter_panel[launcher<br/>desktop_dynamic_filter_panel.py] --> n_launcher[launcher<br/>__init__.py]
+  n_launcher_desktop_dynamic_filter_panel[launcher<br/>desktop_dynamic_filter_panel.py] --> n_launcher_desktop_state_readers[launcher<br/>desktop_state_readers.py]
   n_launcher_desktop_dynamic_filter_panel[launcher<br/>desktop_dynamic_filter_panel.py] --> n_launcher_desktop_ui_text[launcher<br/>desktop_ui_text.py]
   n_launcher_desktop_filter_panel[launcher<br/>desktop_filter_panel.py] --> n_launcher_desktop_filter_helpers[launcher<br/>desktop_filter_helpers.py]
+  n_launcher_desktop_filter_panel[launcher<br/>desktop_filter_panel.py] --> n_launcher_desktop_state_readers[launcher<br/>desktop_state_readers.py]
+  n_launcher_desktop_state_readers[launcher<br/>desktop_state_readers.py] --> n_models[models<br/>__init__.py]
+  n_launcher_desktop_state_readers[launcher<br/>desktop_state_readers.py] --> n_models_launcher_state[models<br/>launcher_state.py]
   n_launcher_desktop_filter_panel[launcher<br/>desktop_filter_panel.py] --> n_launcher_desktop_ui_text[launcher<br/>desktop_ui_text.py]
   n_launcher_desktop_launcher[launcher<br/>desktop_launcher.py] --> n_launcher_desktop_interaction_state[launcher<br/>desktop_interaction_state.py]
   n_launcher_desktop_launcher[launcher<br/>desktop_launcher.py] --> n_launcher_desktop_product_details[launcher<br/>desktop_product_details.py]
   n_launcher_desktop_launcher[launcher<br/>desktop_launcher.py] --> n_launcher_desktop_result_table[launcher<br/>desktop_result_table.py]
   n_launcher_desktop_result_table[launcher<br/>desktop_result_table.py] --> n_launcher[launcher<br/>__init__.py]
+  n_launcher_desktop_result_table[launcher<br/>desktop_result_table.py] --> n_launcher_desktop_state_readers[launcher<br/>desktop_state_readers.py]
   n_launcher_desktop_result_table[launcher<br/>desktop_result_table.py] --> n_launcher_desktop_ui_text[launcher<br/>desktop_ui_text.py]
   n_launcher_desktop_result_table[launcher<br/>desktop_result_table.py] --> n_models[models<br/>__init__.py]
   n_launcher_desktop_result_table[launcher<br/>desktop_result_table.py] --> n_models_launcher_state[models<br/>launcher_state.py]
@@ -88,15 +99,18 @@ flowchart TD
   n_launcher_desktop_launcher[launcher<br/>desktop_launcher.py] --> n_launcher_desktop_selection_panel[launcher<br/>desktop_selection_panel.py]
   n_launcher_desktop_selection_panel[launcher<br/>desktop_selection_panel.py] --> n_launcher[launcher<br/>__init__.py]
   n_launcher_desktop_selection_panel[launcher<br/>desktop_selection_panel.py] --> n_launcher_desktop_catalog_tree_widget[launcher<br/>desktop_catalog_tree_widget.py]
+  n_launcher_desktop_selection_panel[launcher<br/>desktop_selection_panel.py] --> n_launcher_desktop_state_readers[launcher<br/>desktop_state_readers.py]
   n_launcher_desktop_selection_panel[launcher<br/>desktop_selection_panel.py] --> n_launcher_desktop_ui_text[launcher<br/>desktop_ui_text.py]
   n_launcher_desktop_launcher[launcher<br/>desktop_launcher.py] --> n_launcher_desktop_shell_helpers[launcher<br/>desktop_shell_helpers.py]
   n_launcher_desktop_shell_helpers[launcher<br/>desktop_shell_helpers.py] --> n_launcher[launcher<br/>__init__.py]
   n_launcher_desktop_shell_helpers[launcher<br/>desktop_shell_helpers.py] --> n_launcher_desktop_catalog_tree_widget[launcher<br/>desktop_catalog_tree_widget.py]
   n_launcher_desktop_shell_helpers[launcher<br/>desktop_shell_helpers.py] --> n_launcher_desktop_list_widget_helpers[launcher<br/>desktop_list_widget_helpers.py]
+  n_launcher_desktop_launcher[launcher<br/>desktop_launcher.py] --> n_launcher_desktop_state_readers[launcher<br/>desktop_state_readers.py]
   n_launcher_desktop_launcher[launcher<br/>desktop_launcher.py] --> n_launcher_desktop_ui_text[launcher<br/>desktop_ui_text.py]
   n_launcher_desktop_launcher[launcher<br/>desktop_launcher.py] --> n_launcher_desktop_view_helpers[launcher<br/>desktop_view_helpers.py]
   n_launcher_desktop_view_helpers[launcher<br/>desktop_view_helpers.py] --> n_launcher[launcher<br/>__init__.py]
   n_launcher_desktop_view_helpers[launcher<br/>desktop_view_helpers.py] --> n_launcher_desktop_result_table[launcher<br/>desktop_result_table.py]
+  n_launcher_desktop_view_helpers[launcher<br/>desktop_view_helpers.py] --> n_launcher_desktop_state_readers[launcher<br/>desktop_state_readers.py]
   n_launcher_desktop_view_helpers[launcher<br/>desktop_view_helpers.py] --> n_launcher_desktop_ui_text[launcher<br/>desktop_ui_text.py]
   n_launcher_desktop_view_helpers[launcher<br/>desktop_view_helpers.py] --> n_models[models<br/>__init__.py]
   n_launcher_desktop_view_helpers[launcher<br/>desktop_view_helpers.py] --> n_models_launcher_state[models<br/>launcher_state.py]
@@ -234,6 +248,17 @@ flowchart TD
   n_scripts_discover_pyaterochka_api[scripts<br/>discover_pyaterochka_api.py] --> n_utils_run_context[utils<br/>run_context.py]
   n_scripts_discover_pyaterochka_api[scripts<br/>discover_pyaterochka_api.py] --> n_utils_session_pool[utils<br/>session_pool.py]
   n_scripts_discover_pyaterochka_api[scripts<br/>discover_pyaterochka_api.py] --> n_utils_site_error_tracking[utils<br/>site_error_tracking.py]
+  n_utils_store_export_runtime[utils<br/>store_export_runtime.py] --> n_stores[stores<br/>__init__.py]
+  n_utils_store_export_runtime[utils<br/>store_export_runtime.py] --> n_stores_pyaterochka[stores<br/>pyaterochka<br/>__init__.py]
+  n_utils_store_export_runtime[utils<br/>store_export_runtime.py] --> n_stores_pyaterochka_product_export[stores<br/>pyaterochka<br/>product_export.py]
+  n_stores_pyaterochka_product_export[stores<br/>pyaterochka<br/>product_export.py] --> n_models[models<br/>__init__.py]
+  n_stores_pyaterochka_product_export[stores<br/>pyaterochka<br/>product_export.py] --> n_models_schemas[models<br/>schemas.py]
+  n_stores_pyaterochka_product_export[stores<br/>pyaterochka<br/>product_export.py] --> n_scripts_discover_pyaterochka_api[scripts<br/>discover_pyaterochka_api.py]
+  n_stores_pyaterochka_product_export[stores<br/>pyaterochka<br/>product_export.py] --> n_utils[utils<br/>__init__.py]
+  n_stores_pyaterochka_product_export[stores<br/>pyaterochka<br/>product_export.py] --> n_utils_category_intents[utils<br/>category_intents.py]
+  n_stores_pyaterochka_product_export[stores<br/>pyaterochka<br/>product_export.py] --> n_utils_interception[utils<br/>interception.py]
+  n_stores_pyaterochka_product_export[stores<br/>pyaterochka<br/>product_export.py] --> n_utils_product_raw_fields[utils<br/>product_raw_fields.py]
+  n_stores_pyaterochka_product_export[stores<br/>pyaterochka<br/>product_export.py] --> n_utils_wine_product_classification[utils<br/>wine_product_classification.py]
   n_utils_store_export_runtime[utils<br/>store_export_runtime.py] --> n_utils[utils<br/>__init__.py]
   n_utils_store_export_runtime[utils<br/>store_export_runtime.py] --> n_utils_excel_report[utils<br/>excel_report.py]
   n_utils_store_export_runtime[utils<br/>store_export_runtime.py] --> n_utils_export_summary[utils<br/>export_summary.py]
@@ -243,14 +268,6 @@ flowchart TD
   n_utils_product_storage[utils<br/>product_storage.py] --> n_utils[utils<br/>__init__.py]
   n_utils_product_storage[utils<br/>product_storage.py] --> n_utils_discovery_profile_repository[utils<br/>discovery_profile_repository.py]
   n_utils_product_storage[utils<br/>product_storage.py] --> n_utils_onboarding_storage[utils<br/>onboarding_storage.py]
-  n_utils_store_export_runtime[utils<br/>store_export_runtime.py] --> n_utils_pyaterochka_export[utils<br/>pyaterochka_export.py]
-  n_utils_pyaterochka_export[utils<br/>pyaterochka_export.py] --> n_models[models<br/>__init__.py]
-  n_utils_pyaterochka_export[utils<br/>pyaterochka_export.py] --> n_models_schemas[models<br/>schemas.py]
-  n_utils_pyaterochka_export[utils<br/>pyaterochka_export.py] --> n_scripts_discover_pyaterochka_api[scripts<br/>discover_pyaterochka_api.py]
-  n_utils_pyaterochka_export[utils<br/>pyaterochka_export.py] --> n_utils[utils<br/>__init__.py]
-  n_utils_pyaterochka_export[utils<br/>pyaterochka_export.py] --> n_utils_category_intents[utils<br/>category_intents.py]
-  n_utils_pyaterochka_export[utils<br/>pyaterochka_export.py] --> n_utils_interception[utils<br/>interception.py]
-  n_utils_pyaterochka_export[utils<br/>pyaterochka_export.py] --> n_utils_wine_product_classification[utils<br/>wine_product_classification.py]
   n_utils_store_export_runtime[utils<br/>store_export_runtime.py] --> n_utils_run_manifest[utils<br/>run_manifest.py]
   n_utils_store_export_runtime[utils<br/>store_export_runtime.py] --> n_utils_store_catalog_registry[utils<br/>store_catalog_registry.py]
 ```
@@ -463,6 +480,25 @@ flowchart TD
   n_utils_store_export_runtime[utils<br/>store_export_runtime.py] --> n_models[models<br/>__init__.py]
   n_utils_store_export_runtime[utils<br/>store_export_runtime.py] --> n_models_schemas[models<br/>schemas.py]
   n_utils_store_export_runtime[utils<br/>store_export_runtime.py] --> n_scripts_discover_pyaterochka_api[scripts<br/>discover_pyaterochka_api.py]
+  n_utils_store_export_runtime[utils<br/>store_export_runtime.py] --> n_stores[stores<br/>__init__.py]
+  n_utils_store_export_runtime[utils<br/>store_export_runtime.py] --> n_stores_pyaterochka[stores<br/>pyaterochka<br/>__init__.py]
+  n_utils_store_export_runtime[utils<br/>store_export_runtime.py] --> n_stores_pyaterochka_product_export[stores<br/>pyaterochka<br/>product_export.py]
+  n_stores_pyaterochka_product_export[stores<br/>pyaterochka<br/>product_export.py] --> n_models[models<br/>__init__.py]
+  n_stores_pyaterochka_product_export[stores<br/>pyaterochka<br/>product_export.py] --> n_models_schemas[models<br/>schemas.py]
+  n_stores_pyaterochka_product_export[stores<br/>pyaterochka<br/>product_export.py] --> n_scripts_discover_pyaterochka_api[scripts<br/>discover_pyaterochka_api.py]
+  n_stores_pyaterochka_product_export[stores<br/>pyaterochka<br/>product_export.py] --> n_utils[utils<br/>__init__.py]
+  n_stores_pyaterochka_product_export[stores<br/>pyaterochka<br/>product_export.py] --> n_utils_category_intents[utils<br/>category_intents.py]
+  n_stores_pyaterochka_product_export[stores<br/>pyaterochka<br/>product_export.py] --> n_utils_interception[utils<br/>interception.py]
+  n_utils_interception[utils<br/>interception.py] --> n_utils[utils<br/>__init__.py]
+  n_utils_interception[utils<br/>interception.py] --> n_utils_interception_payload_helpers[utils<br/>interception_payload_helpers.py]
+  n_utils_interception[utils<br/>interception.py] --> n_utils_interception_product_helpers[utils<br/>interception_product_helpers.py]
+  n_utils_interception[utils<br/>interception.py] --> n_utils_interception_profiles[utils<br/>interception_profiles.py]
+  n_stores_pyaterochka_product_export[stores<br/>pyaterochka<br/>product_export.py] --> n_utils_product_raw_fields[utils<br/>product_raw_fields.py]
+  n_utils_product_raw_fields[utils<br/>product_raw_fields.py] --> n_utils[utils<br/>__init__.py]
+  n_utils_product_raw_fields[utils<br/>product_raw_fields.py] --> n_utils_interception[utils<br/>interception.py]
+  n_stores_pyaterochka_product_export[stores<br/>pyaterochka<br/>product_export.py] --> n_utils_wine_product_classification[utils<br/>wine_product_classification.py]
+  n_utils_wine_product_classification[utils<br/>wine_product_classification.py] --> n_models[models<br/>__init__.py]
+  n_utils_wine_product_classification[utils<br/>wine_product_classification.py] --> n_models_schemas[models<br/>schemas.py]
   n_utils_store_export_runtime[utils<br/>store_export_runtime.py] --> n_utils[utils<br/>__init__.py]
   n_utils_store_export_runtime[utils<br/>store_export_runtime.py] --> n_utils_excel_report[utils<br/>excel_report.py]
   n_utils_excel_report[utils<br/>excel_report.py] --> n_models[models<br/>__init__.py]
@@ -480,20 +516,6 @@ flowchart TD
   n_utils_onboarding_storage[utils<br/>onboarding_storage.py] --> n_models_onboarding[models<br/>onboarding.py]
   n_utils_onboarding_storage[utils<br/>onboarding_storage.py] --> n_utils[utils<br/>__init__.py]
   n_utils_onboarding_storage[utils<br/>onboarding_storage.py] --> n_utils_discovery_profile_repository[utils<br/>discovery_profile_repository.py]
-  n_utils_store_export_runtime[utils<br/>store_export_runtime.py] --> n_utils_pyaterochka_export[utils<br/>pyaterochka_export.py]
-  n_utils_pyaterochka_export[utils<br/>pyaterochka_export.py] --> n_models[models<br/>__init__.py]
-  n_utils_pyaterochka_export[utils<br/>pyaterochka_export.py] --> n_models_schemas[models<br/>schemas.py]
-  n_utils_pyaterochka_export[utils<br/>pyaterochka_export.py] --> n_scripts_discover_pyaterochka_api[scripts<br/>discover_pyaterochka_api.py]
-  n_utils_pyaterochka_export[utils<br/>pyaterochka_export.py] --> n_utils[utils<br/>__init__.py]
-  n_utils_pyaterochka_export[utils<br/>pyaterochka_export.py] --> n_utils_category_intents[utils<br/>category_intents.py]
-  n_utils_pyaterochka_export[utils<br/>pyaterochka_export.py] --> n_utils_interception[utils<br/>interception.py]
-  n_utils_interception[utils<br/>interception.py] --> n_utils[utils<br/>__init__.py]
-  n_utils_interception[utils<br/>interception.py] --> n_utils_interception_payload_helpers[utils<br/>interception_payload_helpers.py]
-  n_utils_interception[utils<br/>interception.py] --> n_utils_interception_product_helpers[utils<br/>interception_product_helpers.py]
-  n_utils_interception[utils<br/>interception.py] --> n_utils_interception_profiles[utils<br/>interception_profiles.py]
-  n_utils_pyaterochka_export[utils<br/>pyaterochka_export.py] --> n_utils_wine_product_classification[utils<br/>wine_product_classification.py]
-  n_utils_wine_product_classification[utils<br/>wine_product_classification.py] --> n_models[models<br/>__init__.py]
-  n_utils_wine_product_classification[utils<br/>wine_product_classification.py] --> n_models_schemas[models<br/>schemas.py]
   n_utils_store_export_runtime[utils<br/>store_export_runtime.py] --> n_utils_run_manifest[utils<br/>run_manifest.py]
   n_utils_run_manifest[utils<br/>run_manifest.py] --> n_models[models<br/>__init__.py]
   n_utils_run_manifest[utils<br/>run_manifest.py] --> n_models_onboarding[models<br/>onboarding.py]
@@ -595,7 +617,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-  n_launcher[launcher] -->|14| n_models[models]
+  n_launcher[launcher] -->|20| n_models[models]
   n_launcher[launcher] -->|14| n_utils[utils]
   n_main_py[main.py] -->|1| n_scripts[scripts]
   n_main_py[main.py] -->|2| n_utils[utils]
@@ -606,13 +628,19 @@ flowchart LR
   n_parsers[parsers] -->|24| n_utils[utils]
   n_scripts[scripts] -->|11| n_launcher[launcher]
   n_scripts[scripts] -->|4| n_models[models]
-  n_scripts[scripts] -->|69| n_utils[utils]
-  n_tests[tests] -->|40| n_launcher[launcher]
-  n_tests[tests] -->|70| n_models[models]
+  n_scripts[scripts] -->|3| n_stores[stores]
+  n_scripts[scripts] -->|68| n_utils[utils]
+  n_stores[stores] -->|2| n_models[models]
+  n_stores[stores] -->|1| n_scripts[scripts]
+  n_stores[stores] -->|5| n_utils[utils]
+  n_tests[tests] -->|49| n_launcher[launcher]
+  n_tests[tests] -->|74| n_models[models]
   n_tests[tests] -->|13| n_scripts[scripts]
-  n_tests[tests] -->|150| n_utils[utils]
-  n_utils[utils] -->|72| n_models[models]
-  n_utils[utils] -->|4| n_scripts[scripts]
+  n_tests[tests] -->|3| n_stores[stores]
+  n_tests[tests] -->|152| n_utils[utils]
+  n_utils[utils] -->|70| n_models[models]
+  n_utils[utils] -->|3| n_scripts[scripts]
+  n_utils[utils] -->|3| n_stores[stores]
 ```
 
 ## File Inventory
@@ -633,33 +661,34 @@ flowchart LR
 
 | File | Role | When it runs | Imports | Imported by | Tests |
 | --- | --- | --- | --- | --- | --- |
-| `launcher/__init__.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/browser_preview.py`, `launcher/desktop_controller.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_dynamic_filter_panel.py`, +13 more | `tests/test_browser_preview.py`, `tests/test_desktop_action_state.py`, `tests/test_desktop_catalog_tree_widget.py`, +13 more |
-| `launcher/browser_preview.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_filter_helpers.py`, `launcher/desktop_filter_panel.py`, `launcher/desktop_result_table.py`, `launcher/desktop_view_helpers.py`, +2 more | `scripts/build_launcher_browser_preview.py` | `tests/test_browser_preview.py` |
+| `launcher/__init__.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/browser_preview.py`, `launcher/desktop_controller.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_controller_workspace.py`, +14 more | `tests/test_browser_preview.py`, `tests/test_desktop_action_state.py`, `tests/test_desktop_background_task.py`, +17 more |
+| `launcher/browser_preview.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_filter_helpers.py`, `launcher/desktop_filter_panel.py`, `launcher/desktop_result_table.py`, `launcher/desktop_state_readers.py`, +3 more | `scripts/build_launcher_browser_preview.py` | `tests/test_browser_preview.py` |
 | `launcher/desktop_action_state.py` | desktop launcher UI/controller | when desktop launcher is opened | `models/__init__.py`, `models/launcher_state.py` | `launcher/desktop_launcher.py` | `tests/test_desktop_action_state.py` |
-| `launcher/desktop_background_task.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_launcher.py` | - |
+| `launcher/desktop_background_task.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_launcher.py` | `tests/test_desktop_background_task.py` |
 | `launcher/desktop_catalog_tree_widget.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_selection_panel.py`, `launcher/desktop_shell_helpers.py` | `tests/test_desktop_catalog_tree_widget.py` |
-| `launcher/desktop_controller.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_profile.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, +7 more | `launcher/desktop_launcher.py`, `scripts/build_launcher_browser_preview.py` | `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_research.py`, `tests/test_desktop_launcher_controller_tasks.py` |
-| `launcher/desktop_controller_helpers.py` | desktop launcher UI/controller | when desktop launcher is opened | `utils/__init__.py`, `utils/local_task_adapter.py` | `launcher/desktop_controller.py`, `launcher/desktop_controller_reports.py` | `tests/test_desktop_launcher_controller.py` |
+| `launcher/desktop_controller.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_profile.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, +7 more | `launcher/desktop_launcher.py`, `scripts/build_launcher_browser_preview.py` | `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_paths.py`, `tests/test_desktop_launcher_controller_research.py`, +1 more |
+| `launcher/desktop_controller_helpers.py` | desktop launcher UI/controller | when desktop launcher is opened | `models/__init__.py`, `models/launcher_state.py`, `utils/__init__.py`, `utils/local_task_adapter.py` | `launcher/desktop_controller.py`, `launcher/desktop_controller_reports.py` | `tests/test_desktop_controller_helpers.py`, `tests/test_desktop_launcher_controller.py` |
 | `launcher/desktop_controller_profile.py` | desktop launcher UI/controller | when desktop launcher is opened | `utils/__init__.py`, `utils/launcher_profile_snapshot.py` | `launcher/desktop_controller.py` | - |
-| `launcher/desktop_controller_reports.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_export_facets.py`, `launcher/desktop_user_messages.py`, `utils/__init__.py`, +1 more | `launcher/desktop_controller.py` | - |
+| `launcher/desktop_controller_reports.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_export_facets.py`, `launcher/desktop_user_messages.py`, `models/__init__.py`, +3 more | `launcher/desktop_controller.py` | - |
 | `launcher/desktop_controller_research.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_ui_text.py`, `models/__init__.py`, `models/launcher_state.py`, `utils/__init__.py`, +1 more | `launcher/desktop_controller.py` | - |
 | `launcher/desktop_controller_selection.py` | desktop launcher UI/controller | when desktop launcher is opened | `models/__init__.py`, `models/launcher_state.py` | `launcher/desktop_controller.py` | - |
-| `launcher/desktop_controller_workspace.py` | desktop launcher UI/controller | when desktop launcher is opened | `models/__init__.py`, `models/launcher_state.py`, `utils/__init__.py`, `utils/local_task_adapter.py` | `launcher/desktop_controller.py` | - |
-| `launcher/desktop_dynamic_filter_panel.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_ui_text.py` | `launcher/desktop_filter_panel.py` | - |
-| `launcher/desktop_export_facets.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_controller_reports.py` | `tests/test_desktop_export_facets.py` |
+| `launcher/desktop_controller_workspace.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_export_facets.py`, `models/__init__.py`, `models/launcher_state.py`, `utils/__init__.py`, +1 more | `launcher/desktop_controller.py` | - |
+| `launcher/desktop_dynamic_filter_panel.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_state_readers.py`, `launcher/desktop_ui_text.py` | `launcher/desktop_filter_panel.py` | - |
+| `launcher/desktop_export_facets.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_workspace.py` | `tests/test_desktop_export_facets.py` |
 | `launcher/desktop_filter_helpers.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/browser_preview.py`, `launcher/desktop_filter_panel.py` | `tests/test_desktop_filter_helpers.py` |
-| `launcher/desktop_filter_panel.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_dynamic_filter_panel.py`, `launcher/desktop_filter_helpers.py`, `launcher/desktop_ui_text.py` | `launcher/browser_preview.py`, `launcher/desktop_launcher.py`, `launcher/desktop_workflow_tabs.py` | `tests/test_desktop_filter_panel.py` |
+| `launcher/desktop_filter_panel.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_dynamic_filter_panel.py`, `launcher/desktop_filter_helpers.py`, `launcher/desktop_state_readers.py`, `launcher/desktop_ui_text.py` | `launcher/browser_preview.py`, `launcher/desktop_launcher.py`, `launcher/desktop_workflow_tabs.py` | `tests/test_desktop_filter_panel.py` |
 | `launcher/desktop_interaction_state.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_launcher.py` | `tests/test_desktop_interaction_state.py` |
-| `launcher/desktop_launcher.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_action_state.py`, `launcher/desktop_background_task.py`, `launcher/desktop_controller.py`, `launcher/desktop_filter_panel.py`, +9 more | `scripts/capture_desktop_launcher_preview.py`, `scripts/run_desktop_launcher.py`, `scripts/smoke_desktop_launcher.py` | `tests/test_desktop_catalog_tree_widget.py`, `tests/test_desktop_filter_panel.py`, `tests/test_desktop_launcher.py`, +1 more |
+| `launcher/desktop_launcher.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_action_state.py`, `launcher/desktop_background_task.py`, `launcher/desktop_controller.py`, `launcher/desktop_filter_panel.py`, +10 more | `scripts/capture_desktop_launcher_preview.py`, `scripts/run_desktop_launcher.py`, `scripts/smoke_desktop_launcher.py` | `tests/test_desktop_catalog_tree_widget.py`, `tests/test_desktop_filter_panel.py`, `tests/test_desktop_launcher.py`, +1 more |
 | `launcher/desktop_list_widget_helpers.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_shell_helpers.py` | `tests/test_desktop_list_widget_helpers.py` |
-| `launcher/desktop_product_details.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_launcher.py` | - |
-| `launcher/desktop_result_table.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_ui_text.py`, `models/__init__.py`, `models/launcher_state.py` | `launcher/browser_preview.py`, `launcher/desktop_launcher.py`, `launcher/desktop_view_helpers.py` | `tests/test_desktop_result_table.py` |
+| `launcher/desktop_product_details.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_launcher.py` | `tests/test_desktop_product_details.py` |
+| `launcher/desktop_result_table.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_state_readers.py`, `launcher/desktop_ui_text.py`, `models/__init__.py`, `models/launcher_state.py` | `launcher/browser_preview.py`, `launcher/desktop_launcher.py`, `launcher/desktop_view_helpers.py` | `tests/test_desktop_result_table.py` |
 | `launcher/desktop_result_table_widget.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_launcher.py` | `tests/test_desktop_result_table_widget.py` |
-| `launcher/desktop_selection_panel.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_catalog_tree_widget.py`, `launcher/desktop_ui_text.py` | `launcher/desktop_launcher.py`, `launcher/desktop_workflow_tabs.py` | - |
-| `launcher/desktop_shell_helpers.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_catalog_tree_widget.py`, `launcher/desktop_list_widget_helpers.py` | `launcher/desktop_launcher.py`, `scripts/create_launcher_shortcut.py` | `tests/test_desktop_launcher.py` |
+| `launcher/desktop_selection_panel.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_catalog_tree_widget.py`, `launcher/desktop_state_readers.py`, `launcher/desktop_ui_text.py` | `launcher/desktop_launcher.py`, `launcher/desktop_workflow_tabs.py` | - |
+| `launcher/desktop_shell_helpers.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_catalog_tree_widget.py`, `launcher/desktop_list_widget_helpers.py` | `launcher/desktop_launcher.py`, `scripts/create_launcher_shortcut.py` | `tests/test_desktop_background_task.py`, `tests/test_desktop_launcher.py` |
+| `launcher/desktop_state_readers.py` | desktop launcher UI/controller | when desktop launcher is opened | `models/__init__.py`, `models/launcher_state.py` | `launcher/browser_preview.py`, `launcher/desktop_dynamic_filter_panel.py`, `launcher/desktop_filter_panel.py`, `launcher/desktop_launcher.py`, `launcher/desktop_result_table.py`, +2 more | - |
 | `launcher/desktop_ui_text.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_controller_research.py`, `launcher/desktop_dynamic_filter_panel.py`, `launcher/desktop_filter_panel.py`, `launcher/desktop_launcher.py`, `launcher/desktop_result_table.py`, +3 more | - |
-| `launcher/desktop_user_messages.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_controller.py`, `launcher/desktop_controller_reports.py` | `tests/test_desktop_launcher.py`, `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_research.py` |
-| `launcher/desktop_view_helpers.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_result_table.py`, `launcher/desktop_ui_text.py`, `models/__init__.py`, `models/launcher_state.py` | `launcher/browser_preview.py`, `launcher/desktop_launcher.py` | `tests/test_desktop_research_view_helpers.py`, `tests/test_desktop_view_helpers.py` |
+| `launcher/desktop_user_messages.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_controller.py`, `launcher/desktop_controller_reports.py` | `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_paths.py`, `tests/test_desktop_launcher_controller_research.py` |
+| `launcher/desktop_view_helpers.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_result_table.py`, `launcher/desktop_state_readers.py`, `launcher/desktop_ui_text.py`, `models/__init__.py`, +1 more | `launcher/browser_preview.py`, `launcher/desktop_launcher.py` | `tests/test_desktop_research_view_helpers.py`, `tests/test_desktop_view_helpers.py` |
 | `launcher/desktop_window_sections.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_ui_text.py` | `launcher/desktop_workflow_tabs.py` | - |
 | `launcher/desktop_workflow_tabs.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_filter_panel.py`, `launcher/desktop_selection_panel.py`, `launcher/desktop_window_sections.py` | `launcher/desktop_launcher.py` | - |
 
@@ -673,14 +702,15 @@ flowchart LR
 
 | File | Role | When it runs | Imports | Imported by | Tests |
 | --- | --- | --- | --- | --- | --- |
-| `models/__init__.py` | Pydantic/domain model | imported by runtime modules | - | `launcher/browser_preview.py`, `launcher/desktop_action_state.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_controller_selection.py`, `launcher/desktop_controller_workspace.py`, +42 more | `tests/test_browser_catalog_discovery.py`, `tests/test_browser_preview.py`, `tests/test_catalog_tree_discovery_runner.py`, +29 more |
-| `models/catalog_discovery.py` | Pydantic/domain model | imported by runtime modules | - | `utils/browser_catalog_discovery.py`, `utils/catalog_discovery.py`, `utils/catalog_tree_discovery/embedded_extractors.py`, `utils/catalog_tree_discovery/entrypoint_collectors.py`, `utils/catalog_tree_discovery/event_capture.py`, +12 more | `tests/test_browser_catalog_discovery.py`, `tests/test_catalog_tree_discovery_runner.py`, `tests/test_discovery_profile_repository.py`, +4 more |
-| `models/launcher_state.py` | Pydantic/domain model | imported by runtime modules | - | `launcher/browser_preview.py`, `launcher/desktop_action_state.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_controller_selection.py`, `launcher/desktop_controller_workspace.py`, +4 more | `tests/test_browser_preview.py`, `tests/test_desktop_action_state.py`, `tests/test_desktop_filter_panel.py`, +7 more |
+| `models/__init__.py` | Pydantic/domain model | imported by runtime modules | - | `launcher/browser_preview.py`, `launcher/desktop_action_state.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, +45 more | `tests/test_browser_catalog_discovery.py`, `tests/test_browser_preview.py`, `tests/test_catalog_tree_discovery_runner.py`, +31 more |
+| `models/catalog_discovery.py` | Pydantic/domain model | imported by runtime modules | - | `utils/browser_catalog_discovery.py`, `utils/catalog_discovery.py`, `utils/catalog_tree_discovery/embedded_extractors.py`, `utils/catalog_tree_discovery/entrypoint_collectors.py`, `utils/catalog_tree_discovery/event_capture.py`, +12 more | `tests/test_browser_catalog_discovery.py`, `tests/test_catalog_tree_discovery_runner.py`, `tests/test_discovery_profile_repository.py`, +5 more |
+| `models/launcher_progress.py` | Pydantic/domain model | no direct local importer detected | - | - | `tests/test_launcher_progress.py` |
+| `models/launcher_state.py` | Pydantic/domain model | imported by runtime modules | - | `launcher/browser_preview.py`, `launcher/desktop_action_state.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_controller_selection.py`, +6 more | `tests/test_browser_preview.py`, `tests/test_desktop_action_state.py`, `tests/test_desktop_filter_panel.py`, +7 more |
 | `models/onboarding.py` | Pydantic/domain model | imported by runtime modules | - | `utils/onboarding_artifacts.py`, `utils/onboarding_storage.py`, `utils/run_manifest.py`, `utils/site_onboarding.py`, `utils/site_onboarding_support.py` | `tests/test_product_storage.py` |
 | `models/product.py` | Pydantic/domain model | imported by runtime modules | - | `parsers/base_parser.py`, `parsers/playwright_parser.py` | - |
 | `models/report_request.py` | Pydantic/domain model | during report/filter/export generation | - | `scripts/export_store_report.py`, `utils/local_task_registry.py`, `utils/report_filter_facets.py`, `utils/storage_report_builder.py` | `tests/test_report_export_summary.py`, `tests/test_report_requests.py`, `tests/test_storage_report_builder.py` |
-| `models/schemas.py` | Pydantic/domain model | imported by runtime modules | - | `parsers/magnit.py`, `parsers/pyaterochka.py`, `scripts/export_pyaterochka_products.py`, `utils/excel_report.py`, `utils/product_storage.py`, +6 more | `tests/test_excel_report.py`, `tests/test_export_pyaterochka_products.py`, `tests/test_export_store_report.py`, +6 more |
-| `models/task_actor.py` | Pydantic/domain model | imported by runtime modules | - | `utils/launcher_task_view.py`, `utils/local_task_adapter.py`, `utils/local_task_registry.py`, `utils/run_manifest.py` | `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_research.py`, `tests/test_desktop_launcher_controller_tasks.py`, +5 more |
+| `models/schemas.py` | Pydantic/domain model | imported by runtime modules | - | `parsers/magnit.py`, `parsers/pyaterochka.py`, `scripts/export_pyaterochka_products.py`, `stores/pyaterochka/product_export.py`, `utils/excel_report.py`, +6 more | `tests/test_excel_report.py`, `tests/test_export_pyaterochka_products.py`, `tests/test_export_store_report.py`, +6 more |
+| `models/task_actor.py` | Pydantic/domain model | imported by runtime modules | - | `launcher/desktop_controller_reports.py`, `utils/launcher_task_view.py`, `utils/local_task_adapter.py`, `utils/local_task_registry.py`, `utils/run_manifest.py` | `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_research.py`, `tests/test_desktop_launcher_controller_tasks.py`, +5 more |
 
 ### parsers
 
@@ -716,8 +746,8 @@ flowchart LR
 | `scripts/check_environment.py` | manual/CLI script | manual/debug command | `utils/__init__.py`, `utils/camoufox_launcher.py`, `utils/env.py`, `utils/geoip.py`, `utils/proxy.py` | `main.py` | - |
 | `scripts/check_file_budget.py` | manual/CLI script | manual CLI command | `utils/__init__.py`, `utils/file_budget.py` | - | - |
 | `scripts/create_launcher_shortcut.py` | manual/CLI script | manual CLI command | `launcher/__init__.py`, `launcher/desktop_shell_helpers.py` | - | `tests/test_create_launcher_shortcut.py` |
-| `scripts/discover_pyaterochka_api.py` | manual/CLI script | manual CLI command | `scripts/smoke_pyaterochka_camoufox.py`, `utils/__init__.py`, `utils/api_discovery.py`, `utils/camoufox_launcher.py`, `utils/env.py`, +10 more | `scripts/export_pyaterochka_products.py`, `scripts/report_pyaterochka_products.py`, `utils/browser_catalog_discovery.py`, `utils/pyaterochka_catalog_capture.py`, `utils/pyaterochka_export.py`, +1 more | `tests/test_browser_catalog_discovery.py`, `tests/test_discover_pyaterochka_api.py` |
-| `scripts/export_pyaterochka_products.py` | manual/CLI script | manual CLI command | `models/__init__.py`, `models/schemas.py`, `scripts/discover_pyaterochka_api.py`, `utils/__init__.py`, `utils/kb_loader.py`, +4 more | - | `tests/test_export_pyaterochka_products.py`, `tests/test_pyaterochka_export_categories.py` |
+| `scripts/discover_pyaterochka_api.py` | manual/CLI script | manual CLI command | `scripts/smoke_pyaterochka_camoufox.py`, `utils/__init__.py`, `utils/api_discovery.py`, `utils/camoufox_launcher.py`, `utils/env.py`, +10 more | `scripts/export_pyaterochka_products.py`, `scripts/report_pyaterochka_products.py`, `stores/pyaterochka/product_export.py`, `utils/browser_catalog_discovery.py`, `utils/pyaterochka_catalog_capture.py`, +1 more | `tests/test_browser_catalog_discovery.py`, `tests/test_discover_pyaterochka_api.py` |
+| `scripts/export_pyaterochka_products.py` | manual/CLI script | manual CLI command | `models/__init__.py`, `models/schemas.py`, `scripts/discover_pyaterochka_api.py`, `stores/__init__.py`, `stores/pyaterochka/__init__.py`, +6 more | - | `tests/test_export_pyaterochka_products.py`, `tests/test_pyaterochka_export_categories.py` |
 | `scripts/export_store_catalog.py` | manual/CLI script | manual CLI command | `utils/__init__.py`, `utils/kb_loader.py`, `utils/store_catalog_registry.py`, `utils/store_export_runtime.py` | - | `tests/test_store_catalog_export_backend.py`, `tests/test_store_catalog_export_wine.py` |
 | `scripts/export_store_report.py` | manual/CLI script | manual CLI command | `models/__init__.py`, `models/report_request.py`, `utils/__init__.py`, `utils/storage_report_builder.py` | - | - |
 | `scripts/generate_project_flow_map.py` | manual/CLI script | manual desktop launch | - | - | - |
@@ -729,6 +759,14 @@ flowchart LR
 | `scripts/smoke_desktop_launcher.py` | manual/CLI script | manual/debug command | `launcher/__init__.py`, `launcher/desktop_launcher.py` | `scripts/run_desktop_launcher.py` | - |
 | `scripts/smoke_pyaterochka_camoufox.py` | manual/CLI script | manual/debug command | `scripts/smoke_pyaterochka_support.py`, `utils/__init__.py`, `utils/antibot.py`, `utils/camoufox_launcher.py`, `utils/env.py`, +12 more | `scripts/discover_pyaterochka_api.py` | `tests/test_pyaterochka_smoke_diagnostics.py` |
 | `scripts/smoke_pyaterochka_support.py` | manual/CLI script | during Pyaterochka discovery/export/diagnostics | `utils/__init__.py`, `utils/antibot.py`, `utils/fingerprint.py`, `utils/human_behavior.py`, `utils/network_diagnostics.py`, +5 more | `scripts/smoke_pyaterochka_camoufox.py` | - |
+
+### stores
+
+| File | Role | When it runs | Imports | Imported by | Tests |
+| --- | --- | --- | --- | --- | --- |
+| `stores/__init__.py` | support module | imported by runtime modules | - | `scripts/export_pyaterochka_products.py`, `utils/store_export_runtime.py` | `tests/test_store_catalog_export_wine.py` |
+| `stores/pyaterochka/__init__.py` | support module | during Pyaterochka discovery/export/diagnostics | - | `scripts/export_pyaterochka_products.py`, `utils/store_export_runtime.py` | `tests/test_store_catalog_export_wine.py` |
+| `stores/pyaterochka/product_export.py` | support module | during Pyaterochka discovery/export/diagnostics | `models/__init__.py`, `models/schemas.py`, `scripts/discover_pyaterochka_api.py`, `utils/__init__.py`, `utils/category_intents.py`, +3 more | `scripts/export_pyaterochka_products.py`, `utils/store_export_runtime.py` | `tests/test_store_catalog_export_wine.py` |
 
 ### strategies
 
@@ -762,16 +800,20 @@ flowchart LR
 | `tests/test_coderabbit_review.py` | test | pytest only | `utils/__init__.py`, `utils/coderabbit_review.py` | - | - |
 | `tests/test_create_launcher_shortcut.py` | test | pytest only | `scripts/create_launcher_shortcut.py` | - | - |
 | `tests/test_desktop_action_state.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_action_state.py`, `models/__init__.py`, `models/launcher_state.py` | - | - |
+| `tests/test_desktop_background_task.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_background_task.py`, `launcher/desktop_shell_helpers.py` | - | - |
 | `tests/test_desktop_catalog_tree_widget.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_catalog_tree_widget.py`, `launcher/desktop_launcher.py` | - | - |
+| `tests/test_desktop_controller_helpers.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_controller_helpers.py` | - | - |
 | `tests/test_desktop_export_facets.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_export_facets.py` | - | - |
 | `tests/test_desktop_filter_helpers.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_filter_helpers.py` | - | - |
 | `tests/test_desktop_filter_panel.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_filter_panel.py`, `launcher/desktop_launcher.py`, `models/__init__.py`, `models/launcher_state.py` | - | - |
 | `tests/test_desktop_interaction_state.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_interaction_state.py`, `models/__init__.py`, `models/launcher_state.py` | - | - |
-| `tests/test_desktop_launcher.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_launcher.py`, `launcher/desktop_shell_helpers.py`, `launcher/desktop_user_messages.py` | - | - |
+| `tests/test_desktop_launcher.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_launcher.py`, `launcher/desktop_shell_helpers.py` | - | - |
 | `tests/test_desktop_launcher_controller.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_controller.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_user_messages.py`, `models/__init__.py`, +3 more | - | - |
+| `tests/test_desktop_launcher_controller_paths.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_controller.py`, `launcher/desktop_user_messages.py` | - | - |
 | `tests/test_desktop_launcher_controller_research.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_controller.py`, `launcher/desktop_user_messages.py`, `models/__init__.py`, `models/task_actor.py`, +2 more | - | - |
 | `tests/test_desktop_launcher_controller_tasks.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_controller.py`, `models/__init__.py`, `models/task_actor.py`, `utils/__init__.py`, +1 more | - | - |
 | `tests/test_desktop_list_widget_helpers.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_list_widget_helpers.py` | - | - |
+| `tests/test_desktop_product_details.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_product_details.py` | - | - |
 | `tests/test_desktop_research_view_helpers.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_view_helpers.py`, `models/__init__.py`, `models/launcher_state.py` | - | - |
 | `tests/test_desktop_result_table.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_result_table.py`, `models/__init__.py`, `models/launcher_state.py` | - | - |
 | `tests/test_desktop_result_table_widget.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_launcher.py`, `launcher/desktop_result_table_widget.py` | - | - |
@@ -791,6 +833,7 @@ flowchart LR
 | `tests/test_interception_profiles.py` | test | pytest only | `utils/__init__.py`, `utils/interception.py`, `utils/interception_profiles.py` | - | - |
 | `tests/test_kb_loader.py` | test | pytest only | `utils/__init__.py`, `utils/kb_loader.py` | - | - |
 | `tests/test_launcher_profile_snapshot.py` | test | pytest only | `models/__init__.py`, `models/launcher_state.py`, `utils/__init__.py`, `utils/launcher_profile_snapshot.py` | - | - |
+| `tests/test_launcher_progress.py` | test | pytest only | `models/__init__.py`, `models/launcher_progress.py` | - | - |
 | `tests/test_launcher_settings.py` | test | pytest only | `models/__init__.py`, `models/launcher_state.py`, `utils/__init__.py`, `utils/launcher_settings.py` | - | - |
 | `tests/test_launcher_state.py` | test | pytest only | `models/__init__.py`, `models/launcher_state.py` | - | - |
 | `tests/test_launcher_task_controller_exports.py` | test | pytest only | `models/__init__.py`, `models/task_actor.py`, `utils/__init__.py`, `utils/launcher_task_controller.py`, `utils/local_task_adapter.py` | - | - |
@@ -801,7 +844,7 @@ flowchart LR
 | `tests/test_models.py` | test | pytest only | `models/__init__.py`, `models/schemas.py` | - | - |
 | `tests/test_network_capture.py` | test | pytest only | `utils/__init__.py`, `utils/network_capture.py` | - | - |
 | `tests/test_network_diagnostics.py` | test | pytest only | `utils/__init__.py`, `utils/network_diagnostics.py` | - | - |
-| `tests/test_onboarding_manifest_fields.py` | test | pytest only | `utils/__init__.py`, `utils/local_task_registry.py` | - | - |
+| `tests/test_onboarding_manifest_fields.py` | test | pytest only | `models/__init__.py`, `models/catalog_discovery.py`, `utils/__init__.py`, `utils/catalog_tree_discovery/__init__.py`, `utils/catalog_tree_discovery/runner.py`, +2 more | - | - |
 | `tests/test_onboarding_registries.py` | test | pytest only | `utils/__init__.py`, `utils/onboarding_artifacts.py`, `utils/protection_strategies.py`, `utils/store_catalog_registry.py` | - | - |
 | `tests/test_page_context.py` | test | pytest only | `utils/__init__.py`, `utils/page_context.py` | - | - |
 | `tests/test_parsers_smoke.py` | test | pytest only | `utils/__init__.py`, `utils/kb_loader.py` | - | - |
@@ -825,14 +868,14 @@ flowchart LR
 | `tests/test_smoke_report.py` | test | pytest only | `utils/__init__.py`, `utils/smoke_report.py` | - | - |
 | `tests/test_storage_report_builder.py` | test | pytest only | `models/__init__.py`, `models/report_request.py`, `models/schemas.py`, `utils/__init__.py`, `utils/product_storage.py`, +1 more | - | - |
 | `tests/test_store_catalog_export_backend.py` | test | pytest only | `scripts/export_store_catalog.py`, `utils/__init__.py`, `utils/store_export_runtime.py` | - | - |
-| `tests/test_store_catalog_export_wine.py` | test | pytest only | `scripts/export_store_catalog.py`, `utils/__init__.py`, `utils/pyaterochka_export.py`, `utils/store_export_runtime.py` | - | - |
+| `tests/test_store_catalog_export_wine.py` | test | pytest only | `scripts/export_store_catalog.py`, `stores/__init__.py`, `stores/pyaterochka/__init__.py`, `stores/pyaterochka/product_export.py`, `utils/__init__.py`, +1 more | - | - |
 | `tests/test_store_report_export_task_summary.py` | test | pytest only | `models/__init__.py`, `models/schemas.py`, `utils/__init__.py`, `utils/local_task_registry.py`, `utils/product_storage.py` | - | - |
 
 ### utils
 
 | File | Role | When it runs | Imports | Imported by | Tests |
 | --- | --- | --- | --- | --- | --- |
-| `utils/__init__.py` | support module | imported by runtime modules | - | `launcher/desktop_controller.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_profile.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, +61 more | `tests/test_api_discovery.py`, `tests/test_api_discovery_context.py`, `tests/test_api_discovery_report_details.py`, +51 more |
+| `utils/__init__.py` | support module | imported by runtime modules | - | `launcher/desktop_controller.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_profile.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, +62 more | `tests/test_api_discovery.py`, `tests/test_api_discovery_context.py`, `tests/test_api_discovery_report_details.py`, +51 more |
 | `utils/antibot.py` | support module | imported by runtime modules | - | `parsers/pyaterochka.py`, `scripts/smoke_pyaterochka_camoufox.py`, `scripts/smoke_pyaterochka_support.py`, `utils/browser_catalog_discovery.py` | `tests/test_proxy_and_antibot.py` |
 | `utils/api_discovery.py` | support module | imported by runtime modules | `utils/__init__.py`, `utils/api_discovery_report.py`, `utils/api_first_extractor.py`, `utils/interception.py`, `utils/proxy.py` | `scripts/discover_pyaterochka_api.py` | `tests/test_api_discovery.py`, `tests/test_api_discovery_context.py`, `tests/test_api_discovery_report_details.py` |
 | `utils/api_discovery_report.py` | report/export | during report/filter/export generation | - | `utils/api_discovery.py` | - |
@@ -841,7 +884,7 @@ flowchart LR
 | `utils/browser_catalog_discovery.py` | support module | imported by runtime modules | `models/__init__.py`, `models/catalog_discovery.py`, `scripts/discover_pyaterochka_api.py`, `utils/__init__.py`, `utils/antibot.py`, +7 more | `utils/catalog_tree_discovery/runner.py`, `utils/site_onboarding.py` | `tests/test_browser_catalog_discovery.py` |
 | `utils/camoufox_launcher.py` | support module | imported by runtime modules | `utils/__init__.py`, `utils/catalog_tree_discovery/__init__.py`, `utils/catalog_tree_discovery/camoufox_runtime_profile.py`, `utils/fingerprint.py`, `utils/geoip.py`, +1 more | `parsers/camoufox_parser.py`, `parsers/pyaterochka.py`, `scripts/check_environment.py`, `scripts/discover_pyaterochka_api.py`, `scripts/smoke_pyaterochka_camoufox.py`, +2 more | `tests/test_camoufox_launcher.py` |
 | `utils/catalog_discovery.py` | support module | imported by runtime modules | `models/__init__.py`, `models/catalog_discovery.py`, `utils/__init__.py`, `utils/catalog_tree_discovery/__init__.py` | `utils/catalog_tree_discovery/research_walker.py`, `utils/site_onboarding.py`, `utils/site_probe.py` | `tests/test_catalog_tree_discovery_runner.py`, `tests/test_site_probe.py` |
-| `utils/catalog_tree_discovery/__init__.py` | catalog discovery core | during Research/Catalog discovery | `utils/__init__.py`, `utils/catalog_tree_discovery/__init__.py`, `utils/catalog_tree_discovery/graph_builder.py`, `utils/catalog_tree_discovery/listing_validator.py`, `utils/catalog_tree_discovery/phase_events.py`, +2 more | `scripts/run_site_onboarding.py`, `utils/browser_catalog_discovery.py`, `utils/camoufox_launcher.py`, `utils/catalog_discovery.py`, `utils/catalog_tree_discovery/__init__.py`, +9 more | `tests/test_browser_catalog_discovery.py`, `tests/test_catalog_tree_discovery_runner.py`, `tests/test_catalog_tree_listing_validator_active.py`, +3 more |
+| `utils/catalog_tree_discovery/__init__.py` | catalog discovery core | during Research/Catalog discovery | `utils/__init__.py`, `utils/catalog_tree_discovery/__init__.py`, `utils/catalog_tree_discovery/graph_builder.py`, `utils/catalog_tree_discovery/listing_validator.py`, `utils/catalog_tree_discovery/phase_events.py`, +2 more | `scripts/run_site_onboarding.py`, `utils/browser_catalog_discovery.py`, `utils/camoufox_launcher.py`, `utils/catalog_discovery.py`, `utils/catalog_tree_discovery/__init__.py`, +9 more | `tests/test_browser_catalog_discovery.py`, `tests/test_catalog_tree_discovery_runner.py`, `tests/test_catalog_tree_listing_validator_active.py`, +4 more |
 | `utils/catalog_tree_discovery/camoufox_runtime_profile.py` | catalog discovery core | during Research/Catalog discovery | - | `utils/camoufox_launcher.py` | - |
 | `utils/catalog_tree_discovery/embedded_extractors.py` | catalog discovery core | during Research/Catalog discovery | `models/__init__.py`, `models/catalog_discovery.py`, `utils/__init__.py`, `utils/catalog_tree_discovery/__init__.py`, `utils/catalog_tree_discovery/payload_classifiers.py` | `utils/catalog_tree_discovery/surface_collectors.py` | - |
 | `utils/catalog_tree_discovery/entrypoint_collectors.py` | catalog discovery core | during Research/Catalog discovery | `models/__init__.py`, `models/catalog_discovery.py`, `utils/__init__.py`, `utils/catalog_tree_discovery/__init__.py`, `utils/catalog_tree_discovery/surface_collectors.py` | `utils/catalog_tree_discovery/research_walker.py` | `tests/test_browser_catalog_discovery.py`, `tests/test_catalog_tree_discovery_runner.py` |
@@ -854,10 +897,10 @@ flowchart LR
 | `utils/catalog_tree_discovery/phase_events.py` | catalog discovery core | during Research/Catalog discovery | `models/__init__.py`, `models/catalog_discovery.py` | `utils/catalog_tree_discovery/__init__.py`, `utils/catalog_tree_discovery/research_walker.py`, `utils/catalog_tree_discovery/runner.py` | `tests/test_catalog_tree_discovery_runner.py` |
 | `utils/catalog_tree_discovery/research_queue.py` | catalog discovery core | during Research/Catalog discovery | - | `utils/catalog_tree_discovery/research_walker.py` | `tests/test_catalog_tree_discovery_runner.py` |
 | `utils/catalog_tree_discovery/research_walker.py` | catalog discovery core | during Research/Catalog discovery | `models/__init__.py`, `models/catalog_discovery.py`, `utils/__init__.py`, `utils/catalog_discovery.py`, `utils/catalog_tree_discovery/__init__.py`, +6 more | `utils/browser_catalog_discovery.py` | - |
-| `utils/catalog_tree_discovery/runner.py` | catalog discovery core | during Research/Catalog discovery | `models/__init__.py`, `models/catalog_discovery.py`, `utils/__init__.py`, `utils/browser_catalog_discovery.py`, `utils/catalog_tree_discovery/__init__.py`, +2 more | `scripts/run_site_onboarding.py`, `utils/site_onboarding.py` | `tests/test_catalog_tree_discovery_runner.py`, `tests/test_local_task_runtime.py`, `tests/test_site_onboarding.py` |
+| `utils/catalog_tree_discovery/runner.py` | catalog discovery core | during Research/Catalog discovery | `models/__init__.py`, `models/catalog_discovery.py`, `utils/__init__.py`, `utils/browser_catalog_discovery.py`, `utils/catalog_tree_discovery/__init__.py`, +2 more | `scripts/run_site_onboarding.py`, `utils/site_onboarding.py` | `tests/test_catalog_tree_discovery_runner.py`, `tests/test_local_task_runtime.py`, `tests/test_onboarding_manifest_fields.py`, +1 more |
 | `utils/catalog_tree_discovery/surface_collectors.py` | catalog discovery core | during Research/Catalog discovery | `models/__init__.py`, `models/catalog_discovery.py`, `utils/__init__.py`, `utils/catalog_tree_discovery/__init__.py`, `utils/catalog_tree_discovery/embedded_extractors.py`, +1 more | `utils/catalog_tree_discovery/__init__.py`, `utils/catalog_tree_discovery/entrypoint_collectors.py`, `utils/catalog_tree_discovery/graph_builder.py`, `utils/catalog_tree_discovery/listing_validator.py`, `utils/catalog_tree_discovery/research_walker.py` | `tests/test_browser_catalog_discovery.py`, `tests/test_catalog_tree_discovery_runner.py` |
 | `utils/catalog_tree_discovery/tree_normalizer.py` | catalog discovery core | during Research/Catalog discovery | - | `utils/catalog_tree_discovery/__init__.py`, `utils/catalog_tree_discovery/graph_builder.py` | `tests/test_catalog_tree_discovery_runner.py` |
-| `utils/category_intents.py` | support module | imported by runtime modules | - | `utils/pyaterochka_export.py`, `utils/site_onboarding_support.py`, `utils/store_catalog_registry.py` | `tests/test_category_intents.py` |
+| `utils/category_intents.py` | support module | imported by runtime modules | - | `stores/pyaterochka/product_export.py`, `utils/site_onboarding_support.py`, `utils/store_catalog_registry.py` | `tests/test_category_intents.py` |
 | `utils/coderabbit_review.py` | support module | imported by runtime modules | - | `scripts/run_coderabbit_review.py` | `tests/test_coderabbit_review.py` |
 | `utils/discovery_profile_repository.py` | storage/repository | imported by runtime modules | `models/__init__.py`, `models/catalog_discovery.py` | `utils/onboarding_storage.py`, `utils/product_storage.py`, `utils/site_onboarding_support.py` | `tests/test_discovery_profile_repository.py`, `tests/test_product_storage.py` |
 | `utils/discovery_profile_snapshot.py` | support module | imported by runtime modules | `models/__init__.py`, `models/catalog_discovery.py` | `utils/site_onboarding_support.py` | `tests/test_discovery_profile_snapshot.py` |
@@ -868,15 +911,15 @@ flowchart LR
 | `utils/fingerprint.py` | support module | imported by runtime modules | - | `scripts/smoke_pyaterochka_support.py`, `utils/camoufox_launcher.py` | - |
 | `utils/geoip.py` | support module | imported by runtime modules | - | `parsers/base_parser.py`, `scripts/check_environment.py`, `utils/camoufox_launcher.py` | `tests/test_geoip.py`, `tests/test_proxy_and_antibot.py` |
 | `utils/human_behavior.py` | support module | imported by runtime modules | - | `parsers/pyaterochka.py`, `scripts/smoke_pyaterochka_camoufox.py`, `scripts/smoke_pyaterochka_support.py`, `utils/browser_catalog_discovery.py`, `utils/pyaterochka_catalog_capture.py` | `tests/test_human_behavior.py` |
-| `utils/interception.py` | support module | imported by runtime modules | `utils/__init__.py`, `utils/interception_payload_helpers.py`, `utils/interception_product_helpers.py`, `utils/interception_profiles.py` | `utils/api_discovery.py`, `utils/interception_archive.py`, `utils/network_capture.py`, `utils/pyaterochka_export.py` | `tests/test_interception.py`, `tests/test_interception_profiles.py` |
+| `utils/interception.py` | support module | imported by runtime modules | `utils/__init__.py`, `utils/interception_payload_helpers.py`, `utils/interception_product_helpers.py`, `utils/interception_profiles.py` | `stores/pyaterochka/product_export.py`, `utils/api_discovery.py`, `utils/interception_archive.py`, `utils/network_capture.py`, `utils/product_raw_fields.py` | `tests/test_interception.py`, `tests/test_interception_profiles.py` |
 | `utils/interception_archive.py` | support module | imported by runtime modules | `utils/__init__.py`, `utils/interception.py` | `scripts/discover_pyaterochka_api.py` | `tests/test_interception_archive.py` |
 | `utils/interception_payload_helpers.py` | support module | imported by runtime modules | - | `utils/interception.py` | - |
 | `utils/interception_product_helpers.py` | support module | imported by runtime modules | - | `utils/interception.py` | - |
 | `utils/interception_profiles.py` | support module | imported by runtime modules | - | `scripts/discover_pyaterochka_api.py`, `utils/interception.py`, `utils/network_capture.py` | `tests/test_interception_profiles.py` |
 | `utils/kb_interception.py` | support module | imported by runtime modules | - | `utils/kb_loader.py` | - |
-| `utils/kb_loader.py` | support module | manual/debug command | `utils/__init__.py`, `utils/kb_interception.py` | `parsers/auchan.py`, `parsers/base.py`, `parsers/base_parser.py`, `parsers/base_support.py`, `parsers/lenta.py`, +12 more | `tests/test_kb_loader.py`, `tests/test_parsers_smoke.py` |
+| `utils/kb_loader.py` | support module | manual/debug command | `utils/__init__.py`, `utils/kb_interception.py` | `parsers/auchan.py`, `parsers/base.py`, `parsers/base_parser.py`, `parsers/base_support.py`, `parsers/lenta.py`, +11 more | `tests/test_kb_loader.py`, `tests/test_parsers_smoke.py` |
 | `utils/launcher_profile_snapshot.py` | support module | imported by runtime modules | `models/__init__.py`, `models/launcher_state.py` | `launcher/desktop_controller_profile.py` | `tests/test_launcher_profile_snapshot.py` |
-| `utils/launcher_report_task_controller.py` | report/export | during report/filter/export generation | `utils/__init__.py`, `utils/kb_loader.py`, `utils/local_task_adapter.py`, `utils/store_catalog_registry.py` | `utils/launcher_task_controller.py` | `tests/test_launcher_task_controller_reports.py` |
+| `utils/launcher_report_task_controller.py` | report/export | during report/filter/export generation | `utils/__init__.py`, `utils/local_task_adapter.py` | `utils/launcher_task_controller.py` | `tests/test_launcher_task_controller_reports.py` |
 | `utils/launcher_settings.py` | support module | imported by runtime modules | `models/__init__.py`, `models/launcher_state.py` | `launcher/desktop_controller.py` | `tests/test_launcher_settings.py` |
 | `utils/launcher_task_controller.py` | local task bridge | imported by runtime modules | `utils/__init__.py`, `utils/launcher_report_task_controller.py`, `utils/local_task_adapter.py` | `launcher/desktop_controller.py` | `tests/test_launcher_task_controller_exports.py`, `tests/test_launcher_task_controller_onboarding.py`, `tests/test_launcher_task_controller_reports.py` |
 | `utils/launcher_task_view.py` | support module | imported by runtime modules | `models/__init__.py`, `models/task_actor.py` | `utils/local_task_adapter.py` | - |
@@ -889,13 +932,13 @@ flowchart LR
 | `utils/onboarding_storage.py` | storage/repository | imported by runtime modules | `models/__init__.py`, `models/onboarding.py`, `utils/__init__.py`, `utils/discovery_profile_repository.py` | `utils/product_storage.py`, `utils/site_onboarding.py`, `utils/site_onboarding_support.py` | `tests/test_product_storage.py` |
 | `utils/page_context.py` | support module | imported by runtime modules | - | `scripts/smoke_pyaterochka_camoufox.py`, `scripts/smoke_pyaterochka_support.py` | `tests/test_page_context.py` |
 | `utils/platform_reporting.py` | report/export | during report/filter/export generation | `utils/__init__.py`, `utils/rate_profile.py`, `utils/run_context.py`, `utils/session_pool.py` | `scripts/smoke_pyaterochka_camoufox.py` | `tests/test_platform_reporting.py` |
+| `utils/product_raw_fields.py` | support module | imported by runtime modules | `utils/__init__.py`, `utils/interception.py` | `stores/pyaterochka/product_export.py` | - |
 | `utils/product_sampling.py` | support module | imported by runtime modules | - | `scripts/smoke_pyaterochka_camoufox.py`, `scripts/smoke_pyaterochka_support.py` | `tests/test_product_sampling.py` |
 | `utils/product_storage.py` | storage/repository | imported by runtime modules | `models/__init__.py`, `models/schemas.py`, `utils/__init__.py`, `utils/discovery_profile_repository.py`, `utils/onboarding_storage.py` | `scripts/report_pyaterochka_products.py`, `utils/store_export_runtime.py` | `tests/test_export_store_report.py`, `tests/test_local_task_runtime.py`, `tests/test_product_storage.py`, +3 more |
 | `utils/protection_strategies.py` | support module | imported by runtime modules | - | `utils/site_onboarding.py` | `tests/test_onboarding_registries.py` |
 | `utils/proxy.py` | support module | imported by runtime modules | - | `parsers/pyaterochka.py`, `scripts/check_environment.py`, `scripts/discover_pyaterochka_api.py`, `scripts/smoke_pyaterochka_camoufox.py`, `scripts/smoke_pyaterochka_support.py`, +7 more | `tests/test_proxy_and_antibot.py` |
 | `utils/proxy_history.py` | support module | imported by runtime modules | `utils/__init__.py`, `utils/proxy.py` | `scripts/discover_pyaterochka_api.py`, `scripts/smoke_pyaterochka_camoufox.py` | `tests/test_proxy_history.py` |
 | `utils/pyaterochka_catalog_capture.py` | Pyaterochka adapter/reference | during Pyaterochka discovery/export/diagnostics | `scripts/discover_pyaterochka_api.py`, `utils/__init__.py`, `utils/camoufox_launcher.py`, `utils/env.py`, `utils/human_behavior.py`, +2 more | `scripts/export_pyaterochka_products.py`, `utils/store_catalog_registry.py` | - |
-| `utils/pyaterochka_export.py` | Pyaterochka adapter/reference | during Pyaterochka discovery/export/diagnostics | `models/__init__.py`, `models/schemas.py`, `scripts/discover_pyaterochka_api.py`, `utils/__init__.py`, `utils/category_intents.py`, +2 more | `scripts/export_pyaterochka_products.py`, `utils/store_export_runtime.py` | `tests/test_store_catalog_export_wine.py` |
 | `utils/rate_profile.py` | support module | imported by runtime modules | - | `scripts/discover_pyaterochka_api.py`, `scripts/smoke_pyaterochka_camoufox.py`, `utils/platform_reporting.py` | `tests/test_platform_foundation.py`, `tests/test_platform_reporting.py` |
 | `utils/report_export_summary.py` | report/export | during report/filter/export generation | `models/__init__.py`, `models/schemas.py`, `utils/__init__.py`, `utils/report_filter_facets.py` | `utils/storage_report_builder.py` | - |
 | `utils/report_filter_facets.py` | report/export | during report/filter/export generation | `models/__init__.py`, `models/report_request.py`, `models/schemas.py` | `utils/report_export_summary.py`, `utils/storage_report_builder.py` | - |
@@ -905,14 +948,14 @@ flowchart LR
 | `utils/session_manager_support.py` | support module | imported by runtime modules | - | `utils/session_manager.py` | - |
 | `utils/session_pool.py` | support module | imported by runtime modules | `utils/__init__.py`, `utils/proxy.py` | `scripts/discover_pyaterochka_api.py`, `scripts/smoke_pyaterochka_camoufox.py`, `utils/platform_reporting.py` | `tests/test_platform_foundation.py`, `tests/test_platform_reporting.py` |
 | `utils/site_error_tracking.py` | support module | imported by runtime modules | - | `scripts/discover_pyaterochka_api.py`, `scripts/smoke_pyaterochka_support.py` | `tests/test_site_error_tracking.py` |
-| `utils/site_onboarding.py` | support module | imported by runtime modules | `models/__init__.py`, `models/catalog_discovery.py`, `models/onboarding.py`, `utils/__init__.py`, `utils/browser_catalog_discovery.py`, +8 more | `scripts/run_site_onboarding.py`, `utils/local_task_registry.py` | `tests/test_local_task_runtime.py`, `tests/test_site_onboarding.py` |
+| `utils/site_onboarding.py` | support module | imported by runtime modules | `models/__init__.py`, `models/catalog_discovery.py`, `models/onboarding.py`, `utils/__init__.py`, `utils/browser_catalog_discovery.py`, +8 more | `scripts/run_site_onboarding.py`, `utils/local_task_registry.py` | `tests/test_local_task_runtime.py`, `tests/test_onboarding_manifest_fields.py`, `tests/test_site_onboarding.py` |
 | `utils/site_onboarding_support.py` | support module | imported by runtime modules | `models/__init__.py`, `models/catalog_discovery.py`, `models/onboarding.py`, `utils/__init__.py`, `utils/category_intents.py`, +5 more | `utils/site_onboarding.py` | - |
 | `utils/site_probe.py` | support module | no direct local importer detected | `utils/__init__.py`, `utils/catalog_discovery.py` | - | - |
 | `utils/smoke_report.py` | report/export | during report/filter/export generation | - | `scripts/smoke_pyaterochka_support.py` | `tests/test_smoke_report.py` |
 | `utils/storage_report_builder.py` | storage/repository | during report/filter/export generation | `models/__init__.py`, `models/report_request.py`, `models/schemas.py`, `utils/__init__.py`, `utils/excel_report.py`, +3 more | `scripts/export_store_report.py`, `utils/local_task_registry.py` | `tests/test_report_export_summary.py`, `tests/test_storage_report_builder.py` |
-| `utils/store_catalog_registry.py` | support module | imported by runtime modules | `utils/__init__.py`, `utils/category_intents.py`, `utils/pyaterochka_catalog_capture.py` | `scripts/export_pyaterochka_products.py`, `scripts/export_store_catalog.py`, `utils/catalog_tree_discovery/runner.py`, `utils/launcher_report_task_controller.py`, `utils/local_task_registry.py`, +3 more | `tests/test_onboarding_registries.py` |
-| `utils/store_export_runtime.py` | support module | imported by runtime modules | `models/__init__.py`, `models/schemas.py`, `scripts/discover_pyaterochka_api.py`, `utils/__init__.py`, `utils/excel_report.py`, +5 more | `scripts/export_pyaterochka_products.py`, `scripts/export_store_catalog.py`, `utils/local_task_registry.py` | `tests/test_store_catalog_export_backend.py`, `tests/test_store_catalog_export_wine.py` |
-| `utils/wine_product_classification.py` | support module | imported by runtime modules | `models/__init__.py`, `models/schemas.py` | `utils/pyaterochka_export.py`, `utils/storage_report_builder.py` | - |
+| `utils/store_catalog_registry.py` | support module | imported by runtime modules | `utils/__init__.py`, `utils/category_intents.py`, `utils/pyaterochka_catalog_capture.py` | `scripts/export_pyaterochka_products.py`, `scripts/export_store_catalog.py`, `utils/catalog_tree_discovery/runner.py`, `utils/local_task_registry.py`, `utils/site_onboarding.py`, +2 more | `tests/test_onboarding_registries.py` |
+| `utils/store_export_runtime.py` | support module | imported by runtime modules | `models/__init__.py`, `models/schemas.py`, `scripts/discover_pyaterochka_api.py`, `stores/__init__.py`, `stores/pyaterochka/__init__.py`, +7 more | `scripts/export_pyaterochka_products.py`, `scripts/export_store_catalog.py`, `utils/local_task_registry.py` | `tests/test_store_catalog_export_backend.py`, `tests/test_store_catalog_export_wine.py` |
+| `utils/wine_product_classification.py` | support module | imported by runtime modules | `models/__init__.py`, `models/schemas.py` | `stores/pyaterochka/product_export.py`, `utils/storage_report_builder.py` | - |
 
 ## Cleanup Review Queue
 
@@ -939,4 +982,4 @@ These are review candidates, not deletion instructions.
 - `utils/session_manager.py`: keep until replacement path and tests are confirmed.
 
 ### Current untracked/local artifacts
-- none
+- `stores/`

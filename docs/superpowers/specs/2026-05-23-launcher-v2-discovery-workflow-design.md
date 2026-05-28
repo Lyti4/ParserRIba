@@ -289,8 +289,10 @@ Visible controls:
 - active filter summary;
 - `Собрать Excel`;
 - `Открыть Excel`;
-- `Открыть папку`;
-- `Открыть JSON`.
+- `Открыть папку`.
+
+JSON remains an internal diagnostic/report artifact and is not a primary
+user-facing launcher action.
 
 Behavior:
 

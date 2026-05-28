@@ -15,7 +15,7 @@ from scripts.discover_pyaterochka_api import OUTPUT_DIR
 from utils.excel_report import write_products_excel_report
 from utils.export_summary import build_export_summary
 from utils.product_storage import ProductStorage
-from utils.pyaterochka_export import build_products_from_result, filter_products_for_intent, merge_products
+from stores.pyaterochka.product_export import build_products_from_result, filter_products_for_intent, merge_products
 from utils.run_manifest import build_store_export_manifest, write_run_manifest
 from utils.store_catalog_registry import StoreExportBackend, DiscoverFunc
 

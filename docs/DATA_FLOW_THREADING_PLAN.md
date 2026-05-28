@@ -133,7 +133,7 @@ Current sources:
 - `utils/camoufox_launcher.py`
 - `utils/catalog_tree_discovery/`
 - `utils/pyaterochka_catalog_capture.py`
-- `utils/pyaterochka_export.py`
+- `stores/pyaterochka/product_export.py`
 - `utils/human_behavior.py`
 
 Allowed responsibilities:

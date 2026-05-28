@@ -91,14 +91,15 @@ may use special knowledge from `knowledge_base/`, but it must not become the
 global architecture.
 
 Current adapter: Pyaterochka through `utils/pyaterochka_catalog_capture.py` and
-`utils/pyaterochka_export.py`.
+`stores/pyaterochka/product_export.py`.
 
 ### Product Core
 
 Owns product card collection and normalized product fields while preserving raw
 store-specific fields for future filters and reports.
 
-Current sources: `models/schemas.py`, `utils/pyaterochka_export.py`.
+Current sources: `models/schemas.py`, `stores/pyaterochka/product_export.py`,
+`utils/product_raw_fields.py`.
 
 Launcher-facing product cards are mirrored into
 `LauncherAppState.products.items`. The desktop `Товары` table and product-card

@@ -16,7 +16,6 @@ def build_action_enabled_map(state: LauncherAppState) -> dict[str, bool]:
             "save_settings": False,
             "open_excel": False,
             "open_folder": False,
-            "open_json": False,
         }
     has_categories = bool(state.selection.categories)
     return {
@@ -27,5 +26,4 @@ def build_action_enabled_map(state: LauncherAppState) -> dict[str, bool]:
         "save_settings": True,
         "open_excel": bool(str(state.result.excel_path or "").strip()),
         "open_folder": bool(str(state.result.report_dir or "").strip()),
-        "open_json": bool(str(state.result.json_path or "").strip()),
     }

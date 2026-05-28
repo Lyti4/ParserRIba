@@ -4,7 +4,6 @@ import pytest
 
 import launcher.desktop_launcher as desktop_launcher
 import launcher.desktop_shell_helpers as desktop_shell_helpers
-from launcher.desktop_user_messages import no_output_path_message
 
 
 def test_load_pyside6_raises_clear_error_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -42,13 +41,11 @@ def test_resolve_launcher_icon_path_prefers_ico_when_available(tmp_path: Path) -
     assert icon_path == ico_path
 
 
-def test_open_json_without_target_sets_friendly_message(tmp_path: Path) -> None:
+def test_desktop_launcher_does_not_expose_raw_json_button(tmp_path: Path) -> None:
     shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
-    shell._refresh_ui = lambda: None
+    shell.create_window()
 
-    shell._on_open_json()
-
-    assert shell.state.task.message == no_output_path_message()
+    assert "open_json" not in shell.action_buttons
 
 
 def test_desktop_launcher_wraps_controls_in_scroll_area(tmp_path: Path) -> None:

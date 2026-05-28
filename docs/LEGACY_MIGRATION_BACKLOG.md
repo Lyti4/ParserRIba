@@ -26,7 +26,7 @@ active while the new architecture stabilizes:
   `utils/browser_catalog_discovery.py`, `utils/catalog_discovery.py`,
   `models/catalog_discovery.py`, `utils/store_catalog_registry.py`.
 - Pyaterochka active adapter: `utils/pyaterochka_catalog_capture.py`,
-  `utils/pyaterochka_export.py`.
+  `stores/pyaterochka/product_export.py`.
 - Product/report/storage core: `models/schemas.py`,
   `utils/product_storage.py`, `utils/discovery_profile_repository.py`,
   `utils/onboarding_storage.py`, `utils/storage_report_builder.py`,
@@ -87,8 +87,8 @@ Candidate file:
 
 This is reference material only. Do not pull it wholesale into the generic
 engine. Extract confirmed useful mechanics into
-`utils/pyaterochka_catalog_capture.py`, `utils/pyaterochka_export.py`, Browser
-Core, or Discovery Core, then archive the legacy file.
+`utils/pyaterochka_catalog_capture.py`, `stores/pyaterochka/product_export.py`,
+Browser Core, or Discovery Core, then archive the legacy file.
 
 ### Phase 5: Old Entrypoint
 

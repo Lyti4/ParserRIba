@@ -28,7 +28,7 @@ def test_build_action_enabled_map_enables_open_actions_from_result_paths() -> No
     assert enabled["build_report"] is True
     assert enabled["open_excel"] is True
     assert enabled["open_folder"] is True
-    assert enabled["open_json"] is True
+    assert "open_json" not in enabled
 
 
 def test_build_action_enabled_map_disables_buttons_while_task_is_running() -> None:

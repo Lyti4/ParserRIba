@@ -5,7 +5,10 @@ import pytest
 
 from launcher.desktop_controller import DesktopLauncherController
 from launcher.desktop_controller_helpers import selected_export_categories
-from launcher.desktop_user_messages import empty_filter_options_message, no_selected_categories_message
+from launcher.desktop_user_messages import (
+    empty_filter_options_message,
+    no_selected_categories_message,
+)
 from models.task_actor import RunManifest
 from utils.local_task_adapter import build_local_task_process_result
 

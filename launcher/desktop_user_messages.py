@@ -57,6 +57,11 @@ def empty_filter_options_message() -> str:
     return "Пока доступны только категории. Сначала собери товары, чтобы появились поставщики, бренды и другие фильтры."
 
 
+def filters_refreshed_message() -> str:
+    """Return a friendly message when filters were rebuilt from collected products."""
+    return "Фильтры обновлены из собранных товаров."
+
+
 def opened_path_message(path: str) -> str:
     """Return one user-facing message for an opened file or folder."""
     return f"Открыто: {path}"

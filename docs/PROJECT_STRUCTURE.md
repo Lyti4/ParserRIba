@@ -38,8 +38,9 @@ This is the active physical map of the project. The target layer doctrine is in
 
 ### Store Adapters
 
-- `utils/pyaterochka_catalog_capture.py` and `utils/pyaterochka_export.py` are
-  the current Pyaterochka adapter/reference path.
+- `utils/pyaterochka_catalog_capture.py` and
+  `stores/pyaterochka/product_export.py` are the current Pyaterochka
+  adapter/reference path.
 - `utils/store_catalog_registry.py` and `utils/store_export_runtime.py` expose
   store-specific runtime through generic launcher/local-task contracts.
 - Pyaterochka protected-store mechanics must be preserved as reference behavior,

@@ -118,7 +118,6 @@ def build_results_box(shell: Any, qtwidgets: Any) -> Any:
             (
                 ("select_products", "Выбрать показанные", shell._on_select_all_results),
                 ("clear_products", "Снять выбор", shell._on_clear_selected_products),
-                ("open_json", "Открыть JSON", shell._on_open_json),
             ),
         )
     )

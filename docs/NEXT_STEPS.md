@@ -18,6 +18,8 @@ The active track is now launcher-first and core/layer based:
 Architecture and delivery decisions for this stage are tracked in
 `docs/TARGET_ARCHITECTURE.md` and `docs/ROADMAP_V1.md`. Use the target
 architecture for layer boundaries and the roadmap for delivery order.
+Launcher threading and one-way data-flow rules are tracked in
+`docs/DATA_FLOW_THREADING_PLAN.md`.
 
 ## Immediate Plan
 
@@ -65,6 +67,9 @@ current source of truth for Launcher V2.
      `task_kind`, `phase`, `progress_current` and `progress_total`.
    - report/filter task wrappers must not inject fish/wine default categories
      when the launcher did not send an explicit catalog-node selection.
+   - long actions must cross the GUI boundary through background-action
+     callbacks; workers and subprocesses return data only, and only the GUI
+     thread mutates Qt widgets.
 4. Make `StoreProfile` the central launcher object:
    - one site/domain maps to one profile;
    - catalog, selected nodes, product workspace, filters, diagnostics and price
@@ -110,6 +115,10 @@ current source of truth for Launcher V2.
     consumes the structured workspace state directly.
 - Keep controller/test files below the architecture-check line budget when adding
   new Launcher V2 behavior.
+- Split launcher data flows by owner before adding live progress or heavier
+  product/filter tables: GUI widgets, launcher state, background actions, local
+  tasks, browser runtime and storage must remain separate according to
+  `docs/DATA_FLOW_THREADING_PLAN.md`.
 - Treat `main.py`, `parsers/`, `strategies/` and `policies/` as legacy archive
   candidates, not product runtime.
 - Do not repair legacy bugs unless the code is being extracted into a target

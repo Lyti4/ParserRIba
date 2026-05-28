@@ -15,6 +15,11 @@ temporary reference while useful mechanics are extracted, then it should move to
 `archive/`. The migration order is tracked in
 `docs/LEGACY_MIGRATION_BACKLOG.md`.
 
+Threading and data-flow boundaries are part of the architecture, not an
+implementation detail. Launcher V2 must follow
+`docs/DATA_FLOW_THREADING_PLAN.md`: workers, subprocesses and browser runtimes
+return data, while only the GUI thread renders or mutates Qt widgets.
+
 ## Product Workflow
 
 1. The user opens the launcher.
@@ -40,6 +45,7 @@ in the simple user surface.
 
 Owns the desktop UI and the guided workflow. It never calls store scripts
 directly. It talks to the task orchestrator and renders normalized task state.
+It owns Qt widgets only on the GUI thread.
 
 Current path: `launcher/`.
 
@@ -47,6 +53,7 @@ Current path: `launcher/`.
 
 Owns local task invocation, result normalization, cancellation/timeout policy
 and launcher-safe errors.
+It returns serializable results and must not receive Qt objects.
 
 Current paths: `utils/launcher_task_controller.py`,
 `utils/local_task_adapter.py`, `utils/local_task_registry.py`.
@@ -55,6 +62,7 @@ Current paths: `utils/launcher_task_controller.py`,
 
 Owns Camoufox launch, persistent profiles, proxy/GeoIP handling, human-like
 behavior, manual captcha waits and protection diagnostics.
+It must not import desktop launcher modules or mutate launcher state directly.
 
 Current reusable sources: `utils/camoufox_launcher.py`,
 `utils/human_behavior.py`, `utils/proxy.py`, `utils/geoip.py`,

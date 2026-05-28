@@ -7,6 +7,8 @@ Date: 2026-05-20
 This is the delivery roadmap for the current ParserRIba stage. The primary
 target architecture and layer doctrine live in `docs/TARGET_ARCHITECTURE.md`.
 Use this file for delivery order and the target architecture for boundaries.
+Launcher data-flow and threading invariants live in
+`docs/DATA_FLOW_THREADING_PLAN.md`.
 
 Launcher V2 details are tracked in
 `docs/superpowers/specs/2026-05-23-launcher-v2-discovery-workflow-design.md`.
@@ -79,6 +81,9 @@ Legacy parser files are not a product layer.
 - Pyaterochka export actions may keep using the existing local task and store
   backend path as a temporary adapter until the generic selected-node product
   collection contract is reliable.
+- Long launcher actions must not touch Qt widgets from workers; workers,
+  subprocesses and browser runtimes return plain data and GUI-thread callbacks
+  render it.
 
 ### 2. Local Task Layer
 
@@ -128,6 +133,8 @@ The expected v1 desktop stack is:
 - Database: `SQLite`
 - Report generation: `openpyxl`
 - Background execution inside launcher: simple worker thread / local task calls
+- Threading model: GUI thread owns widgets, background threads run launcher
+  actions, local task subprocesses isolate browser/storage/report work
 - Packaging: `PyInstaller`
 - Installer: `Inno Setup`
 - Updates later: `GitHub Releases`

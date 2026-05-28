@@ -634,10 +634,10 @@ flowchart LR
   n_stores[stores] -->|1| n_scripts[scripts]
   n_stores[stores] -->|5| n_utils[utils]
   n_tests[tests] -->|52| n_launcher[launcher]
-  n_tests[tests] -->|74| n_models[models]
+  n_tests[tests] -->|76| n_models[models]
   n_tests[tests] -->|13| n_scripts[scripts]
   n_tests[tests] -->|3| n_stores[stores]
-  n_tests[tests] -->|152| n_utils[utils]
+  n_tests[tests] -->|154| n_utils[utils]
   n_utils[utils] -->|70| n_models[models]
   n_utils[utils] -->|3| n_scripts[scripts]
   n_utils[utils] -->|3| n_stores[stores]
@@ -702,7 +702,7 @@ flowchart LR
 
 | File | Role | When it runs | Imports | Imported by | Tests |
 | --- | --- | --- | --- | --- | --- |
-| `models/__init__.py` | Pydantic/domain model | imported by runtime modules | - | `launcher/browser_preview.py`, `launcher/desktop_action_state.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, +45 more | `tests/test_browser_catalog_discovery.py`, `tests/test_browser_preview.py`, `tests/test_catalog_tree_discovery_runner.py`, +31 more |
+| `models/__init__.py` | Pydantic/domain model | imported by runtime modules | - | `launcher/browser_preview.py`, `launcher/desktop_action_state.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, +45 more | `tests/test_browser_catalog_discovery.py`, `tests/test_browser_preview.py`, `tests/test_catalog_tree_discovery_runner.py`, +32 more |
 | `models/catalog_discovery.py` | Pydantic/domain model | imported by runtime modules | - | `utils/browser_catalog_discovery.py`, `utils/catalog_discovery.py`, `utils/catalog_tree_discovery/embedded_extractors.py`, `utils/catalog_tree_discovery/entrypoint_collectors.py`, `utils/catalog_tree_discovery/event_capture.py`, +12 more | `tests/test_browser_catalog_discovery.py`, `tests/test_catalog_tree_discovery_runner.py`, `tests/test_discovery_profile_repository.py`, +5 more |
 | `models/launcher_progress.py` | Pydantic/domain model | no direct local importer detected | - | - | `tests/test_launcher_progress.py` |
 | `models/launcher_state.py` | Pydantic/domain model | imported by runtime modules | - | `launcher/browser_preview.py`, `launcher/desktop_action_state.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_controller_selection.py`, +6 more | `tests/test_browser_preview.py`, `tests/test_desktop_action_state.py`, `tests/test_desktop_filter_panel.py`, +7 more |
@@ -710,7 +710,7 @@ flowchart LR
 | `models/product.py` | Pydantic/domain model | imported by runtime modules | - | `parsers/base_parser.py`, `parsers/playwright_parser.py` | - |
 | `models/report_request.py` | Pydantic/domain model | during report/filter/export generation | - | `scripts/export_store_report.py`, `utils/local_task_registry.py`, `utils/report_filter_facets.py`, `utils/storage_report_builder.py` | `tests/test_report_export_summary.py`, `tests/test_report_requests.py`, `tests/test_storage_report_builder.py` |
 | `models/schemas.py` | Pydantic/domain model | imported by runtime modules | - | `parsers/magnit.py`, `parsers/pyaterochka.py`, `scripts/export_pyaterochka_products.py`, `stores/pyaterochka/product_export.py`, `utils/excel_report.py`, +6 more | `tests/test_excel_report.py`, `tests/test_export_pyaterochka_products.py`, `tests/test_export_store_report.py`, +6 more |
-| `models/task_actor.py` | Pydantic/domain model | imported by runtime modules | - | `launcher/desktop_controller_reports.py`, `utils/launcher_task_view.py`, `utils/local_task_adapter.py`, `utils/local_task_registry.py`, `utils/run_manifest.py` | `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_research.py`, `tests/test_desktop_launcher_controller_tasks.py`, +5 more |
+| `models/task_actor.py` | Pydantic/domain model | imported by runtime modules | - | `launcher/desktop_controller_reports.py`, `utils/launcher_task_view.py`, `utils/local_task_adapter.py`, `utils/local_task_registry.py`, `utils/run_manifest.py` | `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_filters.py`, `tests/test_desktop_launcher_controller_research.py`, +6 more |
 
 ### parsers
 
@@ -809,7 +809,7 @@ flowchart LR
 | `tests/test_desktop_interaction_state.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_interaction_state.py`, `models/__init__.py`, `models/launcher_state.py` | - | - |
 | `tests/test_desktop_launcher.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_launcher.py`, `launcher/desktop_shell_helpers.py` | - | - |
 | `tests/test_desktop_launcher_controller.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_controller.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_user_messages.py`, `models/__init__.py`, +3 more | - | - |
-| `tests/test_desktop_launcher_controller_filters.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_controller.py`, `launcher/desktop_user_messages.py` | - | - |
+| `tests/test_desktop_launcher_controller_filters.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_controller.py`, `launcher/desktop_user_messages.py`, `models/__init__.py`, `models/task_actor.py`, +2 more | - | - |
 | `tests/test_desktop_launcher_controller_paths.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_controller.py`, `launcher/desktop_user_messages.py` | - | - |
 | `tests/test_desktop_launcher_controller_research.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_controller.py`, `launcher/desktop_user_messages.py`, `models/__init__.py`, `models/task_actor.py`, +2 more | - | - |
 | `tests/test_desktop_launcher_controller_tasks.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_controller.py`, `models/__init__.py`, `models/task_actor.py`, `utils/__init__.py`, +1 more | - | - |
@@ -876,7 +876,7 @@ flowchart LR
 
 | File | Role | When it runs | Imports | Imported by | Tests |
 | --- | --- | --- | --- | --- | --- |
-| `utils/__init__.py` | support module | imported by runtime modules | - | `launcher/desktop_controller.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_profile.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, +62 more | `tests/test_api_discovery.py`, `tests/test_api_discovery_context.py`, `tests/test_api_discovery_report_details.py`, +51 more |
+| `utils/__init__.py` | support module | imported by runtime modules | - | `launcher/desktop_controller.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_profile.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, +62 more | `tests/test_api_discovery.py`, `tests/test_api_discovery_context.py`, `tests/test_api_discovery_report_details.py`, +52 more |
 | `utils/antibot.py` | support module | imported by runtime modules | - | `parsers/pyaterochka.py`, `scripts/smoke_pyaterochka_camoufox.py`, `scripts/smoke_pyaterochka_support.py`, `utils/browser_catalog_discovery.py` | `tests/test_proxy_and_antibot.py` |
 | `utils/api_discovery.py` | support module | imported by runtime modules | `utils/__init__.py`, `utils/api_discovery_report.py`, `utils/api_first_extractor.py`, `utils/interception.py`, `utils/proxy.py` | `scripts/discover_pyaterochka_api.py` | `tests/test_api_discovery.py`, `tests/test_api_discovery_context.py`, `tests/test_api_discovery_report_details.py` |
 | `utils/api_discovery_report.py` | report/export | during report/filter/export generation | - | `utils/api_discovery.py` | - |
@@ -924,7 +924,7 @@ flowchart LR
 | `utils/launcher_settings.py` | support module | imported by runtime modules | `models/__init__.py`, `models/launcher_state.py` | `launcher/desktop_controller.py` | `tests/test_launcher_settings.py` |
 | `utils/launcher_task_controller.py` | local task bridge | imported by runtime modules | `utils/__init__.py`, `utils/launcher_report_task_controller.py`, `utils/local_task_adapter.py` | `launcher/desktop_controller.py` | `tests/test_launcher_task_controller_exports.py`, `tests/test_launcher_task_controller_onboarding.py`, `tests/test_launcher_task_controller_reports.py` |
 | `utils/launcher_task_view.py` | support module | imported by runtime modules | `models/__init__.py`, `models/task_actor.py` | `utils/local_task_adapter.py` | - |
-| `utils/local_task_adapter.py` | local task bridge | when launcher or CLI runs a local task | `models/__init__.py`, `models/task_actor.py`, `utils/__init__.py`, `utils/launcher_task_view.py` | `launcher/desktop_controller.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_controller_workspace.py`, +2 more | `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_research.py`, `tests/test_desktop_launcher_controller_tasks.py`, +4 more |
+| `utils/local_task_adapter.py` | local task bridge | when launcher or CLI runs a local task | `models/__init__.py`, `models/task_actor.py`, `utils/__init__.py`, `utils/launcher_task_view.py` | `launcher/desktop_controller.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_controller_workspace.py`, +2 more | `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_filters.py`, `tests/test_desktop_launcher_controller_research.py`, +5 more |
 | `utils/local_task_registry.py` | local task bridge | when launcher or CLI runs a local task | `models/__init__.py`, `models/report_request.py`, `models/task_actor.py`, `utils/__init__.py`, `utils/kb_loader.py`, +5 more | `scripts/run_local_task.py` | `tests/test_local_task_runtime.py`, `tests/test_onboarding_manifest_fields.py`, `tests/test_store_report_export_task_summary.py` |
 | `utils/logger.py` | support module | manual/debug command | - | `main.py` | - |
 | `utils/network_capture.py` | support module | imported by runtime modules | `utils/__init__.py`, `utils/interception.py`, `utils/interception_profiles.py`, `utils/proxy.py` | `scripts/discover_pyaterochka_api.py`, `scripts/smoke_pyaterochka_camoufox.py` | `tests/test_network_capture.py` |

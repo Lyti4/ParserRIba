@@ -171,6 +171,20 @@ def test_build_result_caption_text_marks_filtered_export_json(tmp_path: Path) ->
     assert "Активные фильтры: бренды=1" in caption
 
 
+def test_build_result_caption_text_shows_filtered_product_workspace_count() -> None:
+    state = LauncherAppState()
+    state.products.items = [
+        {"id": "ice-1", "category": "Мороженое", "name": "Пломбир", "in_stock": True},
+        {"id": "mayo-1", "category": "Майонез", "name": "Майонез", "in_stock": True},
+    ]
+    state.filters.categories = ["Майонез"]
+
+    caption = build_result_caption_text(state)
+
+    assert "Показано 1 из 2 товаров" in caption
+    assert "Активные фильтры: категории=1" in caption
+
+
 def test_build_result_caption_text_shows_selected_product_scope(tmp_path: Path) -> None:
     json_path = tmp_path / "products.json"
     json_path.write_text(

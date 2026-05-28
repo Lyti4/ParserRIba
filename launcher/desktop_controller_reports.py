@@ -85,6 +85,11 @@ def load_filter_options(controller: Any) -> LocalTaskProcessResult:
 
 def refresh_filter_counts_after_export(controller: Any, categories: list[str]) -> None:
     """Refresh launcher filter counts after a product export task."""
+    if controller.state.products.items:
+        filter_counts = build_available_filter_counts_from_products(controller.state.products.items)
+        found_filters = filter_counts.pop("found_filters", {})
+        _apply_filter_counts(controller, filter_counts, found_filters, reset_found_filters=True)
+        return
     runner = (
         controller.wine_filter_options_runner
         if controller.state.selection.intent == "wine_catalog"

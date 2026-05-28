@@ -20,6 +20,9 @@ class _DummyShell:
     def _on_apply_filters(self) -> None:
         return None
 
+    def _on_show_all_products(self) -> None:
+        return None
+
 
 def test_filter_panel_collects_multi_select_and_value_filters() -> None:
     QApplication, qtwidgets, _ = load_pyside6()
@@ -189,7 +192,7 @@ def test_filter_panel_collects_selected_found_filters() -> None:
     box.deleteLater()
 
 
-def test_filter_panel_exposes_apply_filters_button() -> None:
+def test_filter_panel_exposes_filter_action_buttons() -> None:
     QApplication, qtwidgets, _ = load_pyside6()
     app = QApplication.instance() or QApplication([])
     shell = _DummyShell()
@@ -198,7 +201,9 @@ def test_filter_panel_exposes_apply_filters_button() -> None:
     box = build_filter_box(shell, qtwidgets)
 
     assert app is not None
-    assert any(button.text() == "Применить фильтры к товарам" for button in shell.filter_action_buttons)
+    button_labels = [button.text() for button in shell.filter_action_buttons]
+    assert "Применить фильтры к товарам" in button_labels
+    assert "Показать все товары" in button_labels
     box.deleteLater()
 
 

@@ -8,11 +8,7 @@ from typing import Any, Callable
 from launcher.desktop_action_state import build_action_enabled_map
 from launcher.desktop_background_task import start_background_action
 from launcher.desktop_controller import DesktopLauncherController
-from launcher.desktop_filter_panel import (
-    FILTER_WIDGET_KEYS,
-    collect_filter_selections,
-    refresh_filter_widgets,
-)
+from launcher.desktop_filter_panel import FILTER_WIDGET_KEYS, collect_filter_selections, refresh_filter_widgets
 from launcher.desktop_interaction_state import apply_widget_enabled_state
 from launcher.desktop_product_details import build_product_detail_text
 from launcher.desktop_result_table import build_result_table
@@ -196,6 +192,10 @@ class DesktopLauncherShell:
         rows = table.get("rows")
         shown_count = len(rows) if isinstance(rows, list) else 0
         self.state.task.message = f"Фильтры применены к товарам. Показано товаров: {shown_count}."
+        self._refresh_ui()
+    def _on_show_all_products(self) -> None:
+        clear_filter_selections(self, FILTER_WIDGET_KEYS)
+        self.state.task.message = f"Показаны все товары: {len(product_items(self.state))}."
         self._refresh_ui()
     def _on_clear_filters(self) -> None: clear_filter_selections(self, FILTER_WIDGET_KEYS)
     def _on_run_onboarding(self) -> None: self._run_ui_action(lambda: self.controller.run_onboarding_discovery(site_url=self._site_url()))

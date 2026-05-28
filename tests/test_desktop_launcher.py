@@ -254,7 +254,8 @@ def test_desktop_launcher_load_filters_populates_dynamic_filter_scroll(tmp_path:
     assert scroll_area is not None
     assert shell.filter_widgets["suppliers"].count() == 1
     assert shell.found_filter_widgets["fat_percent"].count() == 1
-    assert "Найдено фильтров:" in shell.filter_context_label.text()
+    assert "Фильтры построены по разделу:" in shell.filter_context_label.text()
+    assert "товаров: 1" in shell.filter_context_label.text()
 
 
 def test_desktop_launcher_apply_filters_updates_product_table(tmp_path: Path) -> None:
@@ -291,6 +292,39 @@ def test_desktop_launcher_apply_filters_updates_product_table(tmp_path: Path) ->
     assert table.item(0, 1).text() == "Майонез"
     assert shell.state.filters.categories == ["Майонез"]
     assert "Показано товаров: 1" in shell.state.task.message
+
+
+def test_desktop_launcher_show_all_products_clears_active_filters(tmp_path: Path) -> None:
+    shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
+    shell.state.products.items = [
+        {
+            "id": "ice-1",
+            "category": "Мороженое",
+            "name": "Пломбир",
+            "brand": "Бренд",
+            "raw_data": {"supplier": "Фабрика"},
+            "in_stock": True,
+        },
+        {
+            "id": "mayo-1",
+            "category": "Майонез",
+            "name": "Майонез",
+            "brand": "Бренд",
+            "raw_data": {"supplier": "Завод"},
+            "in_stock": True,
+        },
+    ]
+    shell.state.dynamic_filters.counts = {
+        "categories": {"Мороженое": 1, "Майонез": 1},
+    }
+    shell.state.filters.categories = ["Майонез"]
+    shell.create_window()
+
+    shell._on_show_all_products()
+
+    assert shell.result_table.rowCount() == 2
+    assert shell.state.filters.categories == []
+    assert shell.state.task.message == "Показаны все товары: 2."
 
 
 def test_desktop_launcher_can_clear_selected_products(tmp_path: Path) -> None:

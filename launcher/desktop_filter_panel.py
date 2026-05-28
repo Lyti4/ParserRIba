@@ -28,7 +28,8 @@ FILTER_WIDGET_KEYS = (
     "sugar_classes",
     "colors",
 )
-FILTERS_EMPTY_TEXT = "Сначала соберите товары. Здесь появятся фильтры из найденных карточек."
+FILTERS_EMPTY_TEXT = "В собранных товарах нет дополнительных полей для фильтрации."
+FILTERS_NO_PRODUCTS_TEXT = "Сначала соберите товары. Здесь появятся фильтры из найденных карточек."
 FOUND_FILTERS_TITLE = "Найденные фильтры"
 
 
@@ -64,6 +65,10 @@ def build_filter_box(shell: Any, qtwidgets: Any) -> Any:
     apply_button.clicked.connect(shell._on_apply_filters)
     shell.filter_action_buttons.append(apply_button)
     action_row.addWidget(apply_button)
+    show_all_button = qtwidgets.QPushButton("Показать все товары")
+    show_all_button.clicked.connect(shell._on_show_all_products)
+    shell.filter_action_buttons.append(show_all_button)
+    action_row.addWidget(show_all_button)
     clear_button = qtwidgets.QPushButton("Сбросить фильтры")
     clear_button.clicked.connect(shell._on_clear_filters)
     shell.filter_action_buttons.append(clear_button)
@@ -122,7 +127,7 @@ def refresh_filter_widgets(shell: Any) -> None:
         visible_count += 1
 
     if visible_count == 0:
-        empty_label = qtwidgets.QLabel(FILTERS_EMPTY_TEXT)
+        empty_label = qtwidgets.QLabel(FILTERS_EMPTY_TEXT if shell.state.products.items else FILTERS_NO_PRODUCTS_TEXT)
         empty_label.setWordWrap(True)
         layout.addWidget(empty_label)
     layout.addStretch(1)
@@ -223,7 +228,9 @@ def _refresh_filter_context(shell: Any, visible_count: int) -> None:
     if label is None:
         return
     product_count = len(shell.state.products.items)
-    label.setText(f"Найдено фильтров: {visible_count} | товаров в рабочей области: {product_count}")
+    categories = [str(item).strip() for item in shell.state.products.source_categories if str(item).strip()]
+    section = ", ".join(categories[:3]) if categories else "текущая рабочая область"
+    label.setText(f"Фильтры построены по разделу: {section}; товаров: {product_count}; найдено фильтров: {visible_count}")
 
 
 def _refresh_filter_value_widgets(shell: Any, filters_state: Any) -> None:

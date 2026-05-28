@@ -36,7 +36,7 @@ def build_filter_actions_box(shell: Any, qtwidgets: Any) -> Any:
         shell,
         qtwidgets,
         "Фильтры",
-        (("load_filters", "Загрузить найденные фильтры", shell._on_load_filters),),
+        (("load_filters", "Обновить фильтры из товаров", shell._on_load_filters),),
     )
 
 

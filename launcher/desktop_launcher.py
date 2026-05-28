@@ -190,6 +190,13 @@ class DesktopLauncherShell:
     def _on_clear_categories(self) -> None: set_category_selection(self, False)
     def _on_select_all_results(self) -> None: set_result_selection(self, True)
     def _on_clear_selected_products(self) -> None: set_result_selection(self, False)
+    def _on_apply_filters(self) -> None:
+        self._update_state_from_widgets()
+        table = build_result_table(self.state)
+        rows = table.get("rows")
+        shown_count = len(rows) if isinstance(rows, list) else 0
+        self.state.task.message = f"Фильтры применены к товарам. Показано товаров: {shown_count}."
+        self._refresh_ui()
     def _on_clear_filters(self) -> None: clear_filter_selections(self, FILTER_WIDGET_KEYS)
     def _on_run_onboarding(self) -> None: self._run_ui_action(lambda: self.controller.run_onboarding_discovery(site_url=self._site_url()))
     def _on_run_export(self) -> None: self._run_ui_action(self.controller.run_selected_export)

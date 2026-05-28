@@ -60,6 +60,10 @@ def build_filter_box(shell: Any, qtwidgets: Any) -> Any:
 
     action_row = qtwidgets.QHBoxLayout()
     action_row.addStretch(1)
+    apply_button = qtwidgets.QPushButton("Применить фильтры к товарам")
+    apply_button.clicked.connect(shell._on_apply_filters)
+    shell.filter_action_buttons.append(apply_button)
+    action_row.addWidget(apply_button)
     clear_button = qtwidgets.QPushButton("Сбросить фильтры")
     clear_button.clicked.connect(shell._on_clear_filters)
     shell.filter_action_buttons.append(clear_button)

@@ -17,6 +17,9 @@ class _DummyShell:
     def _on_clear_filters(self) -> None:
         return None
 
+    def _on_apply_filters(self) -> None:
+        return None
+
 
 def test_filter_panel_collects_multi_select_and_value_filters() -> None:
     QApplication, qtwidgets, _ = load_pyside6()
@@ -183,6 +186,19 @@ def test_filter_panel_collects_selected_found_filters() -> None:
 
     assert app is not None
     assert selections["found_filters"] == {"fat": ["50%"]}
+    box.deleteLater()
+
+
+def test_filter_panel_exposes_apply_filters_button() -> None:
+    QApplication, qtwidgets, _ = load_pyside6()
+    app = QApplication.instance() or QApplication([])
+    shell = _DummyShell()
+    shell._qtwidgets = qtwidgets
+
+    box = build_filter_box(shell, qtwidgets)
+
+    assert app is not None
+    assert any(button.text() == "Применить фильтры к товарам" for button in shell.filter_action_buttons)
     box.deleteLater()
 
 

@@ -257,6 +257,42 @@ def test_desktop_launcher_load_filters_populates_dynamic_filter_scroll(tmp_path:
     assert "Найдено фильтров:" in shell.filter_context_label.text()
 
 
+def test_desktop_launcher_apply_filters_updates_product_table(tmp_path: Path) -> None:
+    shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
+    shell.state.products.items = [
+        {
+            "id": "ice-1",
+            "category": "Мороженое",
+            "name": "Пломбир",
+            "brand": "Бренд",
+            "raw_data": {"supplier": "Фабрика"},
+            "in_stock": True,
+        },
+        {
+            "id": "mayo-1",
+            "category": "Майонез",
+            "name": "Майонез",
+            "brand": "Бренд",
+            "raw_data": {"supplier": "Завод"},
+            "in_stock": True,
+        },
+    ]
+    shell.state.dynamic_filters.counts = {
+        "categories": {"Мороженое": 1, "Майонез": 1},
+    }
+    shell.create_window()
+    category_widget = shell.filter_widgets["categories"]
+    category_widget.item(0).setSelected(True)
+
+    shell._on_apply_filters()
+
+    table = shell.result_table
+    assert table.rowCount() == 1
+    assert table.item(0, 1).text() == "Майонез"
+    assert shell.state.filters.categories == ["Майонез"]
+    assert "Показано товаров: 1" in shell.state.task.message
+
+
 def test_desktop_launcher_can_clear_selected_products(tmp_path: Path) -> None:
     json_path = tmp_path / "products.json"
     json_path.write_text(

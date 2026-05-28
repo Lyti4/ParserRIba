@@ -29,7 +29,7 @@
 - Modify: `docs/LAUNCHER_ARCHITECTURE.md`
 - Modify: `docs/NEXT_STEPS.md`
 
-- [ ] **Step 1: Review the canonical invariant**
+- [x] **Step 1: Review the canonical invariant**
 
 Open `docs/DATA_FLOW_THREADING_PLAN.md` and verify it still says:
 
@@ -37,13 +37,13 @@ Open `docs/DATA_FLOW_THREADING_PLAN.md` and verify it still says:
 Workers, subprocesses and browser runtimes return data. Only the GUI thread renders widgets.
 ```
 
-- [ ] **Step 2: Link new architecture work to the invariant**
+- [x] **Step 2: Link new architecture work to the invariant**
 
 When adding launcher/product/filter/report behavior, update the relevant doc
 section with one sentence that points back to
 `docs/DATA_FLOW_THREADING_PLAN.md`.
 
-- [ ] **Step 3: Check docs only**
+- [x] **Step 3: Check docs only**
 
 Run:
 
@@ -53,7 +53,7 @@ git diff --check -- docs
 
 Expected: no whitespace errors.
 
-- [ ] **Step 4: Commit the documentation slice**
+- [x] **Step 4: Commit the documentation slice**
 
 Run:
 
@@ -70,7 +70,7 @@ Expected: commit succeeds.
 - Modify: `launcher/desktop_background_task.py`
 - Test: `tests/test_desktop_background_task.py`
 
-- [ ] **Step 1: Keep callbacks in GUI-thread QObject slots**
+- [x] **Step 1: Keep callbacks in GUI-thread QObject slots**
 
 Verify `start_background_action(...)` creates a retained callback object whose
 slots live in the GUI thread. The shape must remain equivalent to:
@@ -84,7 +84,7 @@ thread.finished.connect(callbacks.handle_cleared)
 thread._parserriba_callbacks = callbacks
 ```
 
-- [ ] **Step 2: Preserve thread-affinity regression test**
+- [x] **Step 2: Preserve thread-affinity regression test**
 
 Run:
 
@@ -108,7 +108,7 @@ thread behavior before implementation.
 - Modify: `launcher/desktop_background_task.py`
 - Test: `tests/test_launcher_progress.py`
 
-- [ ] **Step 1: Define the event contract**
+- [x] **Step 1: Define the event contract**
 
 Create `models/launcher_progress.py` with an immutable event model:
 
@@ -128,7 +128,7 @@ class LauncherProgressEvent(BaseModel):
     total: int | None = None
 ```
 
-- [ ] **Step 2: Write the unit test**
+- [x] **Step 2: Write the unit test**
 
 Create `tests/test_launcher_progress.py`:
 
@@ -155,7 +155,7 @@ def test_launcher_progress_event_is_immutable() -> None:
         raise AssertionError("LauncherProgressEvent must be immutable")
 ```
 
-- [ ] **Step 3: Run the focused test**
+- [x] **Step 3: Run the focused test**
 
 Run:
 
@@ -212,7 +212,7 @@ Expected: pass.
 **Files:**
 - No code files required unless earlier tasks changed them.
 
-- [ ] **Step 1: Run full tests**
+- [x] **Step 1: Run full tests**
 
 Run:
 
@@ -222,7 +222,7 @@ Run:
 
 Expected: pass.
 
-- [ ] **Step 2: Compile active compatibility surface**
+- [x] **Step 2: Compile active compatibility surface**
 
 Run:
 
@@ -232,7 +232,7 @@ Run:
 
 Expected: no compile errors.
 
-- [ ] **Step 3: Run architecture check**
+- [x] **Step 3: Run architecture check**
 
 Run:
 
@@ -243,7 +243,7 @@ Run:
 Expected: no errors. Known long-test warnings should be handled in the next
 hygiene slice, not ignored indefinitely.
 
-- [ ] **Step 4: Run launcher smoke**
+- [x] **Step 4: Run launcher smoke**
 
 Run:
 

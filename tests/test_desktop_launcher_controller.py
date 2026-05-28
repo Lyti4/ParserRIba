@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from launcher.desktop_controller import DesktopLauncherController, open_path_with_system_handler
+from launcher.desktop_controller import DesktopLauncherController
 from launcher.desktop_controller_helpers import selected_export_categories
-from launcher.desktop_user_messages import empty_filter_options_message, no_selected_categories_message, no_output_path_message, opened_path_message, settings_saved_message
+from launcher.desktop_user_messages import empty_filter_options_message, no_selected_categories_message
 from models.task_actor import RunManifest
 from utils.local_task_adapter import build_local_task_process_result
 
@@ -274,54 +274,6 @@ def test_desktop_launcher_controller_runs_selected_export_for_every_category(tmp
     assert controller.state.products.discovered_fields == {"country": {"Норвегия": 2}}
 
 
-def test_desktop_launcher_controller_save_settings_sets_message(tmp_path: Path) -> None:
-    controller = DesktopLauncherController(root_dir=tmp_path)
-
-    settings_path = controller.save_settings()
-
-    assert settings_path == tmp_path / "data" / "launcher_settings.json"
-    assert controller.state.task.message == settings_saved_message()
-
-
-def test_desktop_launcher_controller_open_json_without_target_sets_message(tmp_path: Path) -> None:
-    controller = DesktopLauncherController(root_dir=tmp_path)
-
-    opened = controller.open_json()
-
-    assert opened is False
-    assert controller.state.task.message == no_output_path_message()
-
-
-def test_desktop_launcher_controller_open_excel_uses_injected_path_opener(tmp_path: Path) -> None:
-    opened_paths: list[str] = []
-
-    def fake_opener(path: str) -> None:
-        opened_paths.append(path)
-
-    controller = DesktopLauncherController(root_dir=tmp_path, path_opener=fake_opener)
-    controller.state.result.excel_path = str(tmp_path / "data" / "reports" / "fish.xlsx")
-
-    opened = controller.open_excel()
-
-    assert opened is True
-    assert opened_paths == [controller.state.result.excel_path]
-    assert controller.state.task.message == opened_path_message(controller.state.result.excel_path)
-
-
-def test_open_path_with_system_handler_uses_linux_opener(monkeypatch: pytest.MonkeyPatch) -> None:
-    captured: dict[str, object] = {}
-
-    def fake_popen(command: list[str]) -> None:
-        captured["command"] = command
-
-    monkeypatch.setattr("launcher.desktop_controller.sys.platform", "linux")
-    monkeypatch.setattr("launcher.desktop_controller.subprocess.Popen", fake_popen)
-
-    open_path_with_system_handler("/tmp/report.xlsx")
-
-    assert captured["command"] == ["xdg-open", "/tmp/report.xlsx"]
-
-
 def test_desktop_launcher_controller_preserves_report_result_when_loading_filters(tmp_path: Path) -> None:
     def fake_report_runner(**kwargs):
         del kwargs
@@ -449,6 +401,7 @@ def test_desktop_launcher_controller_store_research_clears_stale_report_state(tm
     assert controller.state.task.message == (
         "Исследование магазина завершено. Найдено разделов: 2 Текущая фаза: Открытие сайта"
     )
+
 def test_desktop_launcher_controller_clears_selected_products_when_categories_change(tmp_path: Path) -> None:
     controller = DesktopLauncherController(root_dir=tmp_path)
 

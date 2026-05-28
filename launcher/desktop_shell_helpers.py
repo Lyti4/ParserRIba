@@ -82,6 +82,7 @@ def set_result_selection(shell: Any, selected: bool) -> None:
 def clear_filter_selections(shell: Any, filter_keys: tuple[str, ...]) -> None:
     """Clear all visible multi-select filters and sync launcher state."""
     clear_multi_select_widgets(shell.filter_widgets.values())
+    clear_multi_select_widgets(getattr(shell, "found_filter_widgets", {}).values())
     min_price_widget = shell.filter_field_widgets.get("min_price")
     max_price_widget = shell.filter_field_widgets.get("max_price")
     in_stock_widget = shell.filter_field_widgets.get("in_stock")

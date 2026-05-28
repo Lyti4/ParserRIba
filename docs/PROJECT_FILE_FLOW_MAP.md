@@ -633,7 +633,7 @@ flowchart LR
   n_stores[stores] -->|2| n_models[models]
   n_stores[stores] -->|1| n_scripts[scripts]
   n_stores[stores] -->|5| n_utils[utils]
-  n_tests[tests] -->|49| n_launcher[launcher]
+  n_tests[tests] -->|52| n_launcher[launcher]
   n_tests[tests] -->|74| n_models[models]
   n_tests[tests] -->|13| n_scripts[scripts]
   n_tests[tests] -->|3| n_stores[stores]
@@ -661,12 +661,12 @@ flowchart LR
 
 | File | Role | When it runs | Imports | Imported by | Tests |
 | --- | --- | --- | --- | --- | --- |
-| `launcher/__init__.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/browser_preview.py`, `launcher/desktop_controller.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_controller_workspace.py`, +14 more | `tests/test_browser_preview.py`, `tests/test_desktop_action_state.py`, `tests/test_desktop_background_task.py`, +17 more |
+| `launcher/__init__.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/browser_preview.py`, `launcher/desktop_controller.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, `launcher/desktop_controller_workspace.py`, +14 more | `tests/test_browser_preview.py`, `tests/test_desktop_action_state.py`, `tests/test_desktop_background_task.py`, +18 more |
 | `launcher/browser_preview.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_filter_helpers.py`, `launcher/desktop_filter_panel.py`, `launcher/desktop_result_table.py`, `launcher/desktop_state_readers.py`, +3 more | `scripts/build_launcher_browser_preview.py` | `tests/test_browser_preview.py` |
 | `launcher/desktop_action_state.py` | desktop launcher UI/controller | when desktop launcher is opened | `models/__init__.py`, `models/launcher_state.py` | `launcher/desktop_launcher.py` | `tests/test_desktop_action_state.py` |
 | `launcher/desktop_background_task.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_launcher.py` | `tests/test_desktop_background_task.py` |
 | `launcher/desktop_catalog_tree_widget.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_selection_panel.py`, `launcher/desktop_shell_helpers.py` | `tests/test_desktop_catalog_tree_widget.py` |
-| `launcher/desktop_controller.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_profile.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, +7 more | `launcher/desktop_launcher.py`, `scripts/build_launcher_browser_preview.py` | `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_paths.py`, `tests/test_desktop_launcher_controller_research.py`, +1 more |
+| `launcher/desktop_controller.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_controller_profile.py`, `launcher/desktop_controller_reports.py`, `launcher/desktop_controller_research.py`, +7 more | `launcher/desktop_launcher.py`, `scripts/build_launcher_browser_preview.py` | `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_filters.py`, `tests/test_desktop_launcher_controller_paths.py`, +2 more |
 | `launcher/desktop_controller_helpers.py` | desktop launcher UI/controller | when desktop launcher is opened | `models/__init__.py`, `models/launcher_state.py`, `utils/__init__.py`, `utils/local_task_adapter.py` | `launcher/desktop_controller.py`, `launcher/desktop_controller_reports.py` | `tests/test_desktop_controller_helpers.py`, `tests/test_desktop_launcher_controller.py` |
 | `launcher/desktop_controller_profile.py` | desktop launcher UI/controller | when desktop launcher is opened | `utils/__init__.py`, `utils/launcher_profile_snapshot.py` | `launcher/desktop_controller.py` | - |
 | `launcher/desktop_controller_reports.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_export_facets.py`, `launcher/desktop_user_messages.py`, `models/__init__.py`, +3 more | `launcher/desktop_controller.py` | - |
@@ -687,7 +687,7 @@ flowchart LR
 | `launcher/desktop_shell_helpers.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_catalog_tree_widget.py`, `launcher/desktop_list_widget_helpers.py` | `launcher/desktop_launcher.py`, `scripts/create_launcher_shortcut.py` | `tests/test_desktop_background_task.py`, `tests/test_desktop_launcher.py` |
 | `launcher/desktop_state_readers.py` | desktop launcher UI/controller | when desktop launcher is opened | `models/__init__.py`, `models/launcher_state.py` | `launcher/browser_preview.py`, `launcher/desktop_dynamic_filter_panel.py`, `launcher/desktop_filter_panel.py`, `launcher/desktop_launcher.py`, `launcher/desktop_result_table.py`, +2 more | - |
 | `launcher/desktop_ui_text.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_controller_research.py`, `launcher/desktop_dynamic_filter_panel.py`, `launcher/desktop_filter_panel.py`, `launcher/desktop_launcher.py`, `launcher/desktop_result_table.py`, +3 more | - |
-| `launcher/desktop_user_messages.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_controller.py`, `launcher/desktop_controller_reports.py` | `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_paths.py`, `tests/test_desktop_launcher_controller_research.py` |
+| `launcher/desktop_user_messages.py` | desktop launcher UI/controller | when desktop launcher is opened | - | `launcher/desktop_controller.py`, `launcher/desktop_controller_reports.py` | `tests/test_desktop_launcher_controller.py`, `tests/test_desktop_launcher_controller_filters.py`, `tests/test_desktop_launcher_controller_paths.py`, +1 more |
 | `launcher/desktop_view_helpers.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_result_table.py`, `launcher/desktop_state_readers.py`, `launcher/desktop_ui_text.py`, `models/__init__.py`, +1 more | `launcher/browser_preview.py`, `launcher/desktop_launcher.py` | `tests/test_desktop_research_view_helpers.py`, `tests/test_desktop_view_helpers.py` |
 | `launcher/desktop_window_sections.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_ui_text.py` | `launcher/desktop_workflow_tabs.py` | - |
 | `launcher/desktop_workflow_tabs.py` | desktop launcher UI/controller | when desktop launcher is opened | `launcher/__init__.py`, `launcher/desktop_filter_panel.py`, `launcher/desktop_selection_panel.py`, `launcher/desktop_window_sections.py` | `launcher/desktop_launcher.py` | - |
@@ -809,6 +809,7 @@ flowchart LR
 | `tests/test_desktop_interaction_state.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_interaction_state.py`, `models/__init__.py`, `models/launcher_state.py` | - | - |
 | `tests/test_desktop_launcher.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_launcher.py`, `launcher/desktop_shell_helpers.py` | - | - |
 | `tests/test_desktop_launcher_controller.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_controller.py`, `launcher/desktop_controller_helpers.py`, `launcher/desktop_user_messages.py`, `models/__init__.py`, +3 more | - | - |
+| `tests/test_desktop_launcher_controller_filters.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_controller.py`, `launcher/desktop_user_messages.py` | - | - |
 | `tests/test_desktop_launcher_controller_paths.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_controller.py`, `launcher/desktop_user_messages.py` | - | - |
 | `tests/test_desktop_launcher_controller_research.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_controller.py`, `launcher/desktop_user_messages.py`, `models/__init__.py`, `models/task_actor.py`, +2 more | - | - |
 | `tests/test_desktop_launcher_controller_tasks.py` | test | pytest only | `launcher/__init__.py`, `launcher/desktop_controller.py`, `models/__init__.py`, `models/task_actor.py`, `utils/__init__.py`, +1 more | - | - |
@@ -982,4 +983,4 @@ These are review candidates, not deletion instructions.
 - `utils/session_manager.py`: keep until replacement path and tests are confirmed.
 
 ### Current untracked/local artifacts
-- `stores/`
+- none

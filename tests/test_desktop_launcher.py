@@ -235,6 +235,28 @@ def test_desktop_launcher_shows_product_details_from_structured_workspace(tmp_pa
     assert '"fat": "12%"' in details
 
 
+def test_desktop_launcher_load_filters_populates_dynamic_filter_scroll(tmp_path: Path) -> None:
+    shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
+    shell.state.products.items = [
+        {
+            "id": "mayo-1",
+            "category": "Майонез",
+            "name": "Майонез 67",
+            "brand": "Бренд",
+            "raw_data": {"supplier": "Завод", "fat_percent": "67%"},
+        }
+    ]
+    shell.create_window()
+
+    shell._run_ui_action_sync_for_tests(shell.controller.load_filter_options)
+
+    scroll_area = shell.window.findChild(shell._qtwidgets.QScrollArea, "launcherDynamicFiltersScrollArea")
+    assert scroll_area is not None
+    assert shell.filter_widgets["suppliers"].count() == 1
+    assert shell.found_filter_widgets["fat_percent"].count() == 1
+    assert "Найдено фильтров:" in shell.filter_context_label.text()
+
+
 def test_desktop_launcher_can_clear_selected_products(tmp_path: Path) -> None:
     json_path = tmp_path / "products.json"
     json_path.write_text(

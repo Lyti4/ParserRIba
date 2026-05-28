@@ -31,6 +31,7 @@ TASK_NAME_LABELS = {
 }
 
 FILTER_TITLES = {
+    "categories": "Категории",
     "suppliers": "Поставщики",
     "brands": "Бренды",
     "wine_styles": "Тип вина",

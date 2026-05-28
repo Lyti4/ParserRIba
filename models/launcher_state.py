@@ -79,6 +79,7 @@ class LauncherFilterState(BaseModel):
     alcohol_types: list[str] = Field(default_factory=list)
     sugar_classes: list[str] = Field(default_factory=list)
     colors: list[str] = Field(default_factory=list)
+    found_filters: dict[str, list[str]] = Field(default_factory=dict)
     strict_missing: bool = False
 
 

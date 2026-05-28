@@ -161,6 +161,34 @@ def test_build_result_table_applies_selected_export_filters(tmp_path: Path) -> N
     assert table["product_ids"] == ["wine-1"]
 
 
+def test_build_result_table_applies_found_filter_values() -> None:
+    state = LauncherAppState()
+    state.products.items = [
+        {
+            "id": "mayo-1",
+            "category": "Майонез",
+            "name": "Майонез 67%",
+            "brand": "Brand",
+            "raw_data": {"fat": "67%"},
+            "in_stock": True,
+        },
+        {
+            "id": "mayo-2",
+            "category": "Майонез",
+            "name": "Майонез 50%",
+            "brand": "Brand",
+            "raw_data": {"fat": "50%"},
+            "in_stock": True,
+        },
+    ]
+    state.filters.found_filters = {"fat": ["67%"]}
+
+    table = build_result_table(state)
+
+    assert table["product_ids"] == ["mayo-1"]
+    assert table["rows"][0][1] == "Майонез 67%"
+
+
 def test_build_result_table_keeps_missing_filtered_field_when_not_strict(tmp_path: Path) -> None:
     json_path = tmp_path / "products.json"
     json_path.write_text(

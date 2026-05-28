@@ -166,6 +166,8 @@ def _matches_export_filters(item: dict[str, Any], state: LauncherAppState) -> bo
         return False
     if not _matches_selected_text(color, filters.colors, filters.strict_missing):
         return False
+    if not _matches_found_filters(raw_dict, filters.found_filters, filters.strict_missing):
+        return False
     if not _matches_price_filter(item, filters.min_price, filters.max_price):
         return False
     if filters.in_stock is not None and bool(item.get("in_stock")) != filters.in_stock:
@@ -203,6 +205,38 @@ def _matches_price_filter(
     if max_price is not None and price_value > max_price:
         return False
     return True
+
+
+def _matches_found_filters(
+    raw_data: dict[str, Any],
+    found_filters: dict[str, list[str]],
+    strict_missing: bool,
+) -> bool:
+    if not found_filters:
+        return True
+    for field_name, selected_values in found_filters.items():
+        if not selected_values:
+            continue
+        actual_values = _raw_values(raw_data.get(field_name))
+        if not actual_values:
+            if strict_missing:
+                return False
+            continue
+        if not any(value in selected_values for value in actual_values):
+            return False
+    return True
+
+
+def _raw_values(value: Any) -> list[str]:
+    if isinstance(value, (str, int, float)) and not isinstance(value, bool):
+        text = _text_value(value)
+        return [text] if text else []
+    if isinstance(value, list):
+        result: list[str] = []
+        for item in value:
+            result.extend(_raw_values(item))
+        return result
+    return []
 
 
 def _text_value(value: Any) -> str:

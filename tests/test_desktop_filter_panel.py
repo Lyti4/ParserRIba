@@ -161,6 +161,25 @@ def test_filter_panel_renders_found_filters_scroll_area_when_present(
     box.deleteLater()
 
 
+def test_filter_panel_collects_selected_found_filters() -> None:
+    QApplication, qtwidgets, _ = load_pyside6()
+    app = QApplication.instance() or QApplication([])
+    shell = _DummyShell()
+    shell._qtwidgets = qtwidgets
+    shell.state.products.discovered_fields = {"fat": {"67%": 2, "50%": 1}}
+
+    box = build_filter_box(shell, qtwidgets)
+    refresh_filter_widgets(shell)
+    widget = shell.found_filter_widgets["fat"]
+    widget.item(0).setSelected(True)
+
+    selections = collect_filter_selections(shell)
+
+    assert app is not None
+    assert selections["found_filters"] == {"fat": ["50%"]}
+    box.deleteLater()
+
+
 def test_filter_panel_prefers_structured_found_filters_over_launcher_view() -> None:
     QApplication, qtwidgets, _ = load_pyside6()
     app = QApplication.instance() or QApplication([])

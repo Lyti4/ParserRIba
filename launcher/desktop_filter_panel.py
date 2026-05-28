@@ -81,6 +81,11 @@ def collect_filter_selections(shell: Any) -> dict[str, Any]:
     selections["min_price"] = _normalized_price_value(min_price_widget)
     selections["max_price"] = _normalized_price_value(max_price_widget)
     selections["in_stock"] = _normalized_in_stock_value(in_stock_widget)
+    selections["found_filters"] = {
+        str(field_name): [str(item.data(32) or item.text()) for item in widget.selectedItems()]
+        for field_name, widget in getattr(shell, "found_filter_widgets", {}).items()
+        if widget.selectedItems()
+    }
     selections["strict_missing"] = bool(strict_missing_widget.isChecked()) if strict_missing_widget is not None else False
     return selections
 

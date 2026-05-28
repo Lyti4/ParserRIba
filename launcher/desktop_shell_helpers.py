@@ -100,6 +100,7 @@ def clear_filter_selections(shell: Any, filter_keys: tuple[str, ...]) -> None:
             "min_price": None,
             "max_price": None,
             "in_stock": None,
+            "found_filters": {},
             "strict_missing": False,
         }
     )

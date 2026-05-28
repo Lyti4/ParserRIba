@@ -69,3 +69,24 @@ def test_build_available_filter_counts_from_products_reads_raw_fields() -> None:
         "country": {"Norway": 2},
         "fat": {"12%": 1, "18%": 1},
     }
+
+
+def test_build_available_filter_counts_from_products_skips_diagnostic_text_fields() -> None:
+    counts = build_available_filter_counts_from_products(
+        [
+            {
+                "category": "Sauce",
+                "name": "Mayo",
+                "brand": "Brand",
+                "raw_data": {
+                    "producer": "Factory",
+                    "description": "Long unique marketing text",
+                    "composition": "oil, egg, salt",
+                    "fat": "67%",
+                },
+            }
+        ]
+    )
+
+    assert counts["suppliers"] == {"Factory": 1}
+    assert counts["found_filters"] == {"fat": {"67%": 1}}

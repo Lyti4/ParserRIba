@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from launcher.desktop_workspace_export import facet_option_label
 from launcher.desktop_ui_text import REPORT_TABLE_HEADERS, RESULT_TABLE_HEADERS, display_stock_label
 from launcher.desktop_state_readers import full_catalog_tree, product_items, report_summary
 from models.launcher_state import LauncherAppState
@@ -58,6 +59,7 @@ def _table_from_products(
         product_id = str(item.get("id") or item.get("product_id") or "").strip()
         raw_data = item.get("raw_data")
         raw_dict = raw_data if isinstance(raw_data, dict) else {}
+        supplier = _supplier_value(item, raw_dict)
         price = item.get("price")
         price_value = ""
         if isinstance(price, dict) and price.get("current") is not None:
@@ -67,11 +69,11 @@ def _table_from_products(
                 str(item.get("category") or ""),
                 str(item.get("name") or ""),
                 str(item.get("brand") or ""),
-                str(raw_dict.get("supplier") or raw_dict.get("producer") or raw_dict.get("vendor") or item.get("brand") or ""),
+                str(supplier or ""),
                 str(item.get("subcategory") or ""),
                 str(raw_dict.get("alcohol_type") or ""),
                 price_value,
-                display_stock_label(bool(item.get("in_stock"))),
+                display_stock_label(item.get("in_stock")),
                 str(item.get("product_link") or ""),
             ]
         )
@@ -145,7 +147,7 @@ def _matches_export_filters(item: dict[str, Any], state: LauncherAppState) -> bo
     raw_data = item.get("raw_data")
     raw_dict = raw_data if isinstance(raw_data, dict) else {}
     filters = state.filters
-    supplier = _text_value(raw_dict.get("supplier") or raw_dict.get("producer") or raw_dict.get("vendor"))
+    supplier = _text_value(_supplier_value(item, raw_dict, brand_fallback=False))
     brand = _text_value(item.get("brand"))
     category = _text_value(item.get("category"))
     style = _text_value(item.get("subcategory"))
@@ -166,12 +168,22 @@ def _matches_export_filters(item: dict[str, Any], state: LauncherAppState) -> bo
         return False
     if not _matches_selected_text(color, filters.colors, filters.strict_missing):
         return False
-    if not _matches_found_filters(raw_dict, filters.found_filters, filters.strict_missing):
+    if not _matches_found_filters(
+        raw_dict,
+        filters.found_filters,
+        filters.strict_missing,
+        state.products.discovered_fields,
+    ):
         return False
     if not _matches_price_filter(item, filters.min_price, filters.max_price):
         return False
-    if filters.in_stock is not None and bool(item.get("in_stock")) != filters.in_stock:
-        return False
+    if filters.in_stock is not None:
+        availability = item.get("in_stock")
+        if availability is None:
+            if filters.strict_missing:
+                return False
+        elif bool(availability) != filters.in_stock:
+            return False
     return True
 
 
@@ -211,13 +223,19 @@ def _matches_found_filters(
     raw_data: dict[str, Any],
     found_filters: dict[str, list[str]],
     strict_missing: bool,
+    discovered_fields: dict[str, Any],
 ) -> bool:
     if not found_filters:
         return True
     for field_name, selected_values in found_filters.items():
         if not selected_values:
             continue
-        actual_values = _raw_values(raw_data.get(field_name))
+        available = discovered_fields.get(field_name)
+        available_labels = available if isinstance(available, dict) else {}
+        actual_values = _raw_values(
+            raw_data.get(field_name),
+            available_labels=available_labels,
+        )
         if not actual_values:
             if strict_missing:
                 return False
@@ -227,17 +245,32 @@ def _matches_found_filters(
     return True
 
 
-def _raw_values(value: Any) -> list[str]:
-    if isinstance(value, (str, int, float)) and not isinstance(value, bool):
-        text = _text_value(value)
-        return [text] if text else []
+def _raw_values(value: Any, *, available_labels: dict[str, Any]) -> list[str]:
+    if isinstance(value, (str, int, float, bool)):
+        return [facet_option_label(value, available_labels)]
     if isinstance(value, list):
         result: list[str] = []
         for item in value:
-            result.extend(_raw_values(item))
+            result.extend(_raw_values(item, available_labels=available_labels))
         return result
     return []
 
 
 def _text_value(value: Any) -> str:
     return str(value or "").strip()
+
+
+def _supplier_value(
+    item: dict[str, Any],
+    raw_data: dict[str, Any],
+    *,
+    brand_fallback: bool = True,
+) -> Any:
+    if "supplier" in item:
+        return item.get("supplier")
+    return (
+        raw_data.get("supplier")
+        or raw_data.get("producer")
+        or raw_data.get("vendor")
+        or (item.get("brand") if brand_fallback else None)
+    )

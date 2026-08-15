@@ -12,8 +12,8 @@ LauncherTaskStatus = Literal["idle", "running", "succeeded", "failed"]
 class LauncherSelectionState(BaseModel):
     """Current store/intent/category selection in the launcher."""
 
-    shop: str = "pyaterochka"
-    intent: str = "fish_catalog"
+    shop: str = ""
+    intent: str = ""
     categories: list[str] = Field(default_factory=list)
     selected_catalog_nodes: list[dict[str, Any]] = Field(default_factory=list)
     selected_product_ids: list[str] = Field(default_factory=list)

@@ -2,13 +2,117 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+import math
 from pathlib import Path
+import re
 from typing import Any
+from urllib.parse import unquote, urlsplit
+
+from utils.interception_payload_helpers import SENSITIVE_QUERY_KEYS
+
+
+_SENSITIVE_ASSIGNMENT_RE = re.compile(
+    rf"(?:^|[?&#;\s])[^?&#;=:\s]*(?:{'|'.join(re.escape(item) for item in SENSITIVE_QUERY_KEYS)})"
+    r"[^?&#;=:\s]*\s*(?:=|:)",
+    re.IGNORECASE,
+)
+
+
+def _safe_evidence_text(value: Any, max_length: int) -> str:
+    if not isinstance(value, (str, int, float)) or isinstance(value, bool):
+        return ""
+    if isinstance(value, float) and not math.isfinite(value):
+        return ""
+    text = " ".join(str(value).split())[:max_length]
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        return ""
+    if "%25" in text.casefold():
+        return ""
+    decoded = text
+    for _ in range(4):
+        next_value = unquote(decoded)
+        if next_value == decoded:
+            break
+        decoded = next_value
+    if _SENSITIVE_ASSIGNMENT_RE.search(decoded):
+        return ""
+    return text
+
+
+def _markdown_inline(value: Any) -> str:
+    """Render untrusted evidence as one inert Markdown inline value."""
+
+    text = _safe_evidence_text(value, 420)
+    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    for marker in ("\\", "`", "*", "_", "~", "|", "[", "]", "(", ")"):
+        text = text.replace(marker, f"\\{marker}")
+    return text
+
+
+def _safe_report_url(value: Any) -> str:
+    text = _safe_evidence_text(value, 420)
+    if not text:
+        return ""
+    try:
+        parsed = urlsplit(text)
+    except ValueError:
+        return ""
+    if parsed.scheme.casefold() not in {"http", "https"} or not parsed.hostname:
+        return ""
+    if parsed.username is not None or parsed.password is not None:
+        return ""
+    return text
+
+
+def _is_http_403(value: Any) -> bool:
+    if isinstance(value, bool):
+        return False
+    try:
+        return int(value) == 403
+    except (TypeError, ValueError, OverflowError):
+        return False
+
+
+def _structured_report_evidence(value: Any) -> list[dict[str, str]]:
+    if not isinstance(value, (list, tuple)):
+        return []
+    evidence: list[dict[str, str]] = []
+    for raw_item in value[:64]:
+        if not isinstance(raw_item, Mapping):
+            continue
+        name = _safe_evidence_text(raw_item.get("name"), 300)
+        if not name:
+            continue
+        item = {"name": name}
+        for key, max_length in (
+            ("sku", 120),
+            ("brand", 200),
+            ("price", 80),
+            ("price_currency", 12),
+            ("availability", 80),
+            ("url", 420),
+            ("source", 32),
+        ):
+            safe_value = (
+                _safe_report_url(raw_item.get(key))
+                if key == "url"
+                else _safe_evidence_text(raw_item.get(key), max_length)
+            )
+            if safe_value:
+                item[key] = safe_value
+        evidence.append(item)
+        if len(evidence) >= 10:
+            break
+    return evidence
 
 
 def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
     """Build a compact Markdown report for a Pyaterochka smoke result."""
-    status = "blocked" if result.get("blocked") else "ok"
+    blocked = bool(result.get("blocked")) or _is_http_403(result.get("http_status"))
+    status = "blocked" if blocked else "ok"
     lines = [
         "# Pyaterochka Camoufox Smoke Report",
         "",
@@ -246,6 +350,27 @@ def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
             for item in empty_samples[:3]:
                 preview = item.get("payload_preview", "")
                 lines.append(f"  - {item.get('status')}: {preview}")
+
+    structured_evidence = (
+        [] if blocked else _structured_report_evidence(result.get("structured_product_evidence"))
+    )
+    if structured_evidence:
+        lines.extend(["", "## Structured Product Evidence"])
+        for item in structured_evidence:
+            price = " ".join(
+                _markdown_inline(value)
+                for value in (item.get("price", ""), item.get("price_currency", ""))
+                if value
+            )
+            lines.append(
+                "- {name} | {brand} | {price} | {availability} | {url}".format(
+                    name=_markdown_inline(item.get("name", "")),
+                    brand=_markdown_inline(item.get("brand", "")),
+                    price=price,
+                    availability=_markdown_inline(item.get("availability", "")),
+                    url=_markdown_inline(item.get("url", "")),
+                )
+            )
 
     lines.extend(
         [

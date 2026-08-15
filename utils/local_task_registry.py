@@ -5,16 +5,20 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Awaitable, Callable
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
-from models.report_request import ReportRequest
+from application.browser_source_adapter import BrowserSourceAdapter
 from models.task_actor import RunManifest
-from utils.kb_loader import KBLoader
-from utils.run_manifest import build_onboarding_manifest, write_run_manifest
-from utils.site_onboarding import run_site_onboarding
-from utils.storage_report_builder import build_excel_report_from_storage, build_report_filter_options
-from utils.store_catalog_registry import DiscoverFunc, get_store_export_backend
-from utils.store_export_runtime import build_store_export_payload, write_store_export
+from utils.application_fixture_tasks import (
+    run_application_workflow_fixture_task,
+    run_pyaterochka_application_fixture_task,
+)
+from utils.source_adapter_tasks import run_source_adapter_collection_task
+
+if TYPE_CHECKING:
+    from utils.store_catalog_registry import DiscoverFunc
+else:
+    DiscoverFunc = Callable[..., Awaitable[Any]]
 
 TaskFunc = Callable[..., Awaitable[RunManifest]]
 
@@ -39,16 +43,22 @@ async def run_local_task(
     *,
     root_dir: Path | str,
     discover_func: DiscoverFunc | None = None,
+    browser_adapter: BrowserSourceAdapter | None = None,
 ) -> RunManifest:
     """Run one registered local task and return its manifest."""
     task = _TASKS.get(str(task_name or ""))
     if not task:
         raise ValueError(f"Unsupported local task: {task_name}")
-    return await task.run_func(
-        task_input=task_input,
-        root_dir=Path(root_dir),
-        discover_func=discover_func,
-    )
+    call_args = {
+        "task_input": task_input,
+        "root_dir": Path(root_dir),
+        "discover_func": discover_func,
+    }
+    if task_name == "source_adapter_collection":
+        call_args["browser_adapter"] = browser_adapter
+    elif browser_adapter is not None:
+        raise ValueError("browser_adapter is supported only for source_adapter_collection")
+    return await task.run_func(**call_args)
 
 
 async def _run_pyaterochka_fish_export_task(
@@ -57,6 +67,10 @@ async def _run_pyaterochka_fish_export_task(
     root_dir: Path,
     discover_func: DiscoverFunc | None = None,
 ) -> RunManifest:
+    from utils.kb_loader import KBLoader
+    from utils.store_catalog_registry import get_store_export_backend
+    from utils.store_export_runtime import build_store_export_payload, write_store_export
+
     backend = get_store_export_backend("pyaterochka")
     kb = KBLoader(str(root_dir / "knowledge_base")).load_shop("pyaterochka")
     output_dir = root_dir / "data"
@@ -82,6 +96,10 @@ async def _run_pyaterochka_wine_export_task(
     root_dir: Path,
     discover_func: DiscoverFunc | None = None,
 ) -> RunManifest:
+    from utils.kb_loader import KBLoader
+    from utils.store_catalog_registry import get_store_export_backend
+    from utils.store_export_runtime import build_store_export_payload, write_store_export
+
     backend = get_store_export_backend("pyaterochka", "wine_catalog")
     kb = KBLoader(str(root_dir / "knowledge_base")).load_shop("pyaterochka")
     output_dir = root_dir / "data"
@@ -107,11 +125,19 @@ async def _run_site_onboarding_discovery_task(
     root_dir: Path,
     discover_func: DiscoverFunc | None = None,
 ) -> RunManifest:
+    from utils.run_manifest import build_onboarding_manifest, write_run_manifest
+
     del discover_func
+    intent = str(task_input.get("intent") or "").strip()
+    if intent not in {"fish_catalog", "wine_catalog"}:
+        raise ValueError("Выберите явный тип каталога перед запуском onboarding.")
+
+    from utils.site_onboarding import run_site_onboarding
+
     result = await asyncio.to_thread(
         run_site_onboarding,
         site_url=str(task_input.get("site_url") or ""),
-        intent=str(task_input.get("intent") or "fish_catalog"),
+        intent=intent,
         root_dir=root_dir,
         require_operator_confirmation=bool(task_input.get("require_operator_confirmation") or False),
         headless=task_input.get("headless"),
@@ -147,6 +173,10 @@ async def _run_store_report_export_task(
     root_dir: Path,
     discover_func: DiscoverFunc | None = None,
 ) -> RunManifest:
+    from models.report_request import ReportRequest
+    from utils.run_manifest import write_run_manifest
+    from utils.storage_report_builder import build_excel_report_from_storage
+
     del discover_func
     request = ReportRequest(**task_input)
     result = build_excel_report_from_storage(
@@ -184,6 +214,9 @@ async def _run_store_report_filter_options_task(
     root_dir: Path,
     discover_func: DiscoverFunc | None = None,
 ) -> RunManifest:
+    from models.report_request import ReportRequest
+    from utils.storage_report_builder import build_report_filter_options
+
     del discover_func
     request = ReportRequest(**task_input)
     result = build_report_filter_options(
@@ -204,6 +237,21 @@ async def _run_store_report_filter_options_task(
 
 
 _TASKS: dict[str, LocalTask] = {
+    "source_adapter_collection": LocalTask(
+        task_name="source_adapter_collection",
+        description="Collect one explicitly selected local SourceProfile through its registered adapter.",
+        run_func=run_source_adapter_collection_task,
+    ),
+    "application_workflow_fixture": LocalTask(
+        task_name="application_workflow_fixture",
+        description="Run the deterministic shared application workflow fixture.",
+        run_func=run_application_workflow_fixture_task,
+    ),
+    "pyaterochka_application_fixture": LocalTask(
+        task_name="pyaterochka_application_fixture",
+        description="Collect deterministic Pyaterochka products from selected catalog nodes.",
+        run_func=run_pyaterochka_application_fixture_task,
+    ),
     "pyaterochka_fish_export": LocalTask(
         task_name="pyaterochka_fish_export",
         description="Export Pyaterochka fish catalog products into local JSON and SQLite.",

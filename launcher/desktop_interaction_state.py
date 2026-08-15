@@ -11,6 +11,9 @@ def apply_widget_enabled_state(shell: Any) -> None:
     for widget in (
         shell.site_url_input,
         shell.shop_combo,
+        shell.source_profile_combo,
+        shell.source_locator_input,
+        shell.source_catalog_node_ids_input,
         shell.intent_combo,
         shell.category_list,
         shell.headless_checkbox,

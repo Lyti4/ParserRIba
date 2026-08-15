@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from functools import wraps
 from typing import Any
 from urllib.parse import urlparse
 
 from models.catalog_discovery import ApiEvidence, CatalogDiscoveryResult, CategoryEvidence
+from utils.browser_diagnostics import BrowserRuntimeDiagnostics
 from utils.catalog_discovery import build_catalog_discovery_result
 from utils.catalog_tree_discovery.entrypoint_collectors import collect_catalog_entrypoints_from_html
 from utils.catalog_tree_discovery.event_capture import DiscoveryEventCapture
@@ -29,6 +31,23 @@ class ResearchWalkerResult:
     streamed_categories: list[str]
     final_url: str
     status_code: int
+    runtime_diagnostics: dict[str, list[dict[str, str]]] = field(default_factory=dict)
+
+
+def _with_runtime_diagnostics(run):
+    """Attach passive diagnostics around one walker run and always detach them."""
+
+    @wraps(run)
+    async def wrapped(self, *args, **kwargs):
+        diagnostics = BrowserRuntimeDiagnostics.attach(kwargs["page"])
+        try:
+            result = await run(self, *args, **kwargs)
+            result.runtime_diagnostics = diagnostics.snapshot()
+            return result
+        finally:
+            diagnostics.detach()
+
+    return wrapped
 
 
 class CamoufoxResearchWalker:
@@ -39,6 +58,7 @@ class CamoufoxResearchWalker:
         self.max_depth = max(1, int(max_depth))
         self.queue = ResearchQueue(max_repeat_urls=max_repeat_urls)
 
+    @_with_runtime_diagnostics
     async def run(
         self,
         *,

@@ -121,6 +121,29 @@ def build_results_box(shell: Any, qtwidgets: Any) -> Any:
             ),
         )
     )
+    layout.addWidget(
+        _build_button_row(
+            shell,
+            qtwidgets,
+            (
+                (
+                    "export_workspace_selected",
+                    "Экспортировать выбранные в JSON",
+                    shell._on_export_workspace_selected,
+                ),
+                (
+                    "export_workspace_filtered",
+                    "Экспортировать текущий фильтр в JSON",
+                    shell._on_export_workspace_filtered,
+                ),
+                (
+                    "export_workspace_all",
+                    "Экспортировать всё пространство в JSON",
+                    shell._on_export_workspace_all,
+                ),
+            ),
+        )
+    )
     return box
 
 

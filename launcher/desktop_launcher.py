@@ -17,6 +17,8 @@ from launcher.desktop_result_table_widget import populate_result_table_widget
 from launcher.desktop_selection_panel import (
     refresh_catalog_tree,
     refresh_category_list,
+    selected_pyaterochka_fixture_catalog_node_ids,
+    selected_source_adapter_catalog_node_ids,
     sync_catalog_selection_from_widgets,
 )
 from launcher.desktop_shell_helpers import (
@@ -46,6 +48,11 @@ class DesktopLauncherShell:
         self.intent_combo: Any | None = None
         self.category_list: Any | None = None
         self.catalog_tree: Any | None = None
+        self.source_profile_combo: Any | None = None
+        self.source_locator_input: Any | None = None
+        self.source_catalog_node_ids_input: Any | None = None
+        self.source_collection_run_sequence = 0
+        self.pyaterochka_fixture_node_checkboxes: dict[str, Any] = {}
         self.headless_checkbox: Any | None = None
         self.manual_wait_checkbox: Any | None = None
         self.research_mode_combo: Any | None = None
@@ -200,8 +207,67 @@ class DesktopLauncherShell:
     def _on_clear_filters(self) -> None: clear_filter_selections(self, FILTER_WIDGET_KEYS)
     def _on_run_onboarding(self) -> None: self._run_ui_action(lambda: self.controller.run_onboarding_discovery(site_url=self._site_url()))
     def _on_run_export(self) -> None: self._run_ui_action(self.controller.run_selected_export)
+    def _on_run_pyaterochka_fixture(self) -> None:
+        catalog_node_ids = selected_pyaterochka_fixture_catalog_node_ids(self)
+        self._run_ui_action(
+            lambda: self.controller.run_pyaterochka_fixture_collection(catalog_node_ids=catalog_node_ids)
+        )
+    def _on_run_source_adapter_collection(self) -> None:
+        source_locator = (
+            self.source_locator_input.text().strip()
+            if self.source_locator_input is not None
+            else ""
+        ) or None
+        self._run_ui_action(
+            lambda: self.controller.run_source_adapter_collection(
+                collection_run_id=self._next_source_collection_run_id(),
+                source_profile_id=self._current_combo_value(self.source_profile_combo),
+                catalog_node_ids=selected_source_adapter_catalog_node_ids(self),
+                source_locator=source_locator,
+            )
+        )
     def _on_load_filters(self) -> None: self._run_ui_action(self.controller.load_filter_options)
     def _on_build_report(self) -> None: self._run_ui_action(self.controller.run_selected_report_export)
+    def _on_export_workspace_selected(self) -> None:
+        self._run_workspace_export_dialog(
+            title="Сохранить выбранные товары",
+            suggested_name="selected-products.json",
+            action=self.controller.export_selected_workspace_products,
+        )
+    def _on_export_workspace_filtered(self) -> None:
+        self._run_workspace_export_dialog(
+            title="Сохранить текущий фильтр",
+            suggested_name="filtered-products.json",
+            action=self.controller.export_filtered_workspace,
+        )
+    def _on_export_workspace_all(self) -> None:
+        self._run_workspace_export_dialog(
+            title="Сохранить всё рабочее пространство",
+            suggested_name="workspace-products.json",
+            action=self.controller.export_whole_workspace,
+        )
+
+    def _run_workspace_export_dialog(
+        self,
+        *,
+        title: str,
+        suggested_name: str,
+        action: Callable[[Path], Path],
+    ) -> None:
+        qtwidgets = self._qtwidgets
+        if qtwidgets is None:
+            return
+        if self.category_list is not None:
+            self._update_state_from_widgets()
+        selected_path, _selected_filter = qtwidgets.QFileDialog.getSaveFileName(
+            self.window,
+            title,
+            str(self.root_dir / "output" / suggested_name),
+            "JSON (*.json)",
+        )
+        if not selected_path:
+            return
+        self._run_ui_action(lambda: action(Path(selected_path)))
 
     def _on_save_settings(self) -> None:
         if self.category_list is not None:
@@ -263,7 +329,12 @@ class DesktopLauncherShell:
         self._refresh_ui()
 
     def _site_url(self) -> str:
-        return (self.site_url_input.text().strip() if self.site_url_input is not None else "") or "https://5ka.ru"
+        return self.site_url_input.text().strip() if self.site_url_input is not None else ""
+
+    def _next_source_collection_run_id(self) -> str:
+        """Return one local action identifier; source/profile selection stays explicit."""
+        self.source_collection_run_sequence += 1
+        return f"launcher-source-collection-{self.source_collection_run_sequence:04d}"
 
     def _sync_selected_products_from_table(self) -> None:
         if self.result_table is None or self._qt is None:

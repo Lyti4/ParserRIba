@@ -7,6 +7,11 @@ from pathlib import Path
 from typing import Any
 
 from launcher.desktop_export_facets import build_available_filter_counts_from_products
+from launcher.desktop_workspace_export import (
+    load_current_workspace,
+    workspace_facet_counts,
+    workspace_product_items,
+)
 from models.launcher_state import LauncherAppState
 from utils.local_task_adapter import LocalTaskProcessResult
 
@@ -19,8 +24,19 @@ def sync_workspace_state(state: LauncherAppState, result: LocalTaskProcessResult
     _sync_result_state(state, result, summary, artifacts)
     _sync_profile_state(state, result, summary, view)
     _sync_catalog_state(state, summary, view)
-    _sync_product_state(state, summary, artifacts, view)
-    _sync_dynamic_filter_state(state, view, state.products.items)
+    workspace_backed = _sync_product_state(
+        state,
+        summary,
+        artifacts,
+        view,
+        workspace_required=result.manifest.task_name == "source_adapter_collection",
+    )
+    _sync_dynamic_filter_state(
+        state,
+        view,
+        state.products.items,
+        workspace_backed=workspace_backed,
+    )
 
 
 def _sync_result_state(
@@ -111,7 +127,9 @@ def _sync_product_state(
     summary: dict[str, Any],
     artifacts: dict[str, Any],
     view: dict[str, Any],
-) -> None:
+    *,
+    workspace_required: bool,
+) -> bool:
     state.products.products_count = _int_value(
         summary.get("products_count"),
         _int_value(view.get("products_count"), state.products.products_count),
@@ -128,6 +146,13 @@ def _sync_product_state(
     state.products.selected_product_ids = list(state.selection.selected_product_ids)
     state.products.json_path = str(artifacts.get("json_path") or state.result.json_path or "")
     state.products.excel_path = str(artifacts.get("excel_path") or state.result.excel_path or "")
+    if "workspace_json" in artifacts or workspace_required:
+        _clear_workspace_product_state(state)
+        workspace = load_current_workspace(state)
+        state.products.items = workspace_product_items(workspace)
+        state.products.products_count = len(state.products.items)
+        state.products.discovered_fields = workspace_facet_counts(workspace)
+        return True
     product_items = _products_from_summary(summary)
     json_items, json_loaded = _products_from_json_path(state.products.json_path)
     if not product_items and json_loaded:
@@ -138,17 +163,46 @@ def _sync_product_state(
     found_fields = view.get("found_filters") or summary.get("found_filters")
     if isinstance(found_fields, dict):
         state.products.discovered_fields = dict(found_fields)
+    return False
+
+
+def _clear_workspace_product_state(state: LauncherAppState) -> None:
+    """Clear workspace-owned state before loading a required replacement artifact."""
+    state.selection.selected_product_ids = []
+    state.products.items = []
+    state.products.products_count = 0
+    state.products.source_categories = []
+    state.products.selected_product_ids = []
+    state.products.discovered_fields = {}
+    state.products.json_path = ""
+    state.result.json_path = ""
+    for projection in (state.result.summary, state.result.launcher_view):
+        for key in (
+            "products",
+            "found_filters",
+            "available_filter_counts",
+            "report_summary",
+        ):
+            projection.pop(key, None)
+    state.filters = type(state.filters)()
+    state.dynamic_filters = type(state.dynamic_filters)()
 
 
 def _sync_dynamic_filter_state(
     state: LauncherAppState,
     view: dict[str, Any],
     product_items: list[dict[str, Any]],
+    *,
+    workspace_backed: bool,
 ) -> None:
-    product_counts = build_available_filter_counts_from_products(product_items)
-    found_from_products = product_counts.pop("found_filters", {})
-    available = view.get("available_filter_counts") or product_counts
-    found = view.get("found_filters") or found_from_products
+    if workspace_backed:
+        available: dict[str, Any] = {}
+        found: Any = state.products.discovered_fields
+    else:
+        product_counts = build_available_filter_counts_from_products(product_items)
+        found_from_products = product_counts.pop("found_filters", {})
+        available = view.get("available_filter_counts") or product_counts
+        found = view.get("found_filters") or found_from_products
     state.dynamic_filters.available_filters = {}
     state.dynamic_filters.counts = {}
     state.dynamic_filters.ranges = {}

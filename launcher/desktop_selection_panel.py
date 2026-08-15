@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from application.source_profile_catalog import declared_source_profiles
 from launcher.desktop_catalog_tree_widget import collect_checked_catalog_nodes, populate_catalog_tree_widget
 from launcher.desktop_state_readers import full_catalog_links, full_catalog_tree
 from launcher.desktop_ui_text import SHOP_LABELS
@@ -16,10 +17,11 @@ def build_store_selection_box(shell: Any, qtwidgets: Any) -> Any:
     layout.setHorizontalSpacing(8)
     layout.setVerticalSpacing(6)
     layout.addWidget(qtwidgets.QLabel("URL сайта"), 0, 0)
-    shell.site_url_input = qtwidgets.QLineEdit("https://5ka.ru")
+    shell.site_url_input = qtwidgets.QLineEdit("")
     layout.addWidget(shell.site_url_input, 0, 1, 1, 3)
     layout.addWidget(qtwidgets.QLabel("Магазин"), 1, 0)
     shell.shop_combo = qtwidgets.QComboBox()
+    shell.shop_combo.addItem("Выберите источник", "")
     for value, label in SHOP_LABELS.items():
         shell.shop_combo.addItem(label, value)
     shell.shop_combo.currentTextChanged.connect(shell._on_shop_changed)
@@ -63,6 +65,79 @@ def build_catalog_selection_box(shell: Any, qtwidgets: Any) -> Any:
         button_grid.addWidget(button, 0, index)
     layout.addLayout(button_grid, 3, 1, 1, 3)
     return box
+
+
+def build_source_adapter_collection_box(shell: Any, qtwidgets: Any) -> Any:
+    """Build blank explicit SourceProfile and CatalogNode inputs for local-only collection."""
+    box = qtwidgets.QGroupBox("Сбор из явного источника")
+    layout = qtwidgets.QGridLayout(box)
+    layout.setHorizontalSpacing(8)
+    layout.setVerticalSpacing(6)
+    note = qtwidgets.QLabel(
+        "Выберите источник и разделы явно. Fixture работает локально; для JSON укажите canonical file:/// URI."
+    )
+    note.setWordWrap(True)
+    layout.addWidget(note, 0, 0, 1, 2)
+    layout.addWidget(qtwidgets.QLabel("Источник"), 1, 0)
+    shell.source_profile_combo = qtwidgets.QComboBox()
+    shell.source_profile_combo.addItem("Выберите источник", "")
+    for profile in declared_source_profiles():
+        shell.source_profile_combo.addItem(profile.display_name, profile.source_profile_id)
+    layout.addWidget(shell.source_profile_combo, 1, 1)
+    layout.addWidget(qtwidgets.QLabel("Локальный URI"), 2, 0)
+    shell.source_locator_input = qtwidgets.QLineEdit("")
+    layout.addWidget(shell.source_locator_input, 2, 1)
+    layout.addWidget(qtwidgets.QLabel("ID разделов через запятую"), 3, 0)
+    shell.source_catalog_node_ids_input = qtwidgets.QLineEdit("")
+    layout.addWidget(shell.source_catalog_node_ids_input, 3, 1)
+    button = qtwidgets.QPushButton("Собрать выбранный источник")
+    button.clicked.connect(shell._on_run_source_adapter_collection)
+    layout.addWidget(button, 4, 0, 1, 2)
+    return box
+
+
+def selected_source_adapter_catalog_node_ids(shell: Any) -> list[str]:
+    """Return only explicit nonempty CatalogNode IDs in entered order, without inferred selection."""
+    input_widget = getattr(shell, "source_catalog_node_ids_input", None)
+    value = input_widget.text() if input_widget is not None else ""
+    return [node_id.strip() for node_id in str(value).replace("\n", ",").split(",") if node_id.strip()]
+
+
+PYATEROCHKA_FIXTURE_NODE_OPTIONS = (
+    ("pyaterochka-fish", "Рыба"),
+    ("pyaterochka-wine", "Вино"),
+)
+
+
+def build_pyaterochka_fixture_collection_box(shell: Any, qtwidgets: Any) -> Any:
+    """Build an explicit local-only fixture collection control, separate from live catalog selection."""
+    box = qtwidgets.QGroupBox("Демо: Пятёрочка (fixture)")
+    layout = qtwidgets.QGridLayout(box)
+    layout.setHorizontalSpacing(8)
+    layout.setVerticalSpacing(6)
+    note = qtwidgets.QLabel("Локальные детерминированные данные. Разделы live-каталога не используются.")
+    note.setWordWrap(True)
+    layout.addWidget(note, 0, 0, 1, 2)
+    shell.pyaterochka_fixture_node_checkboxes = {}
+    for row, (node_id, label) in enumerate(PYATEROCHKA_FIXTURE_NODE_OPTIONS, start=1):
+        checkbox = qtwidgets.QCheckBox(label)
+        checkbox.setChecked(False)
+        shell.pyaterochka_fixture_node_checkboxes[node_id] = checkbox
+        layout.addWidget(checkbox, row, 0, 1, 2)
+    button = qtwidgets.QPushButton("Собрать выбранные демо-товары")
+    button.clicked.connect(shell._on_run_pyaterochka_fixture)
+    layout.addWidget(button, len(PYATEROCHKA_FIXTURE_NODE_OPTIONS) + 1, 0, 1, 2)
+    return box
+
+
+def selected_pyaterochka_fixture_catalog_node_ids(shell: Any) -> list[str]:
+    """Return only user-checked explicit fixture IDs in the declared display order."""
+    checkboxes = getattr(shell, "pyaterochka_fixture_node_checkboxes", {})
+    return [
+        node_id
+        for node_id, _label in PYATEROCHKA_FIXTURE_NODE_OPTIONS
+        if node_id in checkboxes and checkboxes[node_id].isChecked()
+    ]
 
 
 def refresh_category_list(shell: Any) -> None:

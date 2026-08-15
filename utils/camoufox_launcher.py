@@ -92,7 +92,10 @@ def build_camoufox_options(
     profile_dir = user_data_dir or os.environ.get("CAMOUFOX_USER_DATA_DIR", "")
     if profile_dir:
         path = Path(profile_dir)
-        path.mkdir(parents=True, exist_ok=True)
+        if path.is_symlink():
+            raise RuntimeError("CAMOUFOX_PROFILE_SYMLINK_REJECTED")
+        path.mkdir(mode=0o700, parents=True, exist_ok=True)
+        os.chmod(path, 0o700)
         disable_session_restore_in_profile(path)
         if options.get("block_images") is False:
             allow_images_in_profile(path)

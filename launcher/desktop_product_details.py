@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from launcher.desktop_ui_text import display_stock_label
+
 
 def build_product_detail_text(
     json_path: str,
@@ -76,14 +78,19 @@ def _product_header_lines(product: dict[str, Any]) -> list[str]:
     price_text = ""
     if isinstance(price, dict):
         price_text = str(price.get("current") or "")
+    supplier = (
+        product.get("supplier")
+        if "supplier" in product
+        else raw.get("supplier") or raw.get("producer") or raw.get("vendor")
+    )
     return [
         f"Товар: {product.get('name') or ''}",
         f"ID: {product.get('id') or product.get('product_id') or ''}",
         f"Категория: {product.get('category') or ''}",
         f"Бренд: {product.get('brand') or ''}",
-        f"Поставщик/производитель: {raw.get('supplier') or raw.get('producer') or raw.get('vendor') or ''}",
+        f"Поставщик/производитель: {supplier or ''}",
         f"Цена: {price_text}",
-        f"Наличие: {'да' if product.get('in_stock') else 'нет'}",
+        f"Наличие: {display_stock_label(product.get('in_stock'))}",
         f"Ссылка: {product.get('product_link') or ''}",
     ]
 

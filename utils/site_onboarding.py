@@ -6,6 +6,7 @@ import asyncio
 import uuid
 from pathlib import Path
 
+from application.url_safety import is_explicit_http_url
 from models.catalog_discovery import CatalogDiscoveryResult
 from models.onboarding import OnboardingResult
 from utils.browser_catalog_discovery import discover_catalog_site_via_browser_sync
@@ -30,6 +31,14 @@ from utils.store_catalog_registry import (
 )
 
 
+def _require_onboarding_url(site_url: str) -> str:
+    if not is_explicit_http_url(site_url):
+        raise ValueError(
+            "ONBOARDING_URL_INVALID: An explicit absolute HTTP(S) onboarding URL is required."
+        )
+    return site_url.strip()
+
+
 def run_site_onboarding(
     *,
     site_url: str,
@@ -43,6 +52,7 @@ def run_site_onboarding(
     research_mode: str = "live",
 ) -> OnboardingResult:
     """Create or resume a guided onboarding session for one site."""
+    site_url = _require_onboarding_url(site_url)
     site_profile = match_known_store_site(site_url)
     shop_slug = site_profile.shop if site_profile else derive_shop_slug(site_url)
     artifacts = get_artifact_generator("default")(root_dir, shop_slug)
@@ -89,7 +99,7 @@ def resume_site_onboarding(*, session_id: str, root_dir: Path) -> OnboardingResu
     saved = storage.get_onboarding_session(session_id)
     if not saved:
         raise ValueError(f"Unknown onboarding session: {session_id}")
-    site_url = str(saved.get("site_url") or "")
+    site_url = _require_onboarding_url(str(saved.get("site_url") or ""))
     intent = str(saved.get("intent") or "fish_catalog")
     site_profile = match_known_store_site(site_url)
     result = _build_onboarding_result(
@@ -193,7 +203,7 @@ def _persist_onboarding_result(root_dir: Path, result: OnboardingResult) -> None
 
 def discover_catalog_for_onboarding(site_url: str) -> CatalogDiscoveryResult:
     """Discover one site surface for onboarding diagnostics."""
-    return discover_catalog_site_sync(site_url)
+    return discover_catalog_site_sync(_require_onboarding_url(site_url))
 
 
 def _run_catalog_research_sync(

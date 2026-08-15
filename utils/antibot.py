@@ -8,6 +8,17 @@ from typing import Any
 
 PYATEROCHKA_CHALLENGE_PATHS = ("/xpvnsulc/", "/exhkqyad")
 PYATEROCHKA_CATALOG_MARKERS = ("/catalog/",)
+PYATEROCHKA_PASSIVE_HTML_REASONS = (
+    "pyaterochka_captcha",
+    "pyaterochka_rotate_image_captcha",
+)
+PYATEROCHKA_CHALLENGE_TITLE_MARKERS = ("captcha", "challenge", "провер")
+PYATEROCHKA_VISIBLE_CHALLENGE_SELECTORS = (
+    "#id_captcha_frame_div",
+    "iframe[src*='/exhkqyad']",
+    "[id*='captcha' i]",
+    "[class*='captcha' i]",
+)
 
 
 @dataclass(frozen=True)
@@ -34,14 +45,16 @@ def detect_pyaterochka_antibot(url: str, title: str, html: str) -> tuple[bool, s
         return True, "pyaterochka_antibot_query"
     if lowered_title.startswith("loading https://5ka.ru/"):
         return True, "pyaterochka_loading_challenge"
-    if "captcha" in lowered_html or "капч" in lowered_html:
+    if (
+        "<noscript" in lowered_html
+        and "/exhkqyad" in lowered_html
+        and "id_captcha_frame_div" in lowered_html
+    ):
         return True, "pyaterochka_captcha"
     if "повер" in lowered_html and "изображ" in lowered_html:
         return True, "pyaterochka_rotate_image_captcha"
     if "rotate" in lowered_html and "image" in lowered_html:
         return True, "pyaterochka_rotate_image_captcha"
-    if "/exhkqyad" in lowered_html or "xpvnsulc" in lowered_html:
-        return True, "pyaterochka_antibot_html"
     return False, "ok"
 
 
@@ -66,6 +79,16 @@ async def collect_page_diagnostics(page: Any, response: Any = None) -> PageDiagn
     title = await page.title()
     html = await page.content()
     blocked, reason = detect_pyaterochka_antibot(page.url, title, html)
+    lowered_url = page.url.lower()
+    lowered_title = title.lower()
+    passive_catalog_signature = (
+        blocked
+        and reason in PYATEROCHKA_PASSIVE_HTML_REASONS
+        and any(marker in lowered_url for marker in PYATEROCHKA_CATALOG_MARKERS)
+        and not any(marker in lowered_title for marker in PYATEROCHKA_CHALLENGE_TITLE_MARKERS)
+    )
+    if passive_catalog_signature and not await _visible_challenge_container(page):
+        blocked, reason = False, "ok"
     return PageDiagnostics(
         blocked=blocked,
         reason=reason,
@@ -74,6 +97,18 @@ async def collect_page_diagnostics(page: Any, response: Any = None) -> PageDiagn
         html_size=len(html),
         status=response.status if response else None,
     )
+
+
+async def _visible_challenge_container(page: Any) -> bool:
+    """Fail closed unless all known challenge containers are confirmed invisible."""
+    try:
+        for selector in PYATEROCHKA_VISIBLE_CHALLENGE_SELECTORS:
+            locator = page.locator(selector)
+            if await locator.count() and await locator.first.is_visible():
+                return True
+    except Exception:
+        return True
+    return False
 
 
 async def wait_for_pyaterochka_challenge(page: Any, seconds: int = 30) -> None:

@@ -3,12 +3,11 @@
 Парсит Markdown файлы, извлекает селекторы, заголовки и стратегии обхода защит.
 """
 
+import logging
 import re
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-from pydantic import BaseModel, Field, validator, ConfigDict
-from loguru import logger
-
+from pydantic import BaseModel, Field, ConfigDict
 from utils.kb_interception import InterceptionConfig, parse_interception_section
 
 
@@ -266,15 +265,17 @@ class KBLoader:
 
 # Пример использования и тестирования
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
     loader = KBLoader()
 
-    logger.info("Available stores: {}", loader.list_available_shops())
+    logger.info("Available stores: %s", loader.list_available_shops())
     
     # Тест загрузки Пятерочки
     try:
         pya = loader.load_shop("pyaterochka")
         logger.info(
-            "Loaded {}: url={}, selectors={}, custom_headers={}, tool={}",
+            "Loaded %s: url=%s, selectors=%s, custom_headers=%s, tool=%s",
             pya.name,
             pya.base_url,
             len(pya.selectors),
@@ -282,16 +283,16 @@ if __name__ == "__main__":
             pya.anti_bot.recommended_tool,
         )
     except Exception as e:
-        logger.error("Failed to load pyaterochka KB: {}", e)
+        logger.error("Failed to load pyaterochka KB: %s", e)
 
     # Тест загрузки Перекрестка (сложный случай)
     try:
         per = loader.load_shop("perekrestok")
         logger.info(
-            "Loaded {}: tool={}, captcha_types={}",
+            "Loaded %s: tool=%s, captcha_types=%s",
             per.name,
             per.anti_bot.recommended_tool,
             per.anti_bot.captcha_types,
         )
     except Exception as e:
-        logger.error("Failed to load perekrestok KB: {}", e)
+        logger.error("Failed to load perekrestok KB: %s", e)

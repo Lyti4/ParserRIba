@@ -8,7 +8,7 @@ import subprocess
 import sys
 from dataclasses import fields
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import TYPE_CHECKING, Any, Callable, Mapping
 
 from application.contracts import ApplicationContractError
 from application.source_profile_catalog import inspect_declared_source_catalog
@@ -48,6 +48,9 @@ from utils.launcher_settings import LauncherSettingsStore
 from utils.local_task_adapter import LocalTaskProcessResult
 from utils.source_adapter_tasks import build_source_adapter_collection_request
 
+if TYPE_CHECKING:
+    from application.browser_source_registration import BrowserSourceRegistration
+
 TaskRunner = Callable[..., LocalTaskProcessResult]
 PathOpener = Callable[[str], None]
 
@@ -58,6 +61,7 @@ _NON_INVALIDATING_SOURCE_COLLECTION_CODES = frozenset(
         "COLLECTION_SCOPE_REQUIRED",
         "COLLECTION_SCOPE_INVALID",
         "COLLECTION_SCOPE_DUPLICATE",
+        "BROWSER_SOURCE_ACTIVATION_REQUIRED",
     }
 )
 
@@ -94,10 +98,15 @@ def _run_source_catalog_inspection_worker(
     *,
     source_profile_id: str,
     source_locator: str | None,
+    browser_registration: BrowserSourceRegistration | None,
 ) -> dict[str, Any]:
     """Inspect one declared source without touching launcher or Qt state."""
     try:
-        inspected = inspect_declared_source_catalog(source_profile_id, source_locator)
+        inspected = inspect_declared_source_catalog(
+            source_profile_id,
+            source_locator,
+            browser_registration=browser_registration,
+        )
         nodes = [node.model_dump(mode="json") for node in inspected.catalog_nodes]
     except Exception as error:
         outcome = {
@@ -126,6 +135,8 @@ def _run_source_adapter_collection_worker(
     source_profile_id: str,
     catalog_node_ids: list[str],
     source_locator: str | None,
+    browser_registration: BrowserSourceRegistration | None,
+    browser_collection_enabled: bool,
 ) -> dict[str, Any]:
     """Run source preflight/subprocess without touching launcher or Qt state."""
     task_input: dict[str, object] = {
@@ -136,7 +147,20 @@ def _run_source_adapter_collection_worker(
     if source_locator is not None:
         task_input["source_locator"] = source_locator
     try:
-        request = build_source_adapter_collection_request(task_input)
+        request = build_source_adapter_collection_request(
+            task_input,
+            browser_registration=browser_registration,
+        )
+        if (
+            browser_registration is not None
+            and request.source_profile.source_profile_id
+            == browser_registration.declared_profile.source_profile_id
+            and not browser_collection_enabled
+        ):
+            raise ApplicationContractError(
+                "BROWSER_SOURCE_ACTIVATION_REQUIRED",
+                "BROWSER_SOURCE_ACTIVATION_REQUIRED: Live browser collection requires separate approval and activation.",
+            )
         task_input = {
             "collection_run_id": request.collection_run_id,
             "source_profile_id": request.source_profile.source_profile_id,
@@ -194,8 +218,16 @@ class DesktopLauncherController:
         fish_filter_options_runner: TaskRunner | None = None,
         wine_filter_options_runner: TaskRunner | None = None,
         path_opener: PathOpener | None = None,
+        browser_registration: BrowserSourceRegistration | None = None,
+        browser_collection_enabled: bool = False,
     ) -> None:
+        if browser_collection_enabled and browser_registration is None:
+            raise ValueError(
+                "BROWSER_SOURCE_REGISTRATION_REQUIRED: Browser collection cannot be enabled without registration."
+            )
         self.root_dir = Path(root_dir)
+        self.browser_registration = browser_registration
+        self.browser_collection_enabled = browser_collection_enabled
         self.settings_store = settings_store or LauncherSettingsStore(
             self.root_dir / "data" / "launcher_settings.json"
         )
@@ -267,9 +299,11 @@ class DesktopLauncherController:
         source_locator: str | None = None,
     ) -> Callable[[], dict[str, Any]]:
         """Freeze source inspection inputs for the state-neutral worker."""
+        browser_registration = self.browser_registration
         return lambda: _run_source_catalog_inspection_worker(
             source_profile_id=source_profile_id,
             source_locator=source_locator,
+            browser_registration=browser_registration,
         )
 
     def begin_source_catalog_inspection(self, source_profile_id: str) -> None:
@@ -376,6 +410,17 @@ class DesktopLauncherController:
         self.state.catalog.source_nodes = []
         self.state.catalog.selected_source_node_ids = []
 
+    def source_profile_collection_enabled(self, source_profile_id: str) -> bool:
+        """Return whether the selected profile may dispatch collection."""
+        browser_registration = self.browser_registration
+        if (
+            browser_registration is not None
+            and source_profile_id
+            == browser_registration.declared_profile.source_profile_id
+        ):
+            return self.browser_collection_enabled
+        return True
+
     def set_source_adapter_catalog_selection(self, catalog_node_ids: list[str]) -> None:
         """Persist checked source CatalogNodes after validating against inspected state."""
         available_ids = {
@@ -471,6 +516,8 @@ class DesktopLauncherController:
         """Freeze worker inputs without exposing mutable launcher state to the worker."""
         runner = self.source_adapter_collection_runner
         root_dir = self.root_dir
+        browser_registration = self.browser_registration
+        browser_collection_enabled = self.browser_collection_enabled
         timeout_seconds = _task_timeout_seconds(self.state.settings.listen_seconds)
         selected_ids = list(catalog_node_ids)
         return lambda: _run_source_adapter_collection_worker(
@@ -481,6 +528,8 @@ class DesktopLauncherController:
             source_profile_id=source_profile_id,
             catalog_node_ids=selected_ids,
             source_locator=source_locator,
+            browser_registration=browser_registration,
+            browser_collection_enabled=browser_collection_enabled,
         )
 
     def begin_source_adapter_collection(self) -> None:
@@ -551,11 +600,20 @@ class DesktopLauncherController:
             source_locator=source_locator,
         )
         self.begin_source_adapter_collection()
+        outcome = action()
         result = self.apply_source_adapter_collection_worker_outcome(
-            action(),
+            outcome,
             source_profile_id,
         )
         if result is None:
+            if isinstance(outcome, Mapping):
+                error_code = outcome.get("error_code")
+                error_message = outcome.get("error_message")
+                if error_code == "BROWSER_SOURCE_ACTIVATION_REQUIRED":
+                    raise ApplicationContractError(
+                        error_code,
+                        str(error_message or error_code),
+                    )
             raise ValueError("Проверьте источник, разделы и идентификатор запуска.")
         return result
 

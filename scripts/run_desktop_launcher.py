@@ -26,7 +26,15 @@ def main() -> int:
     args = parse_args()
     if args.smoke:
         return smoke_main()
-    shell = DesktopLauncherShell(root_dir=ROOT_DIR)
+    from application.pyaterochka_browser_profile import (
+        build_offline_pyaterochka_browser_registration,
+    )
+
+    shell = DesktopLauncherShell(
+        root_dir=ROOT_DIR,
+        browser_registration=build_offline_pyaterochka_browser_registration(),
+        browser_collection_enabled=False,
+    )
     return shell.run()
 
 

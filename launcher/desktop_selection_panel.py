@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from application.source_profile_catalog import declared_source_profiles, source_profile_uses_local_file_picker
+from application.source_profile_catalog import source_profile_uses_local_file_picker
 from launcher.desktop_catalog_tree_widget import collect_checked_catalog_nodes, populate_catalog_tree_widget
 from launcher.desktop_source_catalog_tree import (
     collect_checked_source_catalog_node_ids,
@@ -85,11 +85,11 @@ def build_source_adapter_collection_box(shell: Any, qtwidgets: Any) -> Any:
     layout.addWidget(qtwidgets.QLabel("Источник"), 1, 0)
     shell.source_profile_combo = qtwidgets.QComboBox()
     shell.source_profile_combo.addItem("Выберите источник", "")
-    for profile in declared_source_profiles():
+    for profile in shell.source_profiles:
         shell.source_profile_combo.addItem(profile.display_name, profile.source_profile_id)
     shell.source_profile_combo.currentTextChanged.connect(shell._on_source_profile_changed)
     layout.addWidget(shell.source_profile_combo, 1, 1)
-    layout.addWidget(qtwidgets.QLabel("Локальный файл"), 2, 0)
+    layout.addWidget(qtwidgets.QLabel("Адрес источника"), 2, 0)
     shell.source_locator_input = qtwidgets.QLineEdit("")
     shell.source_locator_input.setReadOnly(True)
     layout.addWidget(shell.source_locator_input, 2, 1)
@@ -112,6 +112,7 @@ def build_source_adapter_collection_box(shell: Any, qtwidgets: Any) -> Any:
     layout.addWidget(clear_button, 4, 2)
     button = qtwidgets.QPushButton("Собрать выбранный источник")
     button.clicked.connect(shell._on_run_source_adapter_collection)
+    shell.source_collection_button = button
     shell.source_catalog_action_buttons.append(button)
     layout.addWidget(button, 5, 0, 1, 3)
     return box

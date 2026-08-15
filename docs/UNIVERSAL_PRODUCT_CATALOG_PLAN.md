@@ -180,10 +180,15 @@ Historical U5–U13 work-unit/receipt labels retained in `docs/NEXT_STEPS.md` be
 - The default declared profile list and generic catalog/task/registry import path remain browser-free. Selection of an unrelated source cannot dispatch the injected browser runner.
 - Deterministic ready, manual-action and invalid-evidence paths use only an injected fake runner and the canonical `ProductWorkspace`; live browser/network behavior and optional dependency installation were excluded.
 
-### Next gated decision — U5 live adapter exposure
+### Closed follow-up — U5 launcher-visible offline exposure
 
-- Define the explicit launcher-visible live profile and its per-source operational policy without introducing generic retailer, host, category, output-path or anti-bot defaults.
-- Freeze a user-approved same-session live test plan before exposing or invoking any live runner.
+- The normal desktop composition root explicitly injects one Pyaterochka browser registration with fixed `https://5ka.ru` identity and six source-declared catalogue nodes; generic launcher/catalog/task imports remain browser-runtime-free.
+- The profile is visibly marked `требуется активация`. Static catalogue inspection is available, but the collection button is disabled and the controller returns `BROWSER_SOURCE_ACTIVATION_REQUIRED` before runner/subprocess dispatch.
+- `camoufox` and `playwright` are not imported, installed or launched by this slice. No browser session, network request, challenge handoff or product collection is performed.
+
+### Next gated decision — U5 activation and same-session live test
+
+- Freeze the per-source operational policy and user-approved same-session live test plan before changing `browser_collection_enabled` or replacing the inert runner.
 - Browser launch, optional dependency installation, credentials/provider changes and every live collection remain separate approvals.
 
 ## Explicit exclusions
@@ -192,7 +197,7 @@ Historical U5–U13 work-unit/receipt labels retained in `docs/NEXT_STEPS.md` be
 - No automatic CAPTCHA bypass or protected-request replay.
 - No deletion of archive history, knowledge-base profiles, user data, browser profiles, cookies, credentials or operational databases in this plan slice.
 - No claim of universal live-source support before U1–U5 acceptance gates pass.
-- No release, package install, automatic live-profile exposure or live retailer execution is implied by this plan. Commit, push and PR actions remain separately approved per delivery slice.
+- No release, package install, browser activation or live retailer execution is implied by this plan. Commit, push and PR actions remain separately approved per delivery slice.
 
 ## Documentation consolidation in U0
 
@@ -206,8 +211,6 @@ Historical U5–U13 work-unit/receipt labels retained in `docs/NEXT_STEPS.md` be
 - `docs/TARGET_ARCHITECTURE.md`
 - `docs/DATA_FLOW_THREADING_PLAN.md`
 - `docs/PROJECT_STRUCTURE.md`
-- `docs/SOURCE_ADAPTERS.md`
-- `docs/OPERATIONS.md`
 - `docs/DECISIONS.md`
 - `docs/LEGACY_MIGRATION_BACKLOG.md`
 - `docs/PROJECT_FILE_FLOW_MAP.md` as generated evidence, not planning authority

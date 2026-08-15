@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
-from application.source_profile_catalog import source_profile_uses_local_file_picker
+from application.source_profile_catalog import declared_source_profiles, source_profile_uses_local_file_picker
 from launcher.desktop_action_state import build_action_enabled_map
 from launcher.desktop_background_task import start_background_action
 from launcher.desktop_controller import DesktopLauncherController
@@ -37,12 +37,26 @@ from launcher.desktop_ui_text import WINDOW_TITLE
 from launcher.desktop_view_helpers import build_result_caption_text, build_status_text, build_summary_text
 from launcher.desktop_workflow_tabs import build_workflow_tabs
 
+if TYPE_CHECKING:
+    from application.browser_source_registration import BrowserSourceRegistration
+
 class DesktopLauncherShell:
     """Desktop shell over the local launcher controller and task layer."""
 
-    def __init__(self, *, root_dir: Path | str) -> None:
+    def __init__(
+        self,
+        *,
+        root_dir: Path | str,
+        browser_registration: BrowserSourceRegistration | None = None,
+        browser_collection_enabled: bool = False,
+    ) -> None:
         self.root_dir = Path(root_dir)
-        self.controller = DesktopLauncherController(root_dir=self.root_dir)
+        self.source_profiles = declared_source_profiles(browser_registration)
+        self.controller = DesktopLauncherController(
+            root_dir=self.root_dir,
+            browser_registration=browser_registration,
+            browser_collection_enabled=browser_collection_enabled,
+        )
         self.state = self.controller.state
         self._qtwidgets: Any | None = None
         self._qt: Any | None = None
@@ -56,6 +70,7 @@ class DesktopLauncherShell:
         self.source_locator_input: Any | None = None
         self.source_file_picker_button: Any | None = None
         self.source_catalog_tree: Any | None = None
+        self.source_collection_button: Any | None = None
         self.source_collection_run_sequence = 0
         self.pyaterochka_fixture_node_checkboxes: dict[str, Any] = {}
         self.headless_checkbox: Any | None = None
@@ -223,13 +238,14 @@ class DesktopLauncherShell:
     def _on_run_source_adapter_collection(self) -> None:
         if self._active_task_thread is not None:
             return
+        source_profile_id = self._current_combo_value(self.source_profile_combo)
         source_locator = (
             self.source_locator_input.text().strip()
             if self.source_locator_input is not None
+            and source_profile_uses_local_file_picker(source_profile_id)
             else ""
         ) or None
         collection_run_id = self._next_source_collection_run_id()
-        source_profile_id = self._current_combo_value(self.source_profile_combo)
         catalog_node_ids = selected_source_adapter_catalog_node_ids(self)
         action = self.controller.source_adapter_collection_worker_action(
             collection_run_id=collection_run_id,

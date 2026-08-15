@@ -83,6 +83,24 @@ The active launcher collection path is now default-free and dispatches only expl
 - The established U3 collection task writes `artifact_paths["workspace_json"]` only under its resolved task-root `workspaces/` directory using a filename-safe run ID; explicit profile/node validation and adapter dispatch remain unchanged.
 - No launcher workspace-panel rewrite, browser/API source, user database migration, legacy report rewrite or optional dependency installation occurred.
 
+## Completed bounded slice — product U5 offline browser adapter onboarding
+
+### Outcome
+
+The retained browser adapter is available only through an explicit injected registration that binds one declared browser profile to one exact adapter. The default launcher/profile catalog and generic task import path remain browser-free.
+
+### Completion evidence
+
+- `BrowserSourceRegistration` validates browser source kind, adapter ID/version, one fixed safe HTTP(S) locator and explicit declared nodes before dispatch.
+- The durable local-task boundary accepts only run ID, profile ID and selected node IDs; raw browser profile/node payloads and per-run locator overrides are rejected fail-closed.
+- An unrelated or unregistered profile cannot call the runner. An exact registered selection dispatches only the injected deterministic runner and writes the canonical `ProductWorkspace`.
+- Ready, manual-action/no-product and unknown-evidence/no-publication paths are covered without browser launch or network access. Fresh-interpreter coverage proves the default catalog/task/registry imports do not load the browser adapter module.
+- No live profile was exposed, no browser or server was started, no optional dependency was installed and no live collection was performed.
+
+### Next human gate
+
+Define and approve the launcher-visible live profile, per-source operational policy and same-session live test plan. This completed offline slice does not authorize any of those actions and does not close product Phase U5.
+
 ## Accepted bounded work-unit receipts — separate from product phases
 
 The U5–U13 identifiers below are preserved historical work-unit/receipt labels from the implementation continuation chain. They are not the U5/U6 product delivery phases defined by `docs/UNIVERSAL_PRODUCT_CATALOG_PLAN.md`, and their acceptance does not mark either product phase complete. The active product plan is authoritative for phase status.
@@ -202,22 +220,21 @@ The multi-stage dirty worktree was made reviewable without rewriting Git history
 - Final evidence: 217 deterministic tests passed; immutable Standards review had no findings; immutable Spec review passed. Delivered commit: `4551b54b1f76ce316e259dd1a6b78bdb780ed297`.
 - Full native Qt/PySide6 green status and live collection are not claimed.
 
-## Active bounded candidate — U5 offline adapter-onboarding boundary
+## Closed — Stage 3 U5 offline browser adapter onboarding
 
-1. Map the retained optional browser capability to one explicit `SourceAdapter`/`SourceProfile` registration seam using deterministic fixtures or fake pages only.
-2. Prove the profile is unreachable unless explicitly selected and that generic application/launcher modules contain no retailer, host, category, output-path or anti-bot default.
-3. Keep browser launch, optional-dependency installation, live profile exposure and every live collection outside this offline slice.
+1. The retained browser capability is available only through an opt-in registration that binds one exact declared profile, fixed safe locator, explicit nodes and exact injected adapter identity.
+2. The default profile list and fresh generic catalog/task/registry import path remain browser-free; unrelated or unregistered selections cannot dispatch the browser runner.
+3. Deterministic ready, manual-action and invalid-evidence paths use only an injected fake runner and the canonical `ProductWorkspace`. Browser launch, optional-dependency installation, live profile exposure and every live collection were excluded.
 
 ## Future gated candidate — live SourceProfile exposure (not started; separate decision)
 
-Any launcher-visible browser/API `SourceProfile` exposure and every new live collection run require a separately frozen scope and explicit human decision. They are not part of U13 acceptance.
+Any launcher-visible browser/API `SourceProfile` exposure and every new live collection run require a separately frozen scope and explicit human decision. They are not part of the completed offline onboarding boundary.
 
 ## Sequenced follow-up
 
-1. **U5 offline adapter onboarding:** define and verify one explicit optional-browser adapter/profile registration boundary without browser launch or live access.
-2. **Future live exposure:** make a separate decision before any launcher-visible live browser/API `SourceProfile`.
-3. **Future live capability:** browser handoff and same-session manual CAPTCHA input remain optional capabilities; any new live collection run requires a frozen plan and explicit live gate.
-4. **U6 release hardening:** replace stale retailer-first demos/CI surfaces and archive legacy parsers only after reference and adapter-replacement evidence.
+1. **U5 live exposure policy:** define the launcher-visible live profile, per-source operational policy and user-approved same-session test plan before any activation.
+2. **Future live capability:** browser handoff and same-session manual CAPTCHA input remain optional capabilities; every new live collection run requires a frozen plan and explicit live gate.
+3. **U6 release hardening:** replace stale retailer-first demos/CI surfaces and archive legacy parsers only after reference and adapter-replacement evidence.
 
 ## Validation policy
 

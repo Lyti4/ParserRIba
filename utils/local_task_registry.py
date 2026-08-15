@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
-from application.browser_source_adapter import BrowserSourceAdapter
 from models.task_actor import RunManifest
 from utils.application_fixture_tasks import (
     run_application_workflow_fixture_task,
@@ -16,6 +15,7 @@ from utils.application_fixture_tasks import (
 from utils.source_adapter_tasks import run_source_adapter_collection_task
 
 if TYPE_CHECKING:
+    from application.browser_source_registration import BrowserSourceRegistration
     from utils.store_catalog_registry import DiscoverFunc
 else:
     DiscoverFunc = Callable[..., Awaitable[Any]]
@@ -43,7 +43,7 @@ async def run_local_task(
     *,
     root_dir: Path | str,
     discover_func: DiscoverFunc | None = None,
-    browser_adapter: BrowserSourceAdapter | None = None,
+    browser_registration: BrowserSourceRegistration | None = None,
 ) -> RunManifest:
     """Run one registered local task and return its manifest."""
     task = _TASKS.get(str(task_name or ""))
@@ -55,9 +55,9 @@ async def run_local_task(
         "discover_func": discover_func,
     }
     if task_name == "source_adapter_collection":
-        call_args["browser_adapter"] = browser_adapter
-    elif browser_adapter is not None:
-        raise ValueError("browser_adapter is supported only for source_adapter_collection")
+        call_args["browser_registration"] = browser_registration
+    elif browser_registration is not None:
+        raise ValueError("browser_registration is supported only for source_adapter_collection")
     return await task.run_func(**call_args)
 
 

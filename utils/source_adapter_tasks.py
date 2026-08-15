@@ -3,21 +3,16 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Mapping
-from urllib.parse import urlsplit
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Mapping
 
-from pydantic import ValidationError
-
-from application.browser_source_adapter import BrowserSourceAdapter
 from application.recorded_legacy_fixture_adapter import (
     RecordedLegacyFixtureSourceAdapter,
     recorded_legacy_fixture_document,
 )
 from application.contracts import (
     ApplicationContractError,
-    CatalogNode,
     CollectionRequest,
-    SourceProfile,
+    SourceKind,
     TerminalOutcome,
     require_artifact_run_id,
 )
@@ -29,6 +24,9 @@ from application.source_adapters import (
     SyntheticFixtureSourceAdapter,
 )
 from models.task_actor import RunManifest, TaskStatus
+
+if TYPE_CHECKING:
+    from application.browser_source_registration import BrowserSourceRegistration
 
 DiscoverFunc = Callable[..., Awaitable[Any]]
 _DECLARED_SOURCE_REQUIRED_KEYS = frozenset(
@@ -42,12 +40,26 @@ async def run_source_adapter_collection_task(
     task_input: dict[str, Any],
     root_dir: Path,
     discover_func: DiscoverFunc | None = None,
-    browser_adapter: BrowserSourceAdapter | None = None,
+    browser_registration: BrowserSourceRegistration | None = None,
 ) -> RunManifest:
     """Collect one explicitly selected source through its dependency-light adapter seam."""
     del discover_func
-    if browser_adapter is None:
-        request = build_source_adapter_collection_request(task_input)
+    request = build_source_adapter_collection_request(
+        task_input,
+        browser_registration=browser_registration,
+    )
+    if request.source_profile.source_kind is SourceKind.BROWSER:
+        if (
+            browser_registration is None
+            or request.source_profile.source_profile_id
+            != browser_registration.declared_profile.source_profile_id
+        ):
+            raise ApplicationContractError(
+                "SOURCE_ADAPTER_UNAVAILABLE",
+                "SOURCE_ADAPTER_UNAVAILABLE: No selected browser adapter is registered.",
+            )
+        result = await browser_registration.adapter.collect(request)
+    else:
         result = SourceAdapterRegistry(
             (
                 SyntheticFixtureSourceAdapter(),
@@ -55,9 +67,6 @@ async def run_source_adapter_collection_task(
                 RecordedLegacyFixtureSourceAdapter(recorded_legacy_fixture_document()),
             )
         ).collect(request)
-    else:
-        request = _build_injected_browser_collection_request(task_input)
-        result = await browser_adapter.collect(request)
     workspace_path = _workspace_artifact_path(root_dir, request.collection_run_id)
     ProductWorkspace.from_collection_results((result,)).write_json(workspace_path)
     artifact_paths = {**result.artifact_refs, "workspace_json": str(workspace_path)}
@@ -69,67 +78,12 @@ async def run_source_adapter_collection_task(
     )
 
 
-def _build_injected_browser_collection_request(task_input: Mapping[str, Any]) -> CollectionRequest:
-    allowed_keys = {"collection_run_id", "source_profile", "catalog_nodes"}
-    if set(task_input) != allowed_keys:
-        raise ApplicationContractError(
-            "BROWSER_COLLECTION_INPUT_INVALID",
-            "BROWSER_COLLECTION_INPUT_INVALID: Browser collection requires only an explicit run, profile and nodes.",
-        )
-    raw_profile = task_input.get("source_profile")
-    raw_nodes = task_input.get("catalog_nodes")
-    if not isinstance(raw_profile, Mapping) or not isinstance(raw_nodes, (list, tuple)) or not raw_nodes:
-        raise ApplicationContractError(
-            "BROWSER_COLLECTION_INPUT_INVALID",
-            "BROWSER_COLLECTION_INPUT_INVALID: Browser collection requires an explicit SourceProfile and CatalogNodes.",
-        )
-    if any(not isinstance(node, Mapping) for node in raw_nodes):
-        raise ApplicationContractError(
-            "BROWSER_COLLECTION_INPUT_INVALID",
-            "BROWSER_COLLECTION_INPUT_INVALID: Browser CatalogNodes must be explicit contract objects.",
-        )
-
-    raw_locators = [raw_profile.get("source_locator")]
-    raw_locators.extend(node.get("locator") for node in raw_nodes)
-    for raw_locator in raw_locators:
-        if isinstance(raw_locator, str):
-            _require_fragment_free_browser_locator(raw_locator)
-
-    try:
-        request = CollectionRequest(
-            collection_run_id=require_artifact_run_id(task_input.get("collection_run_id")),
-            source_profile=SourceProfile.model_validate(raw_profile),
-            catalog_nodes=tuple(CatalogNode.model_validate(node) for node in raw_nodes),
-        )
-    except ValidationError:
-        raise ApplicationContractError(
-            "BROWSER_COLLECTION_INPUT_INVALID",
-            "BROWSER_COLLECTION_INPUT_INVALID: Browser collection contracts are invalid.",
-        ) from None
-    _require_fragment_free_browser_locator(request.source_profile.source_locator)
-    for node in request.catalog_nodes:
-        if node.locator is not None:
-            _require_fragment_free_browser_locator(node.locator)
-    return request
-
-
-def _require_fragment_free_browser_locator(value: str) -> None:
-    try:
-        fragment = urlsplit(value).fragment
-    except ValueError as error:
-        raise ApplicationContractError(
-            "BROWSER_COLLECTION_LOCATOR_INVALID",
-            "BROWSER_COLLECTION_LOCATOR_INVALID: Browser locator is not safely parseable.",
-        ) from error
-    if fragment:
-        raise ApplicationContractError(
-            "BROWSER_COLLECTION_LOCATOR_INVALID",
-            "BROWSER_COLLECTION_LOCATOR_INVALID: Browser locators must not contain fragments.",
-        )
-
-
-def build_source_adapter_collection_request(task_input: Mapping[str, Any]) -> CollectionRequest:
-    """Build the single U2 collection request without profile, locator or node fallbacks."""
+def build_source_adapter_collection_request(
+    task_input: Mapping[str, Any],
+    *,
+    browser_registration: BrowserSourceRegistration | None = None,
+) -> CollectionRequest:
+    """Build one request without profile, locator or node fallbacks."""
     input_keys = set(task_input)
     if not input_keys.issubset(_DECLARED_SOURCE_ALLOWED_KEYS):
         raise ApplicationContractError(
@@ -138,9 +92,20 @@ def build_source_adapter_collection_request(task_input: Mapping[str, Any]) -> Co
         )
     collection_run_id = require_artifact_run_id(task_input.get("collection_run_id"))
     node_ids = _selected_catalog_node_ids(task_input)
+    if (
+        browser_registration is not None
+        and task_input.get("source_profile_id")
+        == browser_registration.declared_profile.source_profile_id
+        and "source_locator" in input_keys
+    ):
+        raise ApplicationContractError(
+            "BROWSER_SOURCE_LOCATOR_FIXED",
+            "BROWSER_SOURCE_LOCATOR_FIXED: Browser registration owns its fixed source locator.",
+        )
     inspected = inspect_declared_source_catalog(
         task_input.get("source_profile_id"),
         task_input.get("source_locator"),
+        browser_registration=browser_registration,
     )
     profile = inspected.source_profile
     nodes_by_id = {node.catalog_node_id: node for node in inspected.catalog_nodes}

@@ -168,11 +168,11 @@ The retained DOM-derived and captured API-shaped legacy evidence forms are avail
 - Final deterministic evidence: targeted `90/90`, dependency-light P0-A `88/88`, P0-B `12/12`, P0-C `23/23`, expanded contour `179/179`, scoped compileall/Ruff/diff checks and offscreen desktop smoke all passed.
 - Full pytest remains unclaimed because inherited native Qt/PySide6 attempts crashed instead of returning assertion results. The broader worktree remains intentionally dirty and includes multiple historical/current slices.
 
-## Active — Stage 0B cumulative-WIP stabilization
+## Closed — Stage 0B cumulative-WIP stabilization
 
 ### Outcome
 
-Make the current multi-stage dirty worktree reviewable without rewriting Git history: preserve a deterministic inventory, separate the 19-path Stage 0A boundary from residual WIP, synchronize active lifecycle documentation and define the next delivery gate.
+The multi-stage dirty worktree was made reviewable without rewriting Git history: the deterministic inventory, exact 19-path Stage 0A boundary, aggregate-only `.runtime` count and active lifecycle documents were reconciled before Stage 1 implementation.
 
 ### Frozen boundary
 
@@ -181,11 +181,32 @@ Make the current multi-stage dirty worktree reviewable without rewriting Git his
 - Twenty-two `.runtime` paths are recorded only as an aggregate count; their names and contents are excluded.
 - Stage 0B changes only this document, `docs/UNIVERSAL_PRODUCT_CATALOG_PLAN.md` and `docs/DECISIONS.md`. Production code, tests, CI, dependencies, runtime data and Git history are outside the slice.
 
-### Completion gate
+### Completion evidence
 
-- The three active documents must agree on Stage 0A closure, Stage 0B scope and the post-stabilization sequence.
-- New links must resolve; the scoped diff must pass whitespace/pointer checks; the final three-file hashes require independent Standards/Spec review.
-- Commit/branch splitting, cleanup, Stage 1 implementation, live browser/API profile exposure and live collection each remain separate approvals.
+- The three active documents agreed on Stage 0A closure, Stage 0B scope and the post-stabilization sequence.
+- Pointer, whitespace and independent hash-bound documentation review gates passed.
+- Stage 0B introduced no production, test, CI, dependency, runtime or live-source behavior and did not rewrite Git history.
+
+## Closed — Stage 1 universal desktop workspace/export
+
+- The launcher owns canonical `ProductWorkspace` state, missing-aware filtering, explicit product selection and explicit JSON export without inventing legacy supplier/field values.
+- Worker/subprocess results are serializable; GUI-owned state and persistence remain GUI-thread-only.
+- Deterministic acceptance and independent review passed; delivered commit: `291ba09b9af0aa42e66d1382a8e4a2e231cd60ae`.
+- Browser/API execution, user-database migration and legacy report migration were excluded.
+
+## Closed — Stage 2 local file picker and CatalogNode tree
+
+- The local-file profile uses `QFileDialog` and a source-neutral tree populated only from a strictly inspected local JSON document; internal node IDs are not editable UI input.
+- Labels and parent links are source-declared. Malformed hierarchy, restricted material, identity mismatch and noncanonical `file:` locators fail closed.
+- Inspection and collection workers are state-neutral and JSON-safe; GUI callbacks own state application/persistence and stale-tree invalidation.
+- Final evidence: 217 deterministic tests passed; immutable Standards review had no findings; immutable Spec review passed. Delivered commit: `4551b54b1f76ce316e259dd1a6b78bdb780ed297`.
+- Full native Qt/PySide6 green status and live collection are not claimed.
+
+## Active bounded candidate — U5 offline adapter-onboarding boundary
+
+1. Map the retained optional browser capability to one explicit `SourceAdapter`/`SourceProfile` registration seam using deterministic fixtures or fake pages only.
+2. Prove the profile is unreachable unless explicitly selected and that generic application/launcher modules contain no retailer, host, category, output-path or anti-bot default.
+3. Keep browser launch, optional-dependency installation, live profile exposure and every live collection outside this offline slice.
 
 ## Future gated candidate — live SourceProfile exposure (not started; separate decision)
 
@@ -193,10 +214,10 @@ Any launcher-visible browser/API `SourceProfile` exposure and every new live col
 
 ## Sequenced follow-up
 
-1. **Stage 0B stabilization:** reconcile the cumulative WIP and active documentation without changing Git history or production behavior.
-2. **Stage 1 universal desktop export:** connect explicit `ProductWorkspace` selection/filter state to the source-neutral local export seam; freeze and approve separately.
-3. **Future live exposure:** make a separate decision before any launcher-visible browser/API `SourceProfile`.
-4. **Future live capability:** browser handoff and same-session manual CAPTCHA input are operational, but any new live collection run remains a separate frozen plan and explicit live gate.
+1. **U5 offline adapter onboarding:** define and verify one explicit optional-browser adapter/profile registration boundary without browser launch or live access.
+2. **Future live exposure:** make a separate decision before any launcher-visible live browser/API `SourceProfile`.
+3. **Future live capability:** browser handoff and same-session manual CAPTCHA input remain optional capabilities; any new live collection run requires a frozen plan and explicit live gate.
+4. **U6 release hardening:** replace stale retailer-first demos/CI surfaces and archive legacy parsers only after reference and adapter-replacement evidence.
 
 ## Validation policy
 

@@ -55,10 +55,14 @@ All public locator, artifact/evidence, task, live-runner and launcher boundaries
 
 ### ADR-013 — Stabilize cumulative WIP before the next product slice
 
-The current dirty worktree contains multiple historical/current slices and is not treated as one release unit. Stage 0B records a deterministic aggregate-safe inventory, preserves the exact 19-path Stage 0A boundary, synchronizes active lifecycle documents and defines delivery sequencing without rewriting Git history or changing production behavior. Historical U5–U13 work-unit/receipt labels are not product delivery phases and do not close product Phase U5 or U6. Commit/branch splitting remains a separate Git gate. Stage 1 universal desktop export may start only after Stage 0B acceptance; live browser/API SourceProfile exposure and every live collection remain separately frozen and approved.
+The dirty worktree contains multiple historical/current slices and is not treated as one release unit. Closed Stage 0B preserved a deterministic aggregate-safe inventory, the exact 19-path Stage 0A boundary and synchronized lifecycle documents without rewriting Git history or changing production behavior. Historical U5–U13 work-unit/receipt labels are not product delivery phases and do not close product Phase U5 or U6. Stage 1 and Stage 2 were subsequently delivered as separately reviewed commits. Live browser/API SourceProfile exposure and every live collection remain separately frozen and approved.
+
+### ADR-014 — Source-declared local catalogue tree and GUI-owned state
+
+Local-file catalogue inspection and collection share the same strict source-neutral `CatalogNode` validation boundary. Display labels and optional parent identities come only from the inspected source document; the launcher exposes a file picker and tree rather than editable internal IDs. Both inspection and collection execute as state-neutral JSON-safe workers. Only GUI-thread callbacks mutate or persist launcher/controller state. Source-invalidating failures clear stale locator/tree/selection state, while pre-dispatch input, scope and run-ID failures preserve a valid inspected tree and do not dispatch.
 
 ## Open decisions
 
-- launcher integration of explicit `ProductWorkspace` selection/filter state with the source-neutral export seam (Stage 1);
-- live adapter onboarding/approval process (U5);
+- offline registration/onboarding contract for the retained optional browser capability behind an explicit SourceAdapter/SourceProfile boundary (U5);
+- separate approval and operational policy for launcher-visible live adapter exposure and each live collection run (U5);
 - retirement strategy for the legacy CLI/parsers after source-neutral paths exist (U6).

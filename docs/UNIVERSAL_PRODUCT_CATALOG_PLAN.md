@@ -2,7 +2,7 @@
 
 **Status:** active product plan
 **Date:** 2026-08-10
-**Current execution slice:** Stage 0B cumulative-WIP stabilization, following accepted Stage 0A security/explicit-boundary closure on 2026-08-14.
+**Current execution slice:** product Phase U5 offline adapter-onboarding boundary, following accepted Stage 0B documentation stabilization, Stage 1 universal desktop export and Stage 2 local catalogue picker/tree delivery.
 **Supersedes as active planning sources:** the predecessor roadmap, launcher architecture and Launcher V2 spec, now retained under `archive/project_history/universalization_2026-08-10/`.
 
 ## Outcome
@@ -151,13 +151,32 @@ Historical U5–U13 work-unit/receipt labels retained in `docs/NEXT_STEPS.md` be
 - Targeted `90/90`, dependency-light `88/88 + 12/12 + 23/23`, expanded deterministic `179/179`, static checks and desktop smoke passed. Independent Standards and Spec reviews returned `PASS — No findings`.
 - This acceptance does not claim a clean full worktree, full pytest success, live-source exposure, commit or delivery.
 
-### Stage 0B — Cumulative-WIP stabilization (active)
+### Stage 0B — Cumulative-WIP stabilization (closed 2026-08-15)
 
-- Initial inventory is 158 WIP paths: 51 modified, 14 renamed and 93 untracked. It contains multiple historical/current slices and is not one release unit.
-- The 19 Stage 0A paths are present as one exact frozen boundary. Twenty-two `.runtime` paths are represented only by aggregate count; names and contents remain excluded.
-- Stage 0B is documentation/evidence-only: `docs/NEXT_STEPS.md`, this plan and `docs/DECISIONS.md`. It does not change production code, tests, CI, dependencies, runtime state or Git history.
-- Completion requires consistent active lifecycle pointers, deterministic inventory/pointer/diff checks and independent hash-bound review of the three-file slice.
-- Stage 1 universal desktop export follows only after Stage 0B acceptance. Live browser/API `SourceProfile` exposure and every live collection remain separately frozen and approved.
+- The accepted documentation/evidence boundary reconciled the multi-stage dirty worktree without rewriting Git history or treating residual WIP as one release unit.
+- The 19 Stage 0A paths remained one exact frozen boundary. Twenty-two `.runtime` paths were represented only by aggregate count; names and contents remained excluded.
+- The accepted slice changed only `docs/NEXT_STEPS.md`, this plan and `docs/DECISIONS.md`; it introduced no production, test, CI, dependency, runtime or live-source behavior.
+- Stage 0B closure enabled the separately reviewed Stage 1 delivery. It did not authorize live browser/API `SourceProfile` exposure or live collection.
+
+### Stage 1 — Universal desktop workspace and export (closed 2026-08-15)
+
+- The launcher now owns a source-neutral `ProductWorkspace` lifecycle, explicit missing-aware filtering, exact product selection and explicit JSON export from canonical workspace state.
+- Product observations, normalized products, field definitions and provenance remain separate; unavailable supplier/field values are not invented from legacy projections.
+- Worker/subprocess results remain serializable and GUI-owned state is applied on the GUI thread.
+- Deterministic acceptance and independent review closed the slice at delivered commit `291ba09b9af0aa42e66d1382a8e4a2e231cd60ae`; browser/API execution, user-database migration and legacy report migration were excluded.
+
+### Stage 2 — Local catalogue picker and source-neutral tree (closed 2026-08-15)
+
+- The local-file profile uses `QFileDialog` and a source-neutral `CatalogNode` tree populated from a strictly inspected local JSON document; editable internal category IDs are not exposed.
+- Display labels and optional parent relationships come only from validated source records. Malformed nodes, duplicate/missing/self/cyclic parents, restricted material, invalid adapter identity and noncanonical `file:` locators fail closed.
+- Inspection and collection use state-neutral JSON-safe workers. GUI callbacks alone apply and persist source locator, tree, selection and task state; source-invalidating failures clear stale projections while pre-dispatch input/scope/run errors preserve a valid tree.
+- The delivered commit is `4551b54b1f76ce316e259dd1a6b78bdb780ed297`. The final deterministic contour passed 217 tests; immutable Standards review reported no findings and Spec review returned PASS. Full native Qt/PySide6 green status and live collection are not claimed.
+
+### Next bounded phase — U5 offline adapter-onboarding boundary
+
+- Reconcile the already-retained optional browser capability with the public `SourceAdapter` seam using deterministic fixtures/fakes only.
+- Freeze one explicit launcher-visible/profile-registration boundary that remains unreachable unless selected and contains no global retailer, host, category, output-path or anti-bot default.
+- Do not expose a live profile, launch a browser, install optional dependencies or run a live source in the offline boundary. Each of those remains a separate explicit gate.
 
 ## Explicit exclusions
 
@@ -165,7 +184,7 @@ Historical U5–U13 work-unit/receipt labels retained in `docs/NEXT_STEPS.md` be
 - No automatic CAPTCHA bypass or protected-request replay.
 - No deletion of archive history, knowledge-base profiles, user data, browser profiles, cookies, credentials or operational databases in this plan slice.
 - No claim of universal live-source support before U1–U5 acceptance gates pass.
-- No commit, push, release, package install or live retailer execution.
+- No release, package install, automatic live-profile exposure or live retailer execution is implied by this plan. Commit, push and PR actions remain separately approved per delivery slice.
 
 ## Documentation consolidation in U0
 

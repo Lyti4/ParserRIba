@@ -61,8 +61,11 @@ The dirty worktree contains multiple historical/current slices and is not treate
 
 Local-file catalogue inspection and collection share the same strict source-neutral `CatalogNode` validation boundary. Display labels and optional parent identities come only from the inspected source document; the launcher exposes a file picker and tree rather than editable internal IDs. Both inspection and collection execute as state-neutral JSON-safe workers. Only GUI-thread callbacks mutate or persist launcher/controller state. Source-invalidating failures clear stale locator/tree/selection state, while pre-dispatch input, scope and run-ID failures preserve a valid inspected tree and do not dispatch.
 
+### ADR-015 — Opt-in offline browser adapter registration
+
+The retained browser capability enters the source-neutral collection path only through `BrowserSourceRegistration`, an opt-in module that binds one exact declared browser `SourceProfile`, fixed safe locator, explicit nodes and adapter ID/version to one injected `BrowserSourceAdapter`. Generic profile-catalog, task-bridge and local-registry modules reference this registration only for static typing and do not load the browser adapter on their default import path. Durable task input carries only explicit run/profile/node selection; raw profile/node objects and per-run browser locators are not accepted. A selected registration may return deterministic ready or manual-action results through the canonical `ProductWorkspace`; invalid/unknown evidence fails before publication. This offline decision does not expose a live launcher profile or authorize browser launch, network collection, dependency installation or challenge execution.
+
 ## Open decisions
 
-- offline registration/onboarding contract for the retained optional browser capability behind an explicit SourceAdapter/SourceProfile boundary (U5);
 - separate approval and operational policy for launcher-visible live adapter exposure and each live collection run (U5);
 - retirement strategy for the legacy CLI/parsers after source-neutral paths exist (U6).

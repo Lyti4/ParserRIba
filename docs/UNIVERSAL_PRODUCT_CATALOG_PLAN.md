@@ -2,7 +2,7 @@
 
 **Status:** active product plan
 **Date:** 2026-08-10
-**Current execution slice:** product Phase U5 offline adapter-onboarding boundary, following accepted Stage 0B documentation stabilization, Stage 1 universal desktop export and Stage 2 local catalogue picker/tree delivery.
+**Current execution slice:** product Phase U5 offline adapter-onboarding boundary implemented for deterministic review; launcher-visible live profile exposure and every live collection remain separate human-approved gates.
 **Supersedes as active planning sources:** the predecessor roadmap, launcher architecture and Launcher V2 spec, now retained under `archive/project_history/universalization_2026-08-10/`.
 
 ## Outcome
@@ -126,11 +126,13 @@ No adapter may automatically solve CAPTCHA, replay protected requests, expose se
 
 ### Phase U5 — Optional source capabilities
 
-- Convert current Pyaterochka browser/API code into an opt-in SourceAdapter without global host, output-path or anti-bot defaults.
-- Move host markers, challenge logic and source-specific browser profiles into per-source configuration.
-- Add adapters only after fixture/file contract coverage and an explicit user-approved live test plan.
+- Bind each retained browser capability behind one opt-in registration that couples an exact declared `SourceProfile` to an exact injected `BrowserSourceAdapter`.
+- Keep generic catalog/task imports browser-free, keep the default profile list source-neutral and move host markers, challenge logic and other source-specific settings into the registered profile/adapter boundary.
+- Expose a live profile or run a live adapter only after a separate explicit user-approved live test plan.
 
-**Acceptance:** a live adapter is unreachable unless explicitly selected; no generic module imports a retailer script, URL, category or selector.
+**Offline boundary completed:** `BrowserSourceRegistration` lives in an opt-in module and validates one fixed HTTP(S) profile, explicit nodes and exact adapter identity. Generic catalog/task/registry imports use type-only references, so the browser module is absent from the default import path. Durable task input remains the source-neutral run/profile/node selection; raw browser profile/node objects and per-run locator overrides are rejected. Deterministic injected-runner coverage proves unrelated/default selections cannot dispatch the browser adapter, ready results enter the canonical `ProductWorkspace`, manual outcomes publish no products and unknown evidence fails before workspace publication. No browser was launched, no network was used and no optional dependency was installed.
+
+**Acceptance status:** the offline registration/onboarding boundary is complete. Product Phase U5 remains open for the separately approved launcher-visible live profile, operational policy and live collection plan.
 
 ### Phase U6 — Legacy and release hardening
 
@@ -172,11 +174,17 @@ Historical U5–U13 work-unit/receipt labels retained in `docs/NEXT_STEPS.md` be
 - Inspection and collection use state-neutral JSON-safe workers. GUI callbacks alone apply and persist source locator, tree, selection and task state; source-invalidating failures clear stale projections while pre-dispatch input/scope/run errors preserve a valid tree.
 - The delivered commit is `4551b54b1f76ce316e259dd1a6b78bdb780ed297`. The final deterministic contour passed 217 tests; immutable Standards review reported no findings and Spec review returned PASS. Full native Qt/PySide6 green status and live collection are not claimed.
 
-### Next bounded phase — U5 offline adapter-onboarding boundary
+### Stage 3 — Offline browser adapter onboarding (closed 2026-08-15)
 
-- Reconcile the already-retained optional browser capability with the public `SourceAdapter` seam using deterministic fixtures/fakes only.
-- Freeze one explicit launcher-visible/profile-registration boundary that remains unreachable unless selected and contains no global retailer, host, category, output-path or anti-bot default.
-- Do not expose a live profile, launch a browser, install optional dependencies or run a live source in the offline boundary. Each of those remains a separate explicit gate.
+- The retained browser adapter can be supplied only through an opt-in registration that binds one exact browser profile, fixed safe locator, explicit nodes and exact adapter identity.
+- The default declared profile list and generic catalog/task/registry import path remain browser-free. Selection of an unrelated source cannot dispatch the injected browser runner.
+- Deterministic ready, manual-action and invalid-evidence paths use only an injected fake runner and the canonical `ProductWorkspace`; live browser/network behavior and optional dependency installation were excluded.
+
+### Next gated decision — U5 live adapter exposure
+
+- Define the explicit launcher-visible live profile and its per-source operational policy without introducing generic retailer, host, category, output-path or anti-bot defaults.
+- Freeze a user-approved same-session live test plan before exposing or invoking any live runner.
+- Browser launch, optional dependency installation, credentials/provider changes and every live collection remain separate approvals.
 
 ## Explicit exclusions
 

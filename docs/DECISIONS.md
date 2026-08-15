@@ -65,7 +65,11 @@ Local-file catalogue inspection and collection share the same strict source-neut
 
 The retained browser capability enters the source-neutral collection path only through `BrowserSourceRegistration`, an opt-in module that binds one exact declared browser `SourceProfile`, fixed safe locator, explicit nodes and adapter ID/version to one injected `BrowserSourceAdapter`. Generic profile-catalog, task-bridge and local-registry modules reference this registration only for static typing and do not load the browser adapter on their default import path. Durable task input carries only explicit run/profile/node selection; raw profile/node objects and per-run browser locators are not accepted. A selected registration may return deterministic ready or manual-action results through the canonical `ProductWorkspace`; invalid/unknown evidence fails before publication. This offline decision does not expose a live launcher profile or authorize browser launch, network collection, dependency installation or challenge execution.
 
+### ADR-016 — Launcher-visible but inactive browser profile
+
+The normal desktop composition root may explicitly inject one source-specific browser registration while generic launcher/catalog/task imports remain browser-runtime-free. The Pyaterochka profile is visibly marked as requiring activation and may expose only its fixed locator and source-declared catalogue nodes. Collection remains disabled in the GUI and fails with `BROWSER_SOURCE_ACTIVATION_REQUIRED` before runner/subprocess dispatch. Activation, live runner replacement, optional dependency installation, browser/network work, challenge handoff and every live collection remain separate human gates.
+
 ## Open decisions
 
-- separate approval and operational policy for launcher-visible live adapter exposure and each live collection run (U5);
+- separate approval and operational policy for activating the launcher-visible browser adapter and each live collection run (U5);
 - retirement strategy for the legacy CLI/parsers after source-neutral paths exist (U6).

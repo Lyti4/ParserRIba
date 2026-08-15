@@ -38,5 +38,17 @@ def apply_widget_enabled_state(shell: Any) -> None:
         widget.setEnabled(enabled)
     for widget in getattr(shell, "source_catalog_action_buttons", []):
         widget.setEnabled(enabled)
+    source_collection_button = getattr(shell, "source_collection_button", None)
+    if source_collection_button is not None:
+        source_profile_id = shell.source_profile_combo.currentData()
+        collection_enabled = shell.controller.source_profile_collection_enabled(
+            str(source_profile_id or "")
+        )
+        source_collection_button.setEnabled(enabled and collection_enabled)
+        source_collection_button.setToolTip(
+            ""
+            if collection_enabled
+            else "Live-сбор требует отдельного разрешения и активации."
+        )
     for widget in getattr(shell, "filter_action_buttons", []):
         widget.setEnabled(enabled)

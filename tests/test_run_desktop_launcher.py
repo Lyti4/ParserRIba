@@ -11,9 +11,23 @@ def test_run_desktop_launcher_smoke_mode(monkeypatch) -> None:
 
 
 def test_run_desktop_launcher_full_mode(monkeypatch) -> None:
+    captured = {}
+
     class _FakeShell:
-        def __init__(self, *, root_dir):
+        def __init__(
+            self,
+            *,
+            root_dir,
+            browser_registration,
+            browser_collection_enabled,
+        ):
             self.root_dir = root_dir
+            self.browser_registration = browser_registration
+            self.browser_collection_enabled = browser_collection_enabled
+            captured["profile_id"] = (
+                browser_registration.declared_profile.source_profile_id
+            )
+            captured["collection_enabled"] = browser_collection_enabled
 
         def run(self) -> int:
             return 3
@@ -24,3 +38,7 @@ def test_run_desktop_launcher_full_mode(monkeypatch) -> None:
     result = run_desktop_launcher.main()
 
     assert result == 3
+    assert captured == {
+        "profile_id": "pyaterochka-live-catalog",
+        "collection_enabled": False,
+    }

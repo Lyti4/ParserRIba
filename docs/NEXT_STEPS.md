@@ -6,7 +6,7 @@
 ## Completed — U0 documentation consolidation
 
 1. Replace active Pyaterochka-first planning pointers with the universal source/product plan.
-2. Keep `README.md`, `AGENTS.md`, `CONTEXT.md`, `docs/UNIVERSAL_PRODUCT_CATALOG_PLAN.md`, `docs/TARGET_ARCHITECTURE.md`, `docs/DATA_FLOW_THREADING_PLAN.md`, `docs/PROJECT_STRUCTURE.md`, `docs/SOURCE_ADAPTERS.md`, `docs/OPERATIONS.md`, `docs/DECISIONS.md` and `docs/LEGACY_MIGRATION_BACKLOG.md` as the active documentation set.
+2. Keep `README.md`, `AGENTS.md`, `CONTEXT.md`, `docs/UNIVERSAL_PRODUCT_CATALOG_PLAN.md`, `docs/TARGET_ARCHITECTURE.md`, `docs/DATA_FLOW_THREADING_PLAN.md`, `docs/PROJECT_STRUCTURE.md`, `docs/DECISIONS.md` and `docs/LEGACY_MIGRATION_BACKLOG.md` as the active documentation set.
 3. Move superseded plans, status snapshots and product-specific operational notes to `archive/project_history/` after incoming pointers are updated.
 4. Keep `archive/` and `knowledge_base/` intact; remove only verified generated cache metadata.
 
@@ -226,13 +226,19 @@ The multi-stage dirty worktree was made reviewable without rewriting Git history
 2. The default profile list and fresh generic catalog/task/registry import path remain browser-free; unrelated or unregistered selections cannot dispatch the browser runner.
 3. Deterministic ready, manual-action and invalid-evidence paths use only an injected fake runner and the canonical `ProductWorkspace`. Browser launch, optional-dependency installation, live profile exposure and every live collection were excluded.
 
-## Future gated candidate — live SourceProfile exposure (not started; separate decision)
+## Closed — Stage 4 U5 launcher-visible offline browser profile
 
-Any launcher-visible browser/API `SourceProfile` exposure and every new live collection run require a separately frozen scope and explicit human decision. They are not part of the completed offline onboarding boundary.
+1. The normal desktop entrypoint explicitly exposes one Pyaterochka live profile with fixed source identity and six source-declared catalogue nodes.
+2. The profile is labelled `требуется активация`; static catalogue inspection is available while the collection button remains disabled.
+3. Controller preflight returns `BROWSER_SOURCE_ACTIVATION_REQUIRED` before runner/subprocess dispatch. Generic imports remain browser-runtime-free; no browser, network or optional dependency is used.
+
+## Future gated candidate — live activation and collection (not started; separate decision)
+
+Changing the profile from visible/inactive to executable requires a frozen operational policy, user-approved same-session test plan and separate explicit approval for each live collection run.
 
 ## Sequenced follow-up
 
-1. **U5 live exposure policy:** define the launcher-visible live profile, per-source operational policy and user-approved same-session test plan before any activation.
+1. **U5 activation policy:** define the per-source operational policy and user-approved same-session test plan before changing the visible profile from inactive to executable.
 2. **Future live capability:** browser handoff and same-session manual CAPTCHA input remain optional capabilities; every new live collection run requires a frozen plan and explicit live gate.
 3. **U6 release hardening:** replace stale retailer-first demos/CI surfaces and archive legacy parsers only after reference and adapter-replacement evidence.
 

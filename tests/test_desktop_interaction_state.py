@@ -5,9 +5,13 @@ from models.launcher_state import LauncherAppState
 class _DummyWidget:
     def __init__(self) -> None:
         self.enabled = True
+        self.tooltip = ""
 
     def setEnabled(self, value: bool) -> None:
         self.enabled = value
+
+    def setToolTip(self, value: str) -> None:
+        self.tooltip = value
 
 
 class _DummyCombo(_DummyWidget):
@@ -17,6 +21,14 @@ class _DummyCombo(_DummyWidget):
 
     def currentData(self) -> str:
         return self.value
+
+
+class _DummyController:
+    def __init__(self) -> None:
+        self.collection_enabled = True
+
+    def source_profile_collection_enabled(self, _profile_id: str) -> bool:
+        return self.collection_enabled
 
 
 class _DummyShell:
@@ -37,7 +49,13 @@ class _DummyShell:
         self.filter_widgets = {"suppliers": _DummyWidget(), "brands": _DummyWidget()}
         self.filter_extra_widgets = [_DummyWidget(), _DummyWidget()]
         self.category_action_buttons = [_DummyWidget(), _DummyWidget()]
-        self.source_catalog_action_buttons = [_DummyWidget(), _DummyWidget()]
+        self.source_collection_button = _DummyWidget()
+        self.source_catalog_action_buttons = [
+            _DummyWidget(),
+            _DummyWidget(),
+            self.source_collection_button,
+        ]
+        self.controller = _DummyController()
         self.filter_action_buttons = [_DummyWidget()]
 
 
@@ -89,3 +107,17 @@ def test_apply_widget_enabled_state_keeps_file_picker_disabled_for_non_file_prof
     assert shell.source_profile_combo.enabled is True
     assert shell.source_file_picker_button.enabled is False
     assert shell.source_catalog_tree.enabled is True
+
+
+def test_apply_widget_enabled_state_keeps_inactive_browser_collection_disabled() -> None:
+    shell = _DummyShell()
+    shell.source_profile_combo.value = "pyaterochka-live-catalog"
+    shell.controller.collection_enabled = False
+    shell.state.task.status = "idle"
+
+    apply_widget_enabled_state(shell)
+
+    assert shell.source_collection_button.enabled is False
+    assert shell.source_collection_button.tooltip == (
+        "Live-сбор требует отдельного разрешения и активации."
+    )

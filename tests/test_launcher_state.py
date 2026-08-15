@@ -3,11 +3,11 @@ import json
 from models.launcher_state import LauncherAppState, LauncherSettingsState
 
 
-def test_launcher_app_state_has_desktop_defaults() -> None:
+def test_launcher_app_state_starts_without_source_or_product_intent_defaults() -> None:
     state = LauncherAppState()
 
-    assert state.selection.shop == "pyaterochka"
-    assert state.selection.intent == "fish_catalog"
+    assert state.selection.shop == ""
+    assert state.selection.intent == ""
     assert state.selection.selected_product_ids == []
     assert state.settings.headless is True
     assert state.settings.manual_wait is False

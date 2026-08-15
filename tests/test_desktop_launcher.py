@@ -21,7 +21,7 @@ def test_desktop_launcher_shell_uses_local_settings_path(tmp_path: Path) -> None
 
     assert shell.root_dir == tmp_path
     assert shell.controller.settings_store.settings_path == tmp_path / "data" / "launcher_settings.json"
-    assert shell.state.selection.shop == "pyaterochka"
+    assert shell.state.selection.shop == ""
 
 
 def test_resolve_launcher_icon_path_points_inside_project(tmp_path: Path) -> None:

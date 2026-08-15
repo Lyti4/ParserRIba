@@ -37,6 +37,7 @@ def test_desktop_launcher_controller_shows_no_categories_before_research(tmp_pat
 
 def test_desktop_launcher_controller_prefers_discovered_categories_for_matching_target(tmp_path: Path) -> None:
     controller = DesktopLauncherController(root_dir=tmp_path)
+    controller.set_selection(shop="pyaterochka", intent="fish_catalog")
     controller.state.result.launcher_view = {
         "shop": "pyaterochka",
         "intent": "fish_catalog",

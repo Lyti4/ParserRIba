@@ -41,6 +41,10 @@ class LauncherCatalogState(BaseModel):
     selected_node_urls: list[str] = Field(default_factory=list)
     catalog_type: str = ""
     updated_at: str = ""
+    source_profile_id: str = ""
+    source_locator: str = ""
+    source_nodes: list[dict[str, Any]] = Field(default_factory=list)
+    selected_source_node_ids: list[str] = Field(default_factory=list)
 
 
 class LauncherProductWorkspaceState(BaseModel):

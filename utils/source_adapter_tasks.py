@@ -21,7 +21,7 @@ from application.contracts import (
     TerminalOutcome,
     require_artifact_run_id,
 )
-from application.source_profile_catalog import build_declared_source_profile, catalog_node_display_name
+from application.source_profile_catalog import inspect_declared_source_catalog
 from application.workspace import ProductWorkspace
 from application.source_adapters import (
     LocalJsonFileSourceAdapter,
@@ -136,27 +136,27 @@ def build_source_adapter_collection_request(task_input: Mapping[str, Any]) -> Co
             "SOURCE_COLLECTION_INPUT_INVALID",
             "SOURCE_COLLECTION_INPUT_INVALID: Source collection accepts only explicit declared fields.",
         )
-    profile = _selected_source_profile(task_input)
+    collection_run_id = require_artifact_run_id(task_input.get("collection_run_id"))
     node_ids = _selected_catalog_node_ids(task_input)
-    return CollectionRequest(
-        collection_run_id=require_artifact_run_id(task_input.get("collection_run_id")),
-        source_profile=profile,
-        catalog_nodes=tuple(
-            CatalogNode(
-                source_profile_id=profile.source_profile_id,
-                catalog_node_id=node_id,
-                display_name=_catalog_node_display_name(profile, node_id),
-                locator=profile.source_locator,
-            )
-            for node_id in node_ids
-        ),
-    )
-
-
-def _selected_source_profile(task_input: Mapping[str, Any]):
-    return build_declared_source_profile(
+    inspected = inspect_declared_source_catalog(
         task_input.get("source_profile_id"),
         task_input.get("source_locator"),
+    )
+    profile = inspected.source_profile
+    nodes_by_id = {node.catalog_node_id: node for node in inspected.catalog_nodes}
+    unavailable = next((node_id for node_id in node_ids if node_id not in nodes_by_id), None)
+    if unavailable is not None:
+        raise ApplicationContractError(
+            "SOURCE_CATALOG_NODE_UNAVAILABLE",
+            f"SOURCE_CATALOG_NODE_UNAVAILABLE: The selected catalog node is unavailable: {unavailable}.",
+        )
+    return CollectionRequest(
+        collection_run_id=collection_run_id,
+        source_profile=profile,
+        catalog_nodes=tuple(
+            nodes_by_id[node_id].model_copy(update={"locator": profile.source_locator})
+            for node_id in node_ids
+        ),
     )
 
 
@@ -182,9 +182,6 @@ def _selected_catalog_node_ids(task_input: Mapping[str, Any]) -> tuple[str, ...]
         node_ids.append(node_id)
     return tuple(node_ids)
 
-
-def _catalog_node_display_name(profile, node_id: str) -> str:
-    return catalog_node_display_name(profile.source_profile_id, node_id)
 
 
 def _workspace_artifact_path(root_dir: Path, collection_run_id: str) -> Path:

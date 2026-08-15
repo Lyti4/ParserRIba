@@ -7,7 +7,17 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlsplit
 
-from application.contracts import ApplicationContractError, SourceKind, SourceProfile
+from application.contracts import ApplicationContractError, CatalogNode, SourceKind, SourceProfile
+from application.source_adapters import LocalJsonFileSourceAdapter
+
+
+@dataclass(frozen=True)
+class DeclaredCatalogNode:
+    """One source-profile-owned catalog option with an optional parent."""
+
+    catalog_node_id: str
+    display_name: str
+    parent_catalog_node_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -20,11 +30,19 @@ class DeclaredSourceProfile:
     adapter_id: str
     adapter_version: str
     fixed_source_locator: str | None
-    catalog_node_options: tuple[tuple[str, str], ...] = ()
+    catalog_node_options: tuple[DeclaredCatalogNode, ...] = ()
 
     @property
     def requires_source_locator(self) -> bool:
         return self.fixed_source_locator is None
+
+
+@dataclass(frozen=True)
+class InspectedSourceCatalog:
+    """One explicit SourceProfile and its validated selectable CatalogNodes."""
+
+    source_profile: SourceProfile
+    catalog_nodes: tuple[CatalogNode, ...]
 
 
 _DECLARED_SOURCE_PROFILES = (
@@ -36,8 +54,8 @@ _DECLARED_SOURCE_PROFILES = (
         adapter_version="1",
         fixed_source_locator="fixture://example-catalog-v1",
         catalog_node_options=(
-            ("example-notebooks", "Пример: тетради"),
-            ("example-lamps", "Пример: лампы"),
+            DeclaredCatalogNode("example-notebooks", "Пример: тетради"),
+            DeclaredCatalogNode("example-lamps", "Пример: лампы"),
         ),
     ),
     DeclaredSourceProfile(
@@ -56,8 +74,8 @@ _DECLARED_SOURCE_PROFILES = (
         adapter_version="1",
         fixed_source_locator="fixture://recorded-legacy-products-v1",
         catalog_node_options=(
-            ("recorded-dom-example", "Записанный пример DOM"),
-            ("recorded-api-example", "Записанный пример API"),
+            DeclaredCatalogNode("recorded-dom-example", "Записанный пример DOM"),
+            DeclaredCatalogNode("recorded-api-example", "Записанный пример API"),
         ),
     ),
 )
@@ -89,6 +107,38 @@ def build_declared_source_profile(source_profile_id: Any, source_locator: Any = 
     )
 
 
+def inspect_declared_source_catalog(
+    source_profile_id: Any,
+    source_locator: Any = None,
+) -> InspectedSourceCatalog:
+    """Return the explicit profile and fully validated source-owned catalog nodes."""
+    profile = build_declared_source_profile(source_profile_id, source_locator)
+    declared = _BY_ID[profile.source_profile_id]
+    if declared.adapter_id == LocalJsonFileSourceAdapter.adapter_id:
+        nodes = LocalJsonFileSourceAdapter().catalog_nodes(profile)
+    else:
+        nodes = tuple(
+            CatalogNode(
+                source_profile_id=profile.source_profile_id,
+                catalog_node_id=option.catalog_node_id,
+                display_name=option.display_name,
+                parent_catalog_node_id=option.parent_catalog_node_id,
+            )
+            for option in declared.catalog_node_options
+        )
+    return InspectedSourceCatalog(source_profile=profile, catalog_nodes=nodes)
+
+
+def source_profile_uses_local_file_picker(source_profile_id: Any) -> bool:
+    """Return whether the declared source is an explicit local-file profile."""
+    declared = _BY_ID.get(str(source_profile_id or "").strip())
+    return bool(
+        declared is not None
+        and declared.source_kind is SourceKind.FILE
+        and declared.requires_source_locator
+    )
+
+
 def _canonical_local_json_file_uri(value: Any) -> str:
     locator = _required_text(value, "SOURCE_LOCATOR_REQUIRED")
     parsed = urlsplit(locator)
@@ -107,16 +157,6 @@ def _canonical_local_json_file_uri(value: Any) -> str:
             "SOURCE_LOCATOR_LOCAL_ONLY: Use a canonical hostless absolute file:///…/*.json locator.",
         )
     return canonical
-
-
-def catalog_node_display_name(source_profile_id: str, catalog_node_id: str) -> str:
-    """Return a declared display name; file node IDs remain explicit user input."""
-    declared = _BY_ID.get(source_profile_id)
-    if declared is not None:
-        for node_id, display_name in declared.catalog_node_options:
-            if node_id == catalog_node_id:
-                return display_name
-    return catalog_node_id
 
 
 def _required_text(value: Any, code: str) -> str:

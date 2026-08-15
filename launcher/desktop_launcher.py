@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
+from application.source_profile_catalog import source_profile_uses_local_file_picker
 from launcher.desktop_action_state import build_action_enabled_map
 from launcher.desktop_background_task import start_background_action
 from launcher.desktop_controller import DesktopLauncherController
@@ -17,10 +18,13 @@ from launcher.desktop_result_table_widget import populate_result_table_widget
 from launcher.desktop_selection_panel import (
     refresh_catalog_tree,
     refresh_category_list,
+    refresh_source_adapter_catalog_tree,
     selected_pyaterochka_fixture_catalog_node_ids,
     selected_source_adapter_catalog_node_ids,
     sync_catalog_selection_from_widgets,
+    sync_source_adapter_catalog_selection,
 )
+from launcher.desktop_source_catalog_tree import set_source_catalog_tree_checked
 from launcher.desktop_shell_helpers import (
     build_window_icon,
     clear_filter_selections,
@@ -50,7 +54,8 @@ class DesktopLauncherShell:
         self.catalog_tree: Any | None = None
         self.source_profile_combo: Any | None = None
         self.source_locator_input: Any | None = None
-        self.source_catalog_node_ids_input: Any | None = None
+        self.source_file_picker_button: Any | None = None
+        self.source_catalog_tree: Any | None = None
         self.source_collection_run_sequence = 0
         self.pyaterochka_fixture_node_checkboxes: dict[str, Any] = {}
         self.headless_checkbox: Any | None = None
@@ -68,6 +73,7 @@ class DesktopLauncherShell:
         self.filter_field_widgets: dict[str, Any] = {}
         self.filter_extra_widgets: list[Any] = []
         self.category_action_buttons: list[Any] = []
+        self.source_catalog_action_buttons: list[Any] = []
         self.filter_action_buttons: list[Any] = []
         self._active_task_thread: Any | None = None
         self._active_task_worker: Any | None = None
@@ -129,6 +135,7 @@ class DesktopLauncherShell:
         self._set_combo_value(self.intent_combo, self.state.selection.intent)
         refresh_category_list(self)
         refresh_catalog_tree(self)
+        refresh_source_adapter_catalog_tree(self)
         refresh_filter_widgets(self)
         sync_setting_widgets(self)
         self._set_combo_value(self.research_mode_combo, self.state.research.mode)
@@ -164,6 +171,7 @@ class DesktopLauncherShell:
 
     def _update_state_from_widgets(self) -> None:
         sync_catalog_selection_from_widgets(self)
+        sync_source_adapter_catalog_selection(self)
         self._sync_selected_products_from_table()
         self.controller.set_filters(collect_filter_selections(self))
         self.controller.set_settings(
@@ -213,19 +221,97 @@ class DesktopLauncherShell:
             lambda: self.controller.run_pyaterochka_fixture_collection(catalog_node_ids=catalog_node_ids)
         )
     def _on_run_source_adapter_collection(self) -> None:
+        if self._active_task_thread is not None:
+            return
         source_locator = (
             self.source_locator_input.text().strip()
             if self.source_locator_input is not None
             else ""
         ) or None
-        self._run_ui_action(
-            lambda: self.controller.run_source_adapter_collection(
-                collection_run_id=self._next_source_collection_run_id(),
-                source_profile_id=self._current_combo_value(self.source_profile_combo),
-                catalog_node_ids=selected_source_adapter_catalog_node_ids(self),
-                source_locator=source_locator,
-            )
+        collection_run_id = self._next_source_collection_run_id()
+        source_profile_id = self._current_combo_value(self.source_profile_combo)
+        catalog_node_ids = selected_source_adapter_catalog_node_ids(self)
+        action = self.controller.source_adapter_collection_worker_action(
+            collection_run_id=collection_run_id,
+            source_profile_id=source_profile_id,
+            catalog_node_ids=catalog_node_ids,
+            source_locator=source_locator,
         )
+        self.controller.begin_source_adapter_collection()
+        self._refresh_ui()
+        self._start_background_action(
+            action,
+            on_finished=lambda outcome: self._on_source_adapter_collection_finished(
+                outcome, source_profile_id
+            ),
+            on_failed=lambda error: self._on_source_adapter_collection_failed(
+                error, source_profile_id
+            ),
+        )
+    def _on_source_profile_changed(self, _text: str) -> None:
+        source_profile_id = self._current_combo_value(self.source_profile_combo)
+        self.controller.clear_source_adapter_catalog(source_profile_id)
+        self._refresh_ui()
+        if source_profile_id and not source_profile_uses_local_file_picker(source_profile_id):
+            self._start_source_catalog_inspection(source_profile_id)
+    def _on_choose_source_file(self) -> None:
+        qtwidgets = self._qtwidgets
+        if qtwidgets is None:
+            return
+        source_profile_id = self._current_combo_value(self.source_profile_combo)
+        if not source_profile_uses_local_file_picker(source_profile_id):
+            return
+        selected_path, _selected_filter = qtwidgets.QFileDialog.getOpenFileName(
+            self.window,
+            "Выбрать локальный JSON-каталог",
+            str(self.root_dir),
+            "JSON (*.json)",
+        )
+        if not selected_path:
+            return
+        source_locator = Path(selected_path).absolute().as_uri()
+        if self.source_locator_input is not None:
+            self.source_locator_input.setText(source_locator)
+        self._start_source_catalog_inspection(
+            source_profile_id,
+            source_locator,
+        )
+    def _start_source_catalog_inspection(
+        self,
+        source_profile_id: str,
+        source_locator: str | None = None,
+    ) -> None:
+        if self._active_task_thread is not None:
+            return
+        action = self.controller.source_catalog_inspection_worker_action(
+            source_profile_id,
+            source_locator,
+        )
+        self.controller.begin_source_catalog_inspection(source_profile_id)
+        self._refresh_ui()
+        self._start_background_action(
+            action,
+            on_finished=lambda outcome: self._on_source_catalog_inspection_finished(
+                outcome, source_profile_id
+            ),
+            on_failed=lambda error: self._on_source_catalog_inspection_failed(
+                error, source_profile_id
+            ),
+        )
+    def _on_source_catalog_tree_changed(self, _item: Any, _column: int) -> None:
+        sync_source_adapter_catalog_selection(self)
+    def _on_select_all_source_catalog_nodes(self) -> None:
+        if self.source_catalog_tree is None or self._qt is None:
+            return
+        set_source_catalog_tree_checked(self.source_catalog_tree, self._qt, True)
+        sync_source_adapter_catalog_selection(self)
+        self._refresh_ui()
+    def _on_clear_source_catalog_nodes(self) -> None:
+        if self.source_catalog_tree is None or self._qt is None:
+            return
+        set_source_catalog_tree_checked(self.source_catalog_tree, self._qt, False)
+        sync_source_adapter_catalog_selection(self)
+        self._refresh_ui()
     def _on_load_filters(self) -> None: self._run_ui_action(self.controller.load_filter_options)
     def _on_build_report(self) -> None: self._run_ui_action(self.controller.run_selected_report_export)
     def _on_export_workspace_selected(self) -> None:
@@ -297,13 +383,63 @@ class DesktopLauncherShell:
         self._refresh_ui()
         self._start_background_action(action)
 
-    def _start_background_action(self, action: Callable[[], Any]) -> None:
+    def _start_background_action(
+        self,
+        action: Callable[[], Any],
+        *,
+        on_finished: Callable[[object], None] | None = None,
+        on_failed: Callable[[object], None] | None = None,
+    ) -> None:
         self._active_task_thread, self._active_task_worker = start_background_action(
             action=action,
-            on_finished=self._on_background_action_finished,
-            on_failed=self._on_background_action_failed,
+            on_finished=on_finished or self._on_background_action_finished,
+            on_failed=on_failed or self._on_background_action_failed,
             on_cleared=self._clear_background_action,
         )
+
+    def _on_source_adapter_collection_finished(
+        self,
+        outcome: object,
+        source_profile_id: str,
+    ) -> None:
+        try:
+            self.controller.apply_source_adapter_collection_worker_outcome(
+                outcome,
+                source_profile_id,
+            )
+        except Exception:
+            pass
+        self._refresh_ui()
+
+    def _on_source_adapter_collection_failed(
+        self,
+        error: object,
+        source_profile_id: str,
+    ) -> None:
+        self.controller.fail_source_adapter_collection_worker(error, source_profile_id)
+        self._refresh_ui()
+
+    def _on_source_catalog_inspection_finished(
+        self,
+        outcome: object,
+        source_profile_id: str,
+    ) -> None:
+        try:
+            self.controller.apply_source_catalog_inspection_worker_outcome(
+                outcome,
+                source_profile_id,
+            )
+        except Exception:
+            pass
+        self._refresh_ui()
+
+    def _on_source_catalog_inspection_failed(
+        self,
+        error: object,
+        source_profile_id: str,
+    ) -> None:
+        self.controller.fail_source_catalog_inspection_worker(error, source_profile_id)
+        self._refresh_ui()
 
     def _on_background_action_finished(self, _result: object) -> None:
         self._refresh_ui()

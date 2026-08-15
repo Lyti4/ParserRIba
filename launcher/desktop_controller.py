@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import os
+import json
 import subprocess
 import sys
+from dataclasses import fields
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 from application.contracts import ApplicationContractError
+from application.source_profile_catalog import inspect_declared_source_catalog
 from application.url_safety import is_explicit_http_url
 from launcher.desktop_controller_helpers import (
     artifact_or_existing,
@@ -40,12 +43,138 @@ from launcher.desktop_user_messages import (
     task_progress_message,
     task_running_message,
 )
+from models.task_actor import RunManifest
 from utils.launcher_settings import LauncherSettingsStore
 from utils.local_task_adapter import LocalTaskProcessResult
 from utils.source_adapter_tasks import build_source_adapter_collection_request
 
 TaskRunner = Callable[..., LocalTaskProcessResult]
 PathOpener = Callable[[str], None]
+
+_NON_INVALIDATING_SOURCE_COLLECTION_CODES = frozenset(
+    {
+        "SOURCE_COLLECTION_INPUT_INVALID",
+        "COLLECTION_RUN_ID_ARTIFACT_INVALID",
+        "COLLECTION_SCOPE_REQUIRED",
+        "COLLECTION_SCOPE_INVALID",
+        "COLLECTION_SCOPE_DUPLICATE",
+    }
+)
+
+
+def _source_collection_failure_invalidates_catalog(error: Exception) -> bool:
+    return not (
+        isinstance(error, ApplicationContractError)
+        and error.code in _NON_INVALIDATING_SOURCE_COLLECTION_CODES
+    )
+
+
+def _serialize_local_task_process_result(result: LocalTaskProcessResult) -> dict[str, Any]:
+    payload = {
+        field.name: getattr(result, field.name)
+        for field in fields(LocalTaskProcessResult)
+        if field.name != "manifest"
+    }
+    payload["manifest"] = result.manifest.model_dump(mode="json")
+    return payload
+
+
+def _deserialize_local_task_process_result(payload: Mapping[str, Any]) -> LocalTaskProcessResult:
+    result_payload = dict(payload)
+    manifest_payload = result_payload.pop("manifest", None)
+    if not isinstance(manifest_payload, Mapping):
+        raise ValueError("Source collection worker returned an invalid manifest payload.")
+    return LocalTaskProcessResult(
+        manifest=RunManifest(**dict(manifest_payload)),
+        **result_payload,
+    )
+
+
+def _run_source_catalog_inspection_worker(
+    *,
+    source_profile_id: str,
+    source_locator: str | None,
+) -> dict[str, Any]:
+    """Inspect one declared source without touching launcher or Qt state."""
+    try:
+        inspected = inspect_declared_source_catalog(source_profile_id, source_locator)
+        nodes = [node.model_dump(mode="json") for node in inspected.catalog_nodes]
+    except Exception as error:
+        outcome = {
+            "status": "failed",
+            "error_code": error.code if isinstance(error, ApplicationContractError) else "",
+            "error_message": str(error),
+        }
+        json.dumps(outcome, ensure_ascii=False)
+        return outcome
+    outcome = {
+        "status": "finished",
+        "source_profile_id": inspected.source_profile.source_profile_id,
+        "source_locator": inspected.source_profile.source_locator,
+        "source_nodes": nodes,
+    }
+    json.dumps(outcome, ensure_ascii=False)
+    return outcome
+
+
+def _run_source_adapter_collection_worker(
+    *,
+    runner: TaskRunner,
+    root_dir: Path,
+    timeout_seconds: int,
+    collection_run_id: str,
+    source_profile_id: str,
+    catalog_node_ids: list[str],
+    source_locator: str | None,
+) -> dict[str, Any]:
+    """Run source preflight/subprocess without touching launcher or Qt state."""
+    task_input: dict[str, object] = {
+        "collection_run_id": collection_run_id,
+        "source_profile_id": source_profile_id,
+        "catalog_node_ids": list(catalog_node_ids),
+    }
+    if source_locator is not None:
+        task_input["source_locator"] = source_locator
+    try:
+        request = build_source_adapter_collection_request(task_input)
+        task_input = {
+            "collection_run_id": request.collection_run_id,
+            "source_profile_id": request.source_profile.source_profile_id,
+            "catalog_node_ids": [node.catalog_node_id for node in request.catalog_nodes],
+        }
+        if source_locator is not None:
+            task_input["source_locator"] = request.source_profile.source_locator
+    except Exception as error:
+        outcome = {
+            "status": "failed",
+            "error_code": error.code if isinstance(error, ApplicationContractError) else "",
+            "error_message": str(error),
+            "invalidates_catalog": _source_collection_failure_invalidates_catalog(error),
+        }
+        json.dumps(outcome, ensure_ascii=False)
+        return outcome
+    try:
+        result = runner(
+            root_dir=root_dir,
+            task_input=task_input,
+            timeout_seconds=timeout_seconds,
+        )
+    except Exception as error:
+        outcome = {
+            "status": "failed",
+            "error_code": error.code if isinstance(error, ApplicationContractError) else "",
+            "error_message": str(error),
+            "invalidates_catalog": True,
+        }
+        json.dumps(outcome, ensure_ascii=False)
+        return outcome
+    outcome = {
+        "status": "finished",
+        "result": _serialize_local_task_process_result(result),
+        "invalidates_catalog": result.manifest.status == "failed",
+    }
+    json.dumps(outcome, ensure_ascii=False)
+    return outcome
 
 class DesktopLauncherController:
     """Manage launcher state transitions and local task execution."""
@@ -132,6 +261,135 @@ class DesktopLauncherController:
         """Return discovered categories for the currently researched target only."""
         return available_category_names(self.state)
 
+    def source_catalog_inspection_worker_action(
+        self,
+        source_profile_id: str,
+        source_locator: str | None = None,
+    ) -> Callable[[], dict[str, Any]]:
+        """Freeze source inspection inputs for the state-neutral worker."""
+        return lambda: _run_source_catalog_inspection_worker(
+            source_profile_id=source_profile_id,
+            source_locator=source_locator,
+        )
+
+    def begin_source_catalog_inspection(self, source_profile_id: str) -> None:
+        """Prepare inspection state on the GUI/controller-owning thread."""
+        self._start_task("source_catalog_inspection")
+        self.clear_source_adapter_catalog(source_profile_id)
+        self.state.task.task_kind = "source_catalog_inspection"
+        self.state.task.phase = "validate_source_catalog"
+        self.state.task.progress_total = 1
+
+    def apply_source_catalog_inspection_worker_outcome(
+        self,
+        outcome: object,
+        source_profile_id: str,
+    ) -> list[dict[str, Any]] | None:
+        """Apply one JSON-safe inspection outcome on the GUI/controller-owning thread."""
+        if not isinstance(outcome, Mapping):
+            error = ValueError("Source catalog worker returned an invalid outcome.")
+            self.fail_source_catalog_inspection_worker(error, source_profile_id)
+            raise error
+        if outcome.get("status") == "failed":
+            self.clear_source_adapter_catalog(source_profile_id)
+            error_code = str(outcome.get("error_code") or "")
+            error_message = str(outcome.get("error_message") or "Source catalog inspection failed.")
+            error: Exception = (
+                ApplicationContractError(error_code, error_message)
+                if error_code
+                else RuntimeError(error_message)
+            )
+            self._fail_task(error)
+            self.save_state()
+            return None
+        raw_profile_id = outcome.get("source_profile_id")
+        raw_locator = outcome.get("source_locator")
+        raw_nodes = outcome.get("source_nodes")
+        if (
+            outcome.get("status") != "finished"
+            or not isinstance(raw_profile_id, str)
+            or not raw_profile_id
+            or not isinstance(raw_locator, str)
+            or not isinstance(raw_nodes, list)
+            or any(not isinstance(node, Mapping) for node in raw_nodes)
+        ):
+            error = ValueError("Source catalog worker returned an invalid result.")
+            self.fail_source_catalog_inspection_worker(error, source_profile_id)
+            raise error
+        nodes = [dict(node) for node in raw_nodes]
+        self.state.catalog.source_profile_id = raw_profile_id
+        self.state.catalog.source_locator = raw_locator
+        self.state.catalog.source_nodes = nodes
+        self.state.catalog.selected_source_node_ids = []
+        self.state.task.status = "succeeded"
+        self.state.task.progress_current = 1
+        self.state.task.message = f"Каталог источника проверен: {len(nodes)} разделов."
+        self.save_state()
+        return nodes
+
+    def fail_source_catalog_inspection_worker(
+        self,
+        error: object,
+        source_profile_id: str,
+    ) -> None:
+        """Fail closed when inspection background transport cannot return an outcome."""
+        self.clear_source_adapter_catalog(source_profile_id)
+        if self.state.task.task_name != "source_catalog_inspection":
+            self._start_task("source_catalog_inspection")
+        exception = error if isinstance(error, Exception) else RuntimeError(str(error))
+        self._fail_task(exception)
+        self.save_state()
+
+    def inspect_source_adapter_catalog(
+        self,
+        source_profile_id: str,
+        source_locator: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Synchronous public seam using the same pure-worker and GUI-apply protocol."""
+        action = self.source_catalog_inspection_worker_action(
+            source_profile_id,
+            source_locator,
+        )
+        self.begin_source_catalog_inspection(source_profile_id)
+        outcome = action()
+        nodes = self.apply_source_catalog_inspection_worker_outcome(
+            outcome,
+            source_profile_id,
+        )
+        if nodes is not None:
+            return nodes
+        if isinstance(outcome, Mapping) and outcome.get("error_code"):
+            raise ApplicationContractError(
+                str(outcome["error_code"]),
+                str(outcome.get("error_message") or "Source catalog inspection failed."),
+            )
+        raise RuntimeError(
+            str(outcome.get("error_message") or "Source catalog inspection failed.")
+            if isinstance(outcome, Mapping)
+            else "Source catalog inspection failed."
+        )
+
+    def clear_source_adapter_catalog(self, source_profile_id: str = "") -> None:
+        """Clear inspected source nodes when the explicit SourceProfile changes."""
+        self.state.catalog.source_profile_id = source_profile_id
+        self.state.catalog.source_locator = ""
+        self.state.catalog.source_nodes = []
+        self.state.catalog.selected_source_node_ids = []
+
+    def set_source_adapter_catalog_selection(self, catalog_node_ids: list[str]) -> None:
+        """Persist checked source CatalogNodes after validating against inspected state."""
+        available_ids = {
+            str(node.get("catalog_node_id") or "")
+            for node in self.state.catalog.source_nodes
+            if isinstance(node, dict)
+        }
+        if (
+            len(catalog_node_ids) != len(set(catalog_node_ids))
+            or any(not node_id or node_id not in available_ids for node_id in catalog_node_ids)
+        ):
+            raise ValueError("SOURCE_CATALOG_SELECTION_INVALID: Select only visible unique CatalogNodes.")
+        self.state.catalog.selected_source_node_ids = list(catalog_node_ids)
+
     def run_onboarding_discovery(self, *, site_url: str) -> LocalTaskProcessResult:
         """Run onboarding discovery for one explicit HTTP(S) site URL."""
         if not is_explicit_http_url(site_url):
@@ -202,6 +460,81 @@ class DesktopLauncherController:
         self.save_state()
         return result
 
+    def source_adapter_collection_worker_action(
+        self,
+        *,
+        collection_run_id: str,
+        source_profile_id: str,
+        catalog_node_ids: list[str],
+        source_locator: str | None = None,
+    ) -> Callable[[], dict[str, Any]]:
+        """Freeze worker inputs without exposing mutable launcher state to the worker."""
+        runner = self.source_adapter_collection_runner
+        root_dir = self.root_dir
+        timeout_seconds = _task_timeout_seconds(self.state.settings.listen_seconds)
+        selected_ids = list(catalog_node_ids)
+        return lambda: _run_source_adapter_collection_worker(
+            runner=runner,
+            root_dir=root_dir,
+            timeout_seconds=timeout_seconds,
+            collection_run_id=collection_run_id,
+            source_profile_id=source_profile_id,
+            catalog_node_ids=selected_ids,
+            source_locator=source_locator,
+        )
+
+    def begin_source_adapter_collection(self) -> None:
+        """Mark source collection running on the GUI/controller-owning thread."""
+        self._start_task("source_adapter_collection")
+
+    def apply_source_adapter_collection_worker_outcome(
+        self,
+        outcome: object,
+        source_profile_id: str,
+    ) -> LocalTaskProcessResult | None:
+        """Apply one JSON-safe worker outcome on the GUI/controller-owning thread."""
+        if not isinstance(outcome, Mapping):
+            error = ValueError("Source collection worker returned an invalid outcome.")
+            self.fail_source_adapter_collection_worker(error, source_profile_id)
+            raise error
+        if outcome.get("status") == "failed":
+            if bool(outcome.get("invalidates_catalog", True)):
+                self.clear_source_adapter_catalog(source_profile_id)
+            error = ValueError("Проверьте источник, разделы и идентификатор запуска.")
+            self._fail_task(error)
+            self.save_state()
+            return None
+        result_payload = outcome.get("result")
+        if outcome.get("status") != "finished" or not isinstance(result_payload, Mapping):
+            error = ValueError("Source collection worker returned an invalid result.")
+            self.fail_source_adapter_collection_worker(error, source_profile_id)
+            raise error
+        try:
+            result = _deserialize_local_task_process_result(result_payload)
+            if bool(outcome.get("invalidates_catalog", result.manifest.status == "failed")):
+                self.clear_source_adapter_catalog(source_profile_id)
+            self._apply_result(result)
+        except Exception as error:
+            self.clear_source_adapter_catalog(source_profile_id)
+            self._fail_task(error)
+            self.save_state()
+            raise
+        self.save_state()
+        return result
+
+    def fail_source_adapter_collection_worker(
+        self,
+        error: object,
+        source_profile_id: str,
+    ) -> None:
+        """Fail closed when the background transport itself cannot return an outcome."""
+        self.clear_source_adapter_catalog(source_profile_id)
+        if self.state.task.task_name != "source_adapter_collection":
+            self._start_task("source_adapter_collection")
+        exception = error if isinstance(error, Exception) else RuntimeError(str(error))
+        self._fail_task(exception)
+        self.save_state()
+
     def run_source_adapter_collection(
         self,
         *,
@@ -210,35 +543,21 @@ class DesktopLauncherController:
         catalog_node_ids: list[str],
         source_locator: str | None = None,
     ) -> LocalTaskProcessResult:
-        """Collect one explicit SourceProfile through the registered source-adapter task."""
-        task_input: dict[str, object] = {
-            "collection_run_id": collection_run_id,
-            "source_profile_id": source_profile_id,
-            "catalog_node_ids": catalog_node_ids,
-        }
-        if source_locator is not None:
-            task_input["source_locator"] = source_locator
-        try:
-            request = build_source_adapter_collection_request(task_input)
-        except ApplicationContractError:
-            self._start_task("source_adapter_collection")
-            error = ValueError("Проверьте источник, разделы и идентификатор запуска.")
-            self._fail_task(error)
-            raise error from None
-        task_input = {
-            "collection_run_id": request.collection_run_id,
-            "source_profile_id": request.source_profile.source_profile_id,
-            "catalog_node_ids": [node.catalog_node_id for node in request.catalog_nodes],
-        }
-        if source_locator is not None:
-            task_input["source_locator"] = request.source_profile.source_locator
-        return self._run_task(
-            task_name="source_adapter_collection",
-            runner=self.source_adapter_collection_runner,
-            root_dir=self.root_dir,
-            task_input=task_input,
-            timeout_seconds=_task_timeout_seconds(self.state.settings.listen_seconds),
+        """Synchronous public seam using the same pure-worker and GUI-apply protocol."""
+        action = self.source_adapter_collection_worker_action(
+            collection_run_id=collection_run_id,
+            source_profile_id=source_profile_id,
+            catalog_node_ids=catalog_node_ids,
+            source_locator=source_locator,
         )
+        self.begin_source_adapter_collection()
+        result = self.apply_source_adapter_collection_worker_outcome(
+            action(),
+            source_profile_id,
+        )
+        if result is None:
+            raise ValueError("Проверьте источник, разделы и идентификатор запуска.")
+        return result
 
     def export_selected_workspace_products(
         self,

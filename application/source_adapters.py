@@ -22,6 +22,7 @@ from application.contracts import (
     Provenance,
     SourceAdapter,
     SourceKind,
+    SourceProfile,
     TerminalOutcome,
 )
 
@@ -164,7 +165,8 @@ class LocalJsonFileSourceAdapter:
     adapter_version = "1"
     _FORMAT = "parserriba-local-catalog-v1"
     _DOCUMENT_KEYS = frozenset({"format", "observed_at", "catalog_nodes", "products"})
-    _CATALOG_NODE_KEYS = frozenset({"catalog_node_id", "display_name"})
+    _CATALOG_NODE_REQUIRED_KEYS = frozenset({"catalog_node_id", "display_name"})
+    _CATALOG_NODE_OPTIONAL_KEYS = frozenset({"parent_catalog_node_id"})
     _PRODUCT_REQUIRED_KEYS = frozenset(
         {"observation_id", "source_product_id", "normalized_product_id", "catalog_node_id", "name", "source_fields"}
     )
@@ -172,29 +174,10 @@ class LocalJsonFileSourceAdapter:
 
     def collect(self, request: CollectionRequest) -> CollectionResult:
         profile = request.source_profile
-        if profile.source_kind is not SourceKind.FILE:
-            raise ApplicationContractError(
-                "SOURCE_ADAPTER_KIND_MISMATCH",
-                "SOURCE_ADAPTER_KIND_MISMATCH: The local JSON adapter requires a file SourceProfile.",
-            )
-        document = self._read_document(profile.source_locator)
-        if set(document) != self._DOCUMENT_KEYS:
-            raise ApplicationContractError(
-                "LOCAL_FILE_DOCUMENT_INVALID",
-                "LOCAL_FILE_DOCUMENT_INVALID: The local JSON document has missing or unsupported fields.",
-            )
-        if not isinstance(document["catalog_nodes"], list) or not isinstance(document["products"], list):
-            raise ApplicationContractError(
-                "LOCAL_FILE_DOCUMENT_INVALID",
-                "LOCAL_FILE_DOCUMENT_INVALID: catalog_nodes and products must be arrays.",
-            )
-        if document.get("format") != self._FORMAT:
-            raise ApplicationContractError(
-                "LOCAL_FILE_FORMAT_UNSUPPORTED",
-                "LOCAL_FILE_FORMAT_UNSUPPORTED: The selected file is not parserriba-local-catalog-v1.",
-            )
-
-        declared_node_ids = self._declared_node_ids(document["catalog_nodes"])
+        self._require_file_profile(profile)
+        document = self._validated_document(profile)
+        declared_nodes = self._declared_nodes(profile, document["catalog_nodes"])
+        declared_node_ids = frozenset(node.catalog_node_id for node in declared_nodes)
         selected_node_ids = tuple(node.catalog_node_id for node in request.catalog_nodes)
         unavailable = next((node_id for node_id in selected_node_ids if node_id not in declared_node_ids), None)
         if unavailable is not None:
@@ -215,30 +198,126 @@ class LocalJsonFileSourceAdapter:
             artifact_refs={"input": profile.source_locator},
         )
 
+    def catalog_nodes(self, profile: SourceProfile) -> tuple[CatalogNode, ...]:
+        """Inspect one explicit file profile and return its fully validated catalog nodes."""
+        self._require_file_profile(profile)
+        document = self._validated_document(profile)
+        nodes = self._declared_nodes(profile, document["catalog_nodes"])
+        inspection_request = CollectionRequest(
+            collection_run_id="local-file-catalog-inspection",
+            source_profile=profile,
+            catalog_nodes=nodes,
+        )
+        declared_node_ids = frozenset(node.catalog_node_id for node in nodes)
+        self._validate_observed_at(inspection_request, document["observed_at"])
+        self._validated_products(
+            inspection_request,
+            document["products"],
+            declared_node_ids,
+            document["observed_at"],
+        )
+        return nodes
+
+    @staticmethod
+    def _require_file_profile(profile: SourceProfile) -> None:
+        if profile.source_kind is not SourceKind.FILE:
+            raise ApplicationContractError(
+                "SOURCE_ADAPTER_KIND_MISMATCH",
+                "SOURCE_ADAPTER_KIND_MISMATCH: The local JSON adapter requires a file SourceProfile.",
+            )
+        if (
+            profile.adapter_id != LocalJsonFileSourceAdapter.adapter_id
+            or profile.adapter_version != LocalJsonFileSourceAdapter.adapter_version
+        ):
+            raise ApplicationContractError(
+                "SOURCE_ADAPTER_IDENTITY_MISMATCH",
+                "SOURCE_ADAPTER_IDENTITY_MISMATCH: SourceProfile adapter identity does not match the local JSON adapter.",
+            )
+
+    def _validated_document(self, profile: SourceProfile) -> Mapping[str, Any]:
+        document = self._read_document(profile.source_locator)
+        if set(document) != self._DOCUMENT_KEYS:
+            raise ApplicationContractError(
+                "LOCAL_FILE_DOCUMENT_INVALID",
+                "LOCAL_FILE_DOCUMENT_INVALID: The local JSON document has missing or unsupported fields.",
+            )
+        if not isinstance(document["catalog_nodes"], list) or not isinstance(document["products"], list):
+            raise ApplicationContractError(
+                "LOCAL_FILE_DOCUMENT_INVALID",
+                "LOCAL_FILE_DOCUMENT_INVALID: catalog_nodes and products must be arrays.",
+            )
+        if document.get("format") != self._FORMAT:
+            raise ApplicationContractError(
+                "LOCAL_FILE_FORMAT_UNSUPPORTED",
+                "LOCAL_FILE_FORMAT_UNSUPPORTED: The selected file is not parserriba-local-catalog-v1.",
+            )
+        return document
+
     @classmethod
-    def _declared_node_ids(cls, records: list[Any]) -> frozenset[str]:
+    def _declared_nodes(
+        cls,
+        profile: SourceProfile,
+        records: list[Any],
+    ) -> tuple[CatalogNode, ...]:
+        nodes: list[CatalogNode] = []
         node_ids: set[str] = set()
         for record in records:
-            if not isinstance(record, Mapping) or set(record) != cls._CATALOG_NODE_KEYS:
+            if not isinstance(record, Mapping):
                 raise ApplicationContractError(
                     "LOCAL_FILE_CATALOG_NODE_INVALID",
-                    "LOCAL_FILE_CATALOG_NODE_INVALID: Every catalog node record must have only catalog_node_id and display_name.",
+                    "LOCAL_FILE_CATALOG_NODE_INVALID: Every catalog node record must be an object.",
                 )
-            node_id = record.get("catalog_node_id")
-            display_name = record.get("display_name")
-            if (
-                not isinstance(node_id, str)
-                or not node_id.strip()
-                or node_id in node_ids
-                or not isinstance(display_name, str)
-                or not display_name.strip()
+            keys = set(record)
+            if not cls._CATALOG_NODE_REQUIRED_KEYS.issubset(keys) or not keys.issubset(
+                cls._CATALOG_NODE_REQUIRED_KEYS | cls._CATALOG_NODE_OPTIONAL_KEYS
             ):
                 raise ApplicationContractError(
                     "LOCAL_FILE_CATALOG_NODE_INVALID",
-                    "LOCAL_FILE_CATALOG_NODE_INVALID: Catalog node IDs and display names must be non-empty; IDs must be unique.",
+                    "LOCAL_FILE_CATALOG_NODE_INVALID: A catalog node has missing or unsupported fields.",
                 )
-            node_ids.add(node_id)
-        return frozenset(node_ids)
+            try:
+                node = CatalogNode(
+                    source_profile_id=profile.source_profile_id,
+                    catalog_node_id=record["catalog_node_id"],
+                    display_name=record["display_name"],
+                    parent_catalog_node_id=record.get("parent_catalog_node_id"),
+                )
+            except (KeyError, TypeError, ValidationError) as error:
+                raise ApplicationContractError(
+                    "LOCAL_FILE_CATALOG_NODE_INVALID",
+                    "LOCAL_FILE_CATALOG_NODE_INVALID: Catalog node identity and labels must be valid safe text.",
+                ) from error
+            if node.catalog_node_id in node_ids:
+                raise ApplicationContractError(
+                    "LOCAL_FILE_CATALOG_NODE_INVALID",
+                    "LOCAL_FILE_CATALOG_NODE_INVALID: Catalog node IDs must be unique.",
+                )
+            node_ids.add(node.catalog_node_id)
+            nodes.append(node)
+        if not nodes:
+            raise ApplicationContractError(
+                "LOCAL_FILE_CATALOG_NODE_INVALID",
+                "LOCAL_FILE_CATALOG_NODE_INVALID: The local catalog must declare at least one node.",
+            )
+        by_id = {node.catalog_node_id: node for node in nodes}
+        for node in nodes:
+            parent_id = node.parent_catalog_node_id
+            if parent_id is not None and (parent_id not in by_id or parent_id == node.catalog_node_id):
+                raise ApplicationContractError(
+                    "LOCAL_FILE_CATALOG_NODE_INVALID",
+                    "LOCAL_FILE_CATALOG_NODE_INVALID: Every parent must name another declared catalog node.",
+                )
+            trail: set[str] = set()
+            current = node
+            while current.parent_catalog_node_id is not None:
+                if current.catalog_node_id in trail:
+                    raise ApplicationContractError(
+                        "LOCAL_FILE_CATALOG_NODE_INVALID",
+                        "LOCAL_FILE_CATALOG_NODE_INVALID: Catalog node parent links must be acyclic.",
+                    )
+                trail.add(current.catalog_node_id)
+                current = by_id[current.parent_catalog_node_id]
+        return tuple(nodes)
 
     def _validate_observed_at(self, request: CollectionRequest, observed_at: Any) -> None:
         try:
@@ -326,17 +405,21 @@ class LocalJsonFileSourceAdapter:
     @staticmethod
     def _read_document(source_locator: str) -> Mapping[str, Any]:
         parsed = urlsplit(source_locator)
+        source_path = Path(unquote(parsed.path))
+        canonical = source_path.as_uri() if source_path.is_absolute() else ""
         if (
             not source_locator.startswith("file:///")
             or parsed.scheme != "file"
             or parsed.netloc
-            or not Path(unquote(parsed.path)).is_absolute()
+            or parsed.query
+            or parsed.fragment
+            or not source_path.is_absolute()
+            or source_locator != canonical
         ):
             raise ApplicationContractError(
                 "LOCAL_FILE_LOCATOR_INVALID",
                 "LOCAL_FILE_LOCATOR_INVALID: A local JSON source must use a canonical hostless absolute file URI.",
             )
-        source_path = Path(unquote(parsed.path))
         if source_path.suffix.lower() != ".json" or not source_path.is_file():
             raise ApplicationContractError(
                 "LOCAL_FILE_UNAVAILABLE",

@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from application.source_profile_catalog import declared_source_profiles
+from application.source_profile_catalog import declared_source_profiles, source_profile_uses_local_file_picker
 from launcher.desktop_catalog_tree_widget import collect_checked_catalog_nodes, populate_catalog_tree_widget
+from launcher.desktop_source_catalog_tree import (
+    collect_checked_source_catalog_node_ids,
+    populate_source_catalog_tree_widget,
+)
 from launcher.desktop_state_readers import full_catalog_links, full_catalog_tree
 from launcher.desktop_ui_text import SHOP_LABELS
 
@@ -68,13 +72,13 @@ def build_catalog_selection_box(shell: Any, qtwidgets: Any) -> Any:
 
 
 def build_source_adapter_collection_box(shell: Any, qtwidgets: Any) -> Any:
-    """Build blank explicit SourceProfile and CatalogNode inputs for local-only collection."""
+    """Build explicit SourceProfile, file-picker and source-neutral CatalogNode tree controls."""
     box = qtwidgets.QGroupBox("Сбор из явного источника")
     layout = qtwidgets.QGridLayout(box)
     layout.setHorizontalSpacing(8)
     layout.setVerticalSpacing(6)
     note = qtwidgets.QLabel(
-        "Выберите источник и разделы явно. Fixture работает локально; для JSON укажите canonical file:/// URI."
+        "Выберите источник, затем отметьте разделы дерева. JSON выбирается локальным файловым диалогом."
     )
     note.setWordWrap(True)
     layout.addWidget(note, 0, 0, 1, 2)
@@ -83,24 +87,71 @@ def build_source_adapter_collection_box(shell: Any, qtwidgets: Any) -> Any:
     shell.source_profile_combo.addItem("Выберите источник", "")
     for profile in declared_source_profiles():
         shell.source_profile_combo.addItem(profile.display_name, profile.source_profile_id)
+    shell.source_profile_combo.currentTextChanged.connect(shell._on_source_profile_changed)
     layout.addWidget(shell.source_profile_combo, 1, 1)
-    layout.addWidget(qtwidgets.QLabel("Локальный URI"), 2, 0)
+    layout.addWidget(qtwidgets.QLabel("Локальный файл"), 2, 0)
     shell.source_locator_input = qtwidgets.QLineEdit("")
+    shell.source_locator_input.setReadOnly(True)
     layout.addWidget(shell.source_locator_input, 2, 1)
-    layout.addWidget(qtwidgets.QLabel("ID разделов через запятую"), 3, 0)
-    shell.source_catalog_node_ids_input = qtwidgets.QLineEdit("")
-    layout.addWidget(shell.source_catalog_node_ids_input, 3, 1)
+    shell.source_file_picker_button = qtwidgets.QPushButton("Выбрать JSON…")
+    shell.source_file_picker_button.clicked.connect(shell._on_choose_source_file)
+    layout.addWidget(shell.source_file_picker_button, 2, 2)
+    layout.addWidget(qtwidgets.QLabel("Разделы источника"), 3, 0)
+    shell.source_catalog_tree = qtwidgets.QTreeWidget()
+    shell.source_catalog_tree.setMinimumHeight(180)
+    shell.source_catalog_tree.setSelectionMode(qtwidgets.QAbstractItemView.SelectionMode.NoSelection)
+    shell.source_catalog_tree.itemChanged.connect(shell._on_source_catalog_tree_changed)
+    layout.addWidget(shell.source_catalog_tree, 3, 1, 1, 2)
+    choose_all_button = qtwidgets.QPushButton("Выбрать всё")
+    choose_all_button.clicked.connect(shell._on_select_all_source_catalog_nodes)
+    shell.source_catalog_action_buttons.append(choose_all_button)
+    layout.addWidget(choose_all_button, 4, 1)
+    clear_button = qtwidgets.QPushButton("Снять выбор")
+    clear_button.clicked.connect(shell._on_clear_source_catalog_nodes)
+    shell.source_catalog_action_buttons.append(clear_button)
+    layout.addWidget(clear_button, 4, 2)
     button = qtwidgets.QPushButton("Собрать выбранный источник")
     button.clicked.connect(shell._on_run_source_adapter_collection)
-    layout.addWidget(button, 4, 0, 1, 2)
+    shell.source_catalog_action_buttons.append(button)
+    layout.addWidget(button, 5, 0, 1, 3)
     return box
 
 
 def selected_source_adapter_catalog_node_ids(shell: Any) -> list[str]:
-    """Return only explicit nonempty CatalogNode IDs in entered order, without inferred selection."""
-    input_widget = getattr(shell, "source_catalog_node_ids_input", None)
-    value = input_widget.text() if input_widget is not None else ""
-    return [node_id.strip() for node_id in str(value).replace("\n", ",").split(",") if node_id.strip()]
+    """Return checked source CatalogNode IDs without exposing an editable ID field."""
+    tree = getattr(shell, "source_catalog_tree", None)
+    qt = getattr(shell, "_qt", None)
+    if tree is None or qt is None:
+        return []
+    return collect_checked_source_catalog_node_ids(tree, qt)
+
+
+def refresh_source_adapter_catalog_tree(shell: Any) -> None:
+    """Refresh the inspected source tree and read-only locator from launcher state."""
+    tree = getattr(shell, "source_catalog_tree", None)
+    if tree is None or shell._qtwidgets is None or shell._qt is None:
+        return
+    current_profile_id = shell._current_combo_value(shell.source_profile_combo)
+    catalog = shell.state.catalog
+    matches_current = catalog.source_profile_id == current_profile_id
+    nodes = catalog.source_nodes if matches_current else []
+    selected = catalog.selected_source_node_ids if matches_current else []
+    populate_source_catalog_tree_widget(tree, shell._qtwidgets, shell._qt, nodes, selected)
+    if shell.source_locator_input is not None:
+        shell.source_locator_input.setText(catalog.source_locator if matches_current else "")
+    picker = getattr(shell, "source_file_picker_button", None)
+    if picker is not None:
+        picker.setEnabled(source_profile_uses_local_file_picker(current_profile_id))
+
+
+def sync_source_adapter_catalog_selection(shell: Any) -> None:
+    """Persist checked source CatalogNodes after validating them against inspected state."""
+    tree = getattr(shell, "source_catalog_tree", None)
+    if tree is None or shell._qt is None:
+        return
+    shell.controller.set_source_adapter_catalog_selection(
+        collect_checked_source_catalog_node_ids(tree, shell._qt)
+    )
 
 
 PYATEROCHKA_FIXTURE_NODE_OPTIONS = (

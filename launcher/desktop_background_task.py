@@ -66,7 +66,9 @@ def start_background_action(
     worker.failed.connect(callbacks.handle_failed)
     worker.finished.connect(thread.quit)
     worker.failed.connect(thread.quit)
-    thread.finished.connect(worker.deleteLater)
+    worker.finished.connect(worker.deleteLater)
+    worker.failed.connect(worker.deleteLater)
     thread.finished.connect(callbacks.handle_cleared)
+    thread.finished.connect(thread.deleteLater)
     thread.start()
     return thread, worker

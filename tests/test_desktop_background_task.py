@@ -46,3 +46,12 @@ def test_background_action_callbacks_run_on_gui_thread() -> None:
     assert "error" not in seen
     assert worker is not None
     assert thread is not None
+
+    shiboken = import_module("shiboken6")
+    for _ in range(500):
+        if not shiboken.isValid(worker) and not shiboken.isValid(thread):
+            break
+        app.processEvents(qtcore.QEventLoop.ProcessEventsFlag.AllEvents, 10)
+
+    assert not shiboken.isValid(worker)
+    assert not shiboken.isValid(thread)

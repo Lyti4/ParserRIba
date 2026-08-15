@@ -88,5 +88,16 @@ def found_filter_fields(state: LauncherAppState) -> dict[str, Any]:
     return dict(view_fields) if isinstance(view_fields, dict) else {}
 
 
+def product_items(state: LauncherAppState) -> list[dict[str, Any]]:
+    """Return collected product cards from structured state first."""
+    if state.products.items:
+        return list(state.products.items)
+    products = state.result.summary.get("products")
+    if isinstance(products, list):
+        return _dict_list(products)
+    view_products = state.result.launcher_view.get("products")
+    return _dict_list(view_products)
+
+
 def _dict_list(value: Any) -> list[dict[str, Any]]:
     return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []

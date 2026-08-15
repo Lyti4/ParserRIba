@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 import random
 from dataclasses import asdict, dataclass
 from typing import Any, Iterable
 
-from loguru import logger
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -68,7 +69,7 @@ async def cooldown_for_reason(page: Any, reason: str, profile: HumanBehaviorProf
         timeout_ms = random.randint(profile.retry_cooldown_min_ms, profile.retry_cooldown_max_ms)
     else:
         timeout_ms = random.randint(profile.empty_result_cooldown_min_ms, profile.empty_result_cooldown_max_ms)
-    logger.info("Cooldown before next attempt: {} ms ({})", timeout_ms, reason or "empty_result")
+    logger.info("Cooldown before next attempt: %s ms (%s)", timeout_ms, reason or "empty_result")
     await page.wait_for_timeout(timeout_ms)
     return timeout_ms
 
@@ -77,7 +78,7 @@ async def browse_category_page(page: Any, profile: HumanBehaviorProfile) -> None
     """Scroll and pause like a user browsing a category page."""
     await human_pause(page, profile, factor=1.2)
     steps = random.randint(profile.scroll_steps_min, profile.scroll_steps_max)
-    logger.debug("Human behavior scroll profile '{}' with {} steps", profile.name, steps)
+    logger.debug("Human behavior scroll profile '%s' with %s steps", profile.name, steps)
     for index in range(steps):
         delta = random.randint(profile.scroll_delta_min, profile.scroll_delta_max)
         if index and index % 3 == 0:
@@ -99,7 +100,7 @@ async def hover_product_cards(
         try:
             box = await card.bounding_box()
         except Exception as exc:
-            logger.debug("Card hover skipped: {}", exc)
+            logger.debug("Card hover skipped: %s", exc)
             continue
         if not box:
             continue

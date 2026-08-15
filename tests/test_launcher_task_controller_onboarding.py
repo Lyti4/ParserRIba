@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+import pytest
+
 import utils.launcher_task_controller as launcher_task_controller
 from models.task_actor import RunManifest
 from utils.local_task_adapter import LocalTaskProcessResult
@@ -31,6 +33,7 @@ def test_run_launcher_onboarding_discovery_uses_local_task_adapter(tmp_path: Pat
     result = launcher_task_controller.run_launcher_onboarding_discovery(
         site_url="https://unknown-store.example",
         root_dir=tmp_path,
+        intent="fish_catalog",
         selected_categories=["Рыба"],
         research_mode="quiet",
         python_executable="python.exe",
@@ -136,6 +139,7 @@ def test_run_launcher_onboarding_discovery_exposes_first_class_discovery_fields(
     result = launcher_task_controller.run_launcher_onboarding_discovery(
         site_url="https://online.metro-cc.ru/",
         root_dir=tmp_path,
+        intent="fish_catalog",
     )
 
     assert result.category_tree == [{"name": "Рыба", "url": "https://example.test/fish"}]
@@ -161,3 +165,20 @@ def test_run_launcher_onboarding_discovery_exposes_first_class_discovery_fields(
     assert result.manifest.summary["active_profile_version_id"] == "version-2"
     assert result.manifest.summary["streamed_categories"] == ["Рыба"]
     assert result.manifest.summary["current_phase"] == "build_tree"
+
+
+def test_run_launcher_onboarding_rejects_blank_intent_before_subprocess(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail_if_called(**kwargs: object) -> LocalTaskProcessResult:
+        del kwargs
+        raise AssertionError("blank intent must not spawn onboarding")
+
+    monkeypatch.setattr(launcher_task_controller, "run_local_task_subprocess", fail_if_called)
+
+    with pytest.raises(ValueError, match="явный тип"):
+        launcher_task_controller.run_launcher_onboarding_discovery(
+            site_url="https://unknown-store.example",
+            root_dir=tmp_path,
+            intent="",
+        )

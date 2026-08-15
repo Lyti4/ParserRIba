@@ -179,9 +179,21 @@ def _add_browser_observation_errors(events: list[dict[str, Any]], observations: 
         events.append(
             _event(
                 code=f"browser_console_{'warning' if level == 'warn' else level}",
-                source="mcp_console",
+                source=str(item.get("source") or "mcp_console"),
                 severity="error" if level == "error" else "warning",
                 message=str(item.get("text") or "")[:260],
+            )
+        )
+    for item in observations.get("page_errors") or []:
+        message = str(item.get("message") or "")
+        if not message:
+            continue
+        events.append(
+            _event(
+                code="browser_page_error",
+                source=str(item.get("source") or "playwright_pageerror"),
+                severity="error",
+                message=message[:260],
             )
         )
     for item in observations.get("network_requests") or []:
@@ -191,7 +203,7 @@ def _add_browser_observation_errors(events: list[dict[str, Any]], observations: 
             events.append(
                 _event(
                     code="mcp_network_request_failed",
-                    source="mcp_network",
+                    source=str(item.get("source") or "mcp_network"),
                     severity="warning",
                     message=failure[:220],
                 )

@@ -44,6 +44,37 @@ def test_build_result_table_reads_export_json(tmp_path: Path) -> None:
     assert table["product_ids"] == ["wine-1"]
 
 
+def test_build_result_table_reads_structured_product_workspace_first(tmp_path: Path) -> None:
+    state = LauncherAppState()
+    state.products.items = [
+        {
+            "id": "fish-1",
+            "category": "Fish",
+            "name": "Cod",
+            "brand": "Nord",
+            "raw_data": {"supplier": "Nord supplier"},
+            "price": {"current": 199.99},
+            "in_stock": True,
+            "product_link": "https://example.test/product/fish-1",
+        }
+    ]
+
+    table = build_result_table(state)
+
+    assert table["rows"][0] == [
+        "Fish",
+        "Cod",
+        "Nord",
+        "Nord supplier",
+        "",
+        "",
+        "199.99",
+        "В наличии",
+        "https://example.test/product/fish-1",
+    ]
+    assert table["product_ids"] == ["fish-1"]
+
+
 def test_build_result_table_falls_back_to_report_summary() -> None:
     state = LauncherAppState()
     state.result.summary = {
@@ -130,6 +161,34 @@ def test_build_result_table_applies_selected_export_filters(tmp_path: Path) -> N
     assert table["product_ids"] == ["wine-1"]
 
 
+def test_build_result_table_applies_found_filter_values() -> None:
+    state = LauncherAppState()
+    state.products.items = [
+        {
+            "id": "mayo-1",
+            "category": "Майонез",
+            "name": "Майонез 67%",
+            "brand": "Brand",
+            "raw_data": {"fat": "67%"},
+            "in_stock": True,
+        },
+        {
+            "id": "mayo-2",
+            "category": "Майонез",
+            "name": "Майонез 50%",
+            "brand": "Brand",
+            "raw_data": {"fat": "50%"},
+            "in_stock": True,
+        },
+    ]
+    state.filters.found_filters = {"fat": ["67%"]}
+
+    table = build_result_table(state)
+
+    assert table["product_ids"] == ["mayo-1"]
+    assert table["rows"][0][1] == "Майонез 67%"
+
+
 def test_build_result_table_keeps_missing_filtered_field_when_not_strict(tmp_path: Path) -> None:
     json_path = tmp_path / "products.json"
     json_path.write_text(
@@ -171,6 +230,24 @@ def test_build_result_table_excludes_missing_filtered_field_when_strict(tmp_path
     table = build_result_table(state)
 
     assert table["rows"] == []
+
+
+def test_build_result_table_preserves_unknown_availability_and_strict_missing() -> None:
+    state = LauncherAppState()
+    state.products.items = [
+        {"id": "unknown", "name": "Unknown availability", "in_stock": None},
+        {"id": "out", "name": "Explicitly unavailable", "in_stock": False},
+    ]
+
+    table = build_result_table(state)
+    assert table["rows"][0][7] == "Неизвестно"
+    assert table["rows"][1][7] == "Нет в наличии"
+
+    state.filters.in_stock = False
+    assert build_result_table(state)["product_ids"] == ["unknown", "out"]
+
+    state.filters.strict_missing = True
+    assert build_result_table(state)["product_ids"] == ["out"]
 
 
 def test_build_result_table_keeps_product_ids_for_explicit_selection(tmp_path: Path) -> None:

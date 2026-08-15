@@ -4,8 +4,8 @@ Date: 2026-05-26
 
 This is the active physical map of the project. The target layer doctrine is in
 `docs/TARGET_ARCHITECTURE.md`. Use both documents together with
-`docs/LEGACY_MIGRATION_BACKLOG.md` and `docs/PROJECT_FILE_FLOW_MAP.md` before
-moving or archiving code.
+`docs/DATA_FLOW_THREADING_PLAN.md`, `docs/LEGACY_MIGRATION_BACKLOG.md` and
+`docs/PROJECT_FILE_FLOW_MAP.md` before moving or archiving code.
 
 ## Active Layers
 
@@ -14,6 +14,8 @@ moving or archiving code.
 - `launcher/` renders the PySide6 desktop launcher.
 - Entry point: `scripts/run_desktop_launcher.py`.
 - The launcher must call controller/task APIs, not parser scripts directly.
+- Qt widgets belong to the GUI thread only; background actions return data
+  through the boundary defined in `docs/DATA_FLOW_THREADING_PLAN.md`.
 - Key modules: `desktop_launcher.py`, `desktop_controller.py`,
   `desktop_controller_profile.py`, `desktop_controller_workspace.py`,
   `desktop_workflow_tabs.py`, `desktop_catalog_tree_widget.py`,
@@ -36,8 +38,9 @@ moving or archiving code.
 
 ### Store Adapters
 
-- `utils/pyaterochka_catalog_capture.py` and `utils/pyaterochka_export.py` are
-  the current Pyaterochka adapter/reference path.
+- `utils/pyaterochka_catalog_capture.py` and
+  `stores/pyaterochka/product_export.py` are the current Pyaterochka
+  adapter/reference path.
 - `utils/store_catalog_registry.py` and `utils/store_export_runtime.py` expose
   store-specific runtime through generic launcher/local-task contracts.
 - Pyaterochka protected-store mechanics must be preserved as reference behavior,

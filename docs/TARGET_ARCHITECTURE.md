@@ -15,6 +15,11 @@ temporary reference while useful mechanics are extracted, then it should move to
 `archive/`. The migration order is tracked in
 `docs/LEGACY_MIGRATION_BACKLOG.md`.
 
+Threading and data-flow boundaries are part of the architecture, not an
+implementation detail. Launcher V2 must follow
+`docs/DATA_FLOW_THREADING_PLAN.md`: workers, subprocesses and browser runtimes
+return data, while only the GUI thread renders or mutates Qt widgets.
+
 ## Product Workflow
 
 1. The user opens the launcher.
@@ -40,6 +45,7 @@ in the simple user surface.
 
 Owns the desktop UI and the guided workflow. It never calls store scripts
 directly. It talks to the task orchestrator and renders normalized task state.
+It owns Qt widgets only on the GUI thread.
 
 Current path: `launcher/`.
 
@@ -47,6 +53,7 @@ Current path: `launcher/`.
 
 Owns local task invocation, result normalization, cancellation/timeout policy
 and launcher-safe errors.
+It returns serializable results and must not receive Qt objects.
 
 Current paths: `utils/launcher_task_controller.py`,
 `utils/local_task_adapter.py`, `utils/local_task_registry.py`.
@@ -55,6 +62,7 @@ Current paths: `utils/launcher_task_controller.py`,
 
 Owns Camoufox launch, persistent profiles, proxy/GeoIP handling, human-like
 behavior, manual captcha waits and protection diagnostics.
+It must not import desktop launcher modules or mutate launcher state directly.
 
 Current reusable sources: `utils/camoufox_launcher.py`,
 `utils/human_behavior.py`, `utils/proxy.py`, `utils/geoip.py`,
@@ -83,14 +91,23 @@ may use special knowledge from `knowledge_base/`, but it must not become the
 global architecture.
 
 Current adapter: Pyaterochka through `utils/pyaterochka_catalog_capture.py` and
-`utils/pyaterochka_export.py`.
+`stores/pyaterochka/product_export.py`.
 
 ### Product Core
 
 Owns product card collection and normalized product fields while preserving raw
 store-specific fields for future filters and reports.
 
-Current sources: `models/schemas.py`, `utils/pyaterochka_export.py`.
+Current sources: `models/schemas.py`, `stores/pyaterochka/product_export.py`,
+`utils/product_raw_fields.py`.
+
+Launcher-facing product cards are mirrored into
+`LauncherAppState.products.items`. The desktop `Товары` table and product-card
+details read this structured workspace first, with exported JSON kept as a
+compatibility artifact and report source.
+
+Dynamic filter counts and discovered raw-field filters are built from the same
+collected product workspace whenever product cards are already available.
 
 ### Filter Core
 
@@ -106,6 +123,10 @@ Owns Excel/JSON/report output from selected or filtered products.
 
 Current sources: `utils/storage_report_builder.py`, `utils/excel_report.py`,
 `utils/report_export_summary.py`.
+
+Report and filter task wrappers must use explicit launcher selection only. They
+must not synthesize default fish/wine categories when the user has not chosen
+catalog nodes.
 
 ### Storage/Profile Core
 

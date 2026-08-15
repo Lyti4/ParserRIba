@@ -14,6 +14,7 @@ from utils.interception import (
     build_product_candidate,
     iter_dicts,
 )
+from utils.product_raw_fields import extract_raw_product_fields
 from utils.wine_product_classification import (
     ALCOHOL_FREE,
     ALCOHOL_REGULAR,
@@ -256,41 +257,5 @@ def _build_raw_product_data(
             key: value for key, value in field_sources.items() if value
         },
     }
-    for key in (
-        "brand",
-        "supplier",
-        "producer",
-        "manufacturer",
-        "vendor",
-        "country",
-        "country_of_origin",
-        "origin_country",
-        "composition",
-        "description",
-        "weight",
-        "volume",
-        "unit",
-        "packaging",
-        "fat",
-        "protein",
-        "carbohydrate",
-        "calories",
-        "shelf_life",
-        "storage_conditions",
-    ):
-        value = _raw_filter_value(item.get(key))
-        if value not in ("", [], {}):
-            raw_data[key] = value
+    raw_data.update(extract_raw_product_fields(item))
     return raw_data
-
-
-def _raw_filter_value(value: Any) -> Any:
-    if isinstance(value, (str, int, float)) and not isinstance(value, bool):
-        return value
-    if isinstance(value, list):
-        return [_raw_filter_value(item) for item in value if _raw_filter_value(item) not in ("", [], {})]
-    if isinstance(value, dict):
-        for key in ("name", "title", "value", "label"):
-            if key in value:
-                return _raw_filter_value(value[key])
-    return ""

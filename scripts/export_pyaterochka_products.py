@@ -18,7 +18,7 @@ from models.schemas import Product
 from scripts.discover_pyaterochka_api import DEFAULT_CATEGORY, OUTPUT_DIR
 from utils.kb_loader import KBLoader
 from utils.pyaterochka_catalog_capture import capture_pyaterochka_catalog
-from utils.pyaterochka_export import (
+from stores.pyaterochka.product_export import (
     build_products_from_discovery_result,
     build_products_from_product_items,
     build_products_from_result,

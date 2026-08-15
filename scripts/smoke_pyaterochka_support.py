@@ -11,7 +11,7 @@ from typing import Any
 
 from loguru import logger
 
-from utils.antibot import collect_page_diagnostics
+from utils.dom_evidence import build_dom_inventory
 from utils.fingerprint import fingerprint_summary_from_options
 from utils.human_behavior import hover_product_cards
 from utils.network_diagnostics import build_network_summary, classify_proxy_health
@@ -20,6 +20,7 @@ from utils.product_sampling import extract_sample_products, find_cards
 from utils.proxy import mask_proxy_url
 from utils.site_error_tracking import attach_site_error_summary
 from utils.smoke_report import write_smoke_report
+from utils.structured_product_evidence import structured_product_evidence_for_result
 
 
 def split_selectors(selector_config: Any) -> list[str]:
@@ -47,27 +48,6 @@ async def browser_external_ip(page: Any) -> str:
         return ""
 
 
-async def wait_for_cards_after_manual_challenge(
-    page: Any,
-    response: Any,
-    card_selectors: list[str],
-    timeout_ms: int = 45_000,
-) -> tuple[Any, list[Any], bool]:
-    """Wait after manual solving until cards appear or blocking remains."""
-    deadline = asyncio.get_running_loop().time() + timeout_ms / 1000
-    last_diagnostics = await collect_page_diagnostics(page, response)
-    last_cards: list[Any] = []
-    while asyncio.get_running_loop().time() < deadline:
-        last_diagnostics = await collect_page_diagnostics(page, response)
-        last_cards = await find_cards(page, card_selectors)
-        if last_cards:
-            return last_diagnostics, last_cards, True
-        if last_diagnostics.blocked:
-            return last_diagnostics, [], False
-        await page.wait_for_timeout(1_000)
-    return last_diagnostics, last_cards, False
-
-
 async def build_attempt_result(
     *,
     page: Any,
@@ -89,21 +69,42 @@ async def build_attempt_result(
     attempts: int,
     output_dir: Path,
     navigation_reason: str,
+    persist_operational_outputs: bool = True,
+    content_timeout_seconds: float = 10.0,
     cards_override: list[Any] | None = None,
     manual_wait: bool = False,
     manual_cards_ready: bool = False,
+    manual_wait_status: str = "",
+    manual_checkpoint_state: str = "",
 ) -> dict[str, Any]:
     """Collect the final smoke result from the current page state."""
-    block_reason = navigation_reason or diagnostics.reason
-    blocked = bool(navigation_reason) or diagnostics.blocked
+    status_blocked = diagnostics.status == 403
+    blocked = bool(navigation_reason) or diagnostics.blocked or status_blocked
+    if navigation_reason:
+        block_reason = navigation_reason
+    elif diagnostics.blocked:
+        block_reason = diagnostics.reason
+    elif status_blocked:
+        block_reason = "http_403"
+    else:
+        block_reason = diagnostics.reason
     external_ip = await browser_external_ip(page)
-    page_html = await page.content()
+    try:
+        async with asyncio.timeout(content_timeout_seconds):
+            page_html = await page.content()
+    except Exception as exc:
+        logger.warning("Page content unavailable while building smoke result: {}", type(exc).__name__)
+        page_html = ""
+    dom_inventory = build_dom_inventory(page_html)
     page_context = extract_pyaterochka_page_context(page_html)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    screenshot_path = output_dir / "pyaterochka_camoufox_smoke.png"
-    html_path = output_dir / "pyaterochka_camoufox_smoke.html"
-    await page.screenshot(path=str(screenshot_path), full_page=True)
-    html_path.write_text(page_html, encoding="utf-8")
+    screenshot_path: Path | None = None
+    html_path: Path | None = None
+    if persist_operational_outputs:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        screenshot_path = output_dir / "pyaterochka_camoufox_smoke.png"
+        html_path = output_dir / "pyaterochka_camoufox_smoke.html"
+        await page.screenshot(path=str(screenshot_path), full_page=True)
+        html_path.write_text(page_html, encoding="utf-8")
 
     if navigation_error:
         cards = []
@@ -114,6 +115,11 @@ async def build_attempt_result(
     if cards:
         await hover_product_cards(page, cards, behavior_profile)
     products = await extract_sample_products(cards, name_selectors, price_selectors, link_selectors)
+    structured_product_evidence = structured_product_evidence_for_result(
+        page_html,
+        base_url=diagnostics.final_url or category_url,
+        blocked=blocked,
+    )
     network_summary = build_network_summary(network_events)
     proxy_diagnostics = classify_proxy_health(
         proxy_enabled=bool(proxy_url),
@@ -141,13 +147,17 @@ async def build_attempt_result(
         "profile_dir": str(launch_options.get("user_data_dir", "")),
         "manual_wait": manual_wait,
         "manual_cards_ready": manual_cards_ready,
+        "manual_wait_status": manual_wait_status,
+        "manual_checkpoint_state": manual_checkpoint_state,
         "fingerprint": fingerprint_summary_from_options(launch_options),
         "behavior_profile": behavior_profile.summary(),
         "browser_external_ip": external_ip,
-        "screenshot_path": str(screenshot_path),
-        "html_path": str(html_path),
+        "screenshot_path": str(screenshot_path) if screenshot_path is not None else "",
+        "html_path": str(html_path) if html_path is not None else "",
+        "dom_inventory": dom_inventory,
         "cards_found": len(cards),
         "products_sample": products,
+        "structured_product_evidence": structured_product_evidence,
         "network": network_summary,
         "proxy_diagnostics": {
             "preflight": proxy_preflight,
@@ -207,7 +217,13 @@ def parse_args(default_category: str) -> argparse.Namespace:
     parser.add_argument("--pause", action="store_true", help="Keep browser open after the smoke attempt")
     parser.add_argument("--load-images", action="store_true", help="Allow images for visual captcha checks")
     parser.add_argument("--persistent-profile", action="store_true", help="Reuse local Camoufox profile/session")
-    parser.add_argument("--manual-wait", action="store_true", help="Wait for Enter after manual captcha solving")
+    parser.add_argument("--manual-wait", action="store_true", help="Wait for remote human challenge resolution")
+    parser.add_argument(
+        "--manual-timeout-seconds",
+        type=float,
+        default=600,
+        help="Maximum remote challenge wait before an honest blocked result",
+    )
     return parser.parse_args()
 
 

@@ -17,6 +17,12 @@ class _DummyShell:
     def _on_clear_filters(self) -> None:
         return None
 
+    def _on_apply_filters(self) -> None:
+        return None
+
+    def _on_show_all_products(self) -> None:
+        return None
+
 
 def test_filter_panel_collects_multi_select_and_value_filters() -> None:
     QApplication, qtwidgets, _ = load_pyside6()
@@ -112,18 +118,24 @@ def test_filter_panel_refreshes_value_widgets_from_state() -> None:
     box.deleteLater()
 
 
-def test_filter_panel_uses_compact_list_heights() -> None:
+def test_filter_panel_uses_dynamic_scroll_area_when_empty() -> None:
     QApplication, qtwidgets, _ = load_pyside6()
     app = QApplication.instance() or QApplication([])
     shell = _DummyShell()
     shell._qtwidgets = qtwidgets
     box = build_filter_box(shell, qtwidgets)
 
-    suppliers_widget = shell.filter_widgets["suppliers"]
+    scroll_area = box.findChild(qtwidgets.QScrollArea, "launcherDynamicFiltersScrollArea")
+    empty_text = [
+        item.text()
+        for item in box.findChildren(qtwidgets.QLabel)
+        if "Сначала соберите товары" in item.text()
+    ]
 
     assert app is not None
-    assert suppliers_widget.minimumHeight() == 56
-    assert suppliers_widget.maximumHeight() == 72
+    assert scroll_area is not None
+    assert empty_text
+    assert shell.filter_widgets == {}
     box.deleteLater()
 
 
@@ -148,16 +160,50 @@ def test_filter_panel_renders_found_filters_scroll_area_when_present(
     refresh_filter_widgets(shell)
 
     found_group = next(
-        (group for group in box.findChildren(qtwidgets.QGroupBox) if group.title() == "Найденные фильтры"),
+        (group for group in box.findChildren(qtwidgets.QGroupBox) if group.title().startswith("Найденные фильтры:")),
         None,
     )
-    scroll_area = box.findChild(qtwidgets.QScrollArea, "launcherFoundFiltersScrollArea")
+    scroll_area = box.findChild(qtwidgets.QScrollArea, "launcherDynamicFiltersScrollArea")
     widget = shell.found_filter_widgets["supplier_origin"]
 
     assert app is not None
     assert found_group is not None
     assert scroll_area is not None
     assert [widget.item(index).text() for index in range(widget.count())] == expected_items
+    box.deleteLater()
+
+
+def test_filter_panel_collects_selected_found_filters() -> None:
+    QApplication, qtwidgets, _ = load_pyside6()
+    app = QApplication.instance() or QApplication([])
+    shell = _DummyShell()
+    shell._qtwidgets = qtwidgets
+    shell.state.products.discovered_fields = {"fat": {"67%": 2, "50%": 1}}
+
+    box = build_filter_box(shell, qtwidgets)
+    refresh_filter_widgets(shell)
+    widget = shell.found_filter_widgets["fat"]
+    widget.item(0).setSelected(True)
+
+    selections = collect_filter_selections(shell)
+
+    assert app is not None
+    assert selections["found_filters"] == {"fat": ["50%"]}
+    box.deleteLater()
+
+
+def test_filter_panel_exposes_filter_action_buttons() -> None:
+    QApplication, qtwidgets, _ = load_pyside6()
+    app = QApplication.instance() or QApplication([])
+    shell = _DummyShell()
+    shell._qtwidgets = qtwidgets
+
+    box = build_filter_box(shell, qtwidgets)
+
+    assert app is not None
+    button_labels = [button.text() for button in shell.filter_action_buttons]
+    assert "Применить фильтры к товарам" in button_labels
+    assert "Показать все товары" in button_labels
     box.deleteLater()
 
 
@@ -194,7 +240,7 @@ def test_filter_panel_reads_legacy_found_filters_when_structured_state_empty() -
     box.deleteLater()
 
 
-def test_filter_panel_keeps_old_layout_when_found_filters_missing() -> None:
+def test_filter_panel_keeps_dynamic_layout_when_found_filters_missing() -> None:
     QApplication, qtwidgets, _ = load_pyside6()
     app = QApplication.instance() or QApplication([])
     shell = _DummyShell()
@@ -206,6 +252,6 @@ def test_filter_panel_keeps_old_layout_when_found_filters_missing() -> None:
 
     assert app is not None
     assert box.title() == "Фильтры"
-    assert box.findChild(qtwidgets.QScrollArea, "launcherFoundFiltersScrollArea") is None
-    assert shell.filter_widgets["suppliers"].minimumHeight() == 56
+    assert box.findChild(qtwidgets.QScrollArea, "launcherDynamicFiltersScrollArea") is not None
+    assert shell.filter_widgets == {}
     box.deleteLater()

@@ -12,6 +12,7 @@ from launcher.desktop_state_readers import (
     diagnostics_summary,
     full_catalog_links,
     full_catalog_tree,
+    product_items,
     report_summary,
 )
 from launcher.desktop_ui_text import (
@@ -146,12 +147,15 @@ def _result_context_parts(state: LauncherAppState) -> list[str]:
     rows = table.get("rows")
     row_count = len(rows) if isinstance(rows, list) else 0
     parts: list[str] = []
+    products = product_items(state)
+    if products:
+        parts.append(f"Показано {row_count} из {len(products)} товаров")
     if row_count == 0:
         report_summary = _report_summary(state)
         category_counts = report_summary.get("category_counts") if isinstance(report_summary, dict) else None
         if isinstance(category_counts, dict):
             row_count = len(category_counts)
-    if row_count:
+    if row_count and not products:
         parts.append(f"Строк показано: {row_count}")
     selected_count = len(state.selection.selected_product_ids)
     if selected_count:

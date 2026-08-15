@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from scripts.export_store_catalog import build_store_export_payload, get_store_export_backend
-from utils.pyaterochka_export import (
+from stores.pyaterochka.product_export import (
     ALCOHOL_FREE,
     ALCOHOL_REGULAR,
     WINE_STYLE_SANGRIA,

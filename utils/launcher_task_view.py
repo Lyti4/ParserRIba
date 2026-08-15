@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from application.lifecycle import launcher_status_for_manifest
 from models.task_actor import RunManifest
 
 
@@ -29,6 +30,7 @@ def build_launcher_task_view(
     products_count = summary.get("products_count")
     return {
         "task_name": manifest.task_name,
+        "launcher_status": launcher_status_for_manifest(manifest),
         "status": manifest.status,
         "shop": manifest.shop,
         "intent": manifest.intent,

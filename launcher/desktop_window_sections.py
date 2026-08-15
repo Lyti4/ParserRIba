@@ -36,7 +36,7 @@ def build_filter_actions_box(shell: Any, qtwidgets: Any) -> Any:
         shell,
         qtwidgets,
         "Фильтры",
-        (("load_filters", "Загрузить найденные фильтры", shell._on_load_filters),),
+        (("load_filters", "Обновить фильтры из товаров", shell._on_load_filters),),
     )
 
 
@@ -118,7 +118,29 @@ def build_results_box(shell: Any, qtwidgets: Any) -> Any:
             (
                 ("select_products", "Выбрать показанные", shell._on_select_all_results),
                 ("clear_products", "Снять выбор", shell._on_clear_selected_products),
-                ("open_json", "Открыть JSON", shell._on_open_json),
+            ),
+        )
+    )
+    layout.addWidget(
+        _build_button_row(
+            shell,
+            qtwidgets,
+            (
+                (
+                    "export_workspace_selected",
+                    "Экспортировать выбранные в JSON",
+                    shell._on_export_workspace_selected,
+                ),
+                (
+                    "export_workspace_filtered",
+                    "Экспортировать текущий фильтр в JSON",
+                    shell._on_export_workspace_filtered,
+                ),
+                (
+                    "export_workspace_all",
+                    "Экспортировать всё пространство в JSON",
+                    shell._on_export_workspace_all,
+                ),
             ),
         )
     )

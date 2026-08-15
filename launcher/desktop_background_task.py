@@ -32,15 +32,43 @@ def start_background_action(
                 return
             self.finished.emit(result)
 
+    class _Callbacks(qtcore.QObject):
+        def __init__(
+            self,
+            finished_callback: Callable[[object], None],
+            failed_callback: Callable[[object], None],
+            cleared_callback: Callable[[], None],
+        ) -> None:
+            super().__init__()
+            self.finished_callback = finished_callback
+            self.failed_callback = failed_callback
+            self.cleared_callback = cleared_callback
+
+        @qtcore.Slot(object)
+        def handle_finished(self, result: object) -> None:
+            self.finished_callback(result)
+
+        @qtcore.Slot(object)
+        def handle_failed(self, error: object) -> None:
+            self.failed_callback(error)
+
+        @qtcore.Slot()
+        def handle_cleared(self) -> None:
+            self.cleared_callback()
+
     thread = qtcore.QThread()
     worker = _Worker(action)
+    callbacks = _Callbacks(on_finished, on_failed, on_cleared)
+    thread._parserriba_callbacks = callbacks
     worker.moveToThread(thread)
     thread.started.connect(worker.run)
-    worker.finished.connect(on_finished)
-    worker.failed.connect(on_failed)
+    worker.finished.connect(callbacks.handle_finished)
+    worker.failed.connect(callbacks.handle_failed)
     worker.finished.connect(thread.quit)
     worker.failed.connect(thread.quit)
-    thread.finished.connect(worker.deleteLater)
-    thread.finished.connect(on_cleared)
+    worker.finished.connect(worker.deleteLater)
+    worker.failed.connect(worker.deleteLater)
+    thread.finished.connect(callbacks.handle_cleared)
+    thread.finished.connect(thread.deleteLater)
     thread.start()
     return thread, worker

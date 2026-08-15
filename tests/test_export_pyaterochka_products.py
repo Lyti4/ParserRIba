@@ -109,6 +109,40 @@ def test_build_products_from_product_items_uses_dom_link_map() -> None:
     }
 
 
+def test_build_products_from_product_items_extracts_nested_card_fields() -> None:
+    products = build_products_from_product_items(
+        [
+            {
+                "plu": 4233420,
+                "name": "Майонез Ряба Провансаль 67% 630г",
+                "prices": {"regular": "189.99"},
+                "image_links": [{"url": "https://img.example/4233420.webp"}],
+                "is_available": True,
+                "producer": {"name": "АО НМЖК"},
+                "attributes": [
+                    {"name": "Жирность", "value": "67%"},
+                    {"title": "Вес", "value": "630 г"},
+                ],
+                "characteristics": [
+                    {"name": "Страна производства", "value": "Россия"},
+                    {"name": "Условия хранения", "value": "от 0 до +18"},
+                ],
+            }
+        ],
+        category="Майонез",
+        dom_links_by_id={"4233420": "https://5ka.ru/product/ryaba-provansal--4233420/"},
+    )
+
+    assert len(products) == 1
+    assert products[0].brand == "АО НМЖК"
+    assert products[0].raw_data is not None
+    assert products[0].raw_data["producer"] == "АО НМЖК"
+    assert products[0].raw_data["Жирность"] == "67%"
+    assert products[0].raw_data["Вес"] == "630 г"
+    assert products[0].raw_data["Страна производства"] == "Россия"
+    assert products[0].raw_data["Условия хранения"] == "от 0 до +18"
+
+
 async def test_export_pyaterochka_products_retries_until_success() -> None:
     calls: list[str] = []
 

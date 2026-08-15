@@ -12,8 +12,8 @@ LauncherTaskStatus = Literal["idle", "running", "succeeded", "failed"]
 class LauncherSelectionState(BaseModel):
     """Current store/intent/category selection in the launcher."""
 
-    shop: str = "pyaterochka"
-    intent: str = "fish_catalog"
+    shop: str = ""
+    intent: str = ""
     categories: list[str] = Field(default_factory=list)
     selected_catalog_nodes: list[dict[str, Any]] = Field(default_factory=list)
     selected_product_ids: list[str] = Field(default_factory=list)
@@ -41,12 +41,17 @@ class LauncherCatalogState(BaseModel):
     selected_node_urls: list[str] = Field(default_factory=list)
     catalog_type: str = ""
     updated_at: str = ""
+    source_profile_id: str = ""
+    source_locator: str = ""
+    source_nodes: list[dict[str, Any]] = Field(default_factory=list)
+    selected_source_node_ids: list[str] = Field(default_factory=list)
 
 
 class LauncherProductWorkspaceState(BaseModel):
     """Current collected-product workspace summary."""
 
     products_count: int = 0
+    items: list[dict[str, Any]] = Field(default_factory=list)
     source_categories: list[str] = Field(default_factory=list)
     selected_product_ids: list[str] = Field(default_factory=list)
     json_path: str = ""
@@ -78,6 +83,7 @@ class LauncherFilterState(BaseModel):
     alcohol_types: list[str] = Field(default_factory=list)
     sugar_classes: list[str] = Field(default_factory=list)
     colors: list[str] = Field(default_factory=list)
+    found_filters: dict[str, list[str]] = Field(default_factory=dict)
     strict_missing: bool = False
 
 

@@ -4,7 +4,6 @@ import pytest
 
 import launcher.desktop_launcher as desktop_launcher
 import launcher.desktop_shell_helpers as desktop_shell_helpers
-from launcher.desktop_user_messages import no_output_path_message
 
 
 def test_load_pyside6_raises_clear_error_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -22,7 +21,7 @@ def test_desktop_launcher_shell_uses_local_settings_path(tmp_path: Path) -> None
 
     assert shell.root_dir == tmp_path
     assert shell.controller.settings_store.settings_path == tmp_path / "data" / "launcher_settings.json"
-    assert shell.state.selection.shop == "pyaterochka"
+    assert shell.state.selection.shop == ""
 
 
 def test_resolve_launcher_icon_path_points_inside_project(tmp_path: Path) -> None:
@@ -42,13 +41,11 @@ def test_resolve_launcher_icon_path_prefers_ico_when_available(tmp_path: Path) -
     assert icon_path == ico_path
 
 
-def test_open_json_without_target_sets_friendly_message(tmp_path: Path) -> None:
+def test_desktop_launcher_does_not_expose_raw_json_button(tmp_path: Path) -> None:
     shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
-    shell._refresh_ui = lambda: None
+    shell.create_window()
 
-    shell._on_open_json()
-
-    assert shell.state.task.message == no_output_path_message()
+    assert "open_json" not in shell.action_buttons
 
 
 def test_desktop_launcher_wraps_controls_in_scroll_area(tmp_path: Path) -> None:
@@ -212,6 +209,122 @@ def test_desktop_launcher_shows_selected_product_details(tmp_path: Path) -> None
     assert "Товар: Треска" in details
     assert "Ссылка: https://example.test/product/fish-1" in details
     assert '"fat": "12%"' in details
+
+
+def test_desktop_launcher_shows_product_details_from_structured_workspace(tmp_path: Path) -> None:
+    shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
+    shell.state.products.items = [
+        {
+            "id": "fish-1",
+            "category": "Fish",
+            "name": "Cod",
+            "brand": "Nord",
+            "price": {"current": 199.99},
+            "in_stock": True,
+            "product_link": "https://example.test/product/fish-1",
+            "raw_data": {"supplier": "Nord supplier", "fat": "12%"},
+        }
+    ]
+    shell.create_window()
+
+    shell._on_select_all_results()
+
+    details = shell.product_detail_text.toPlainText()
+    assert "Cod" in details
+    assert "https://example.test/product/fish-1" in details
+    assert '"fat": "12%"' in details
+
+
+def test_desktop_launcher_load_filters_populates_dynamic_filter_scroll(tmp_path: Path) -> None:
+    shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
+    shell.state.products.items = [
+        {
+            "id": "mayo-1",
+            "category": "Майонез",
+            "name": "Майонез 67",
+            "brand": "Бренд",
+            "raw_data": {"supplier": "Завод", "fat_percent": "67%"},
+        }
+    ]
+    shell.create_window()
+
+    shell._run_ui_action_sync_for_tests(shell.controller.load_filter_options)
+
+    scroll_area = shell.window.findChild(shell._qtwidgets.QScrollArea, "launcherDynamicFiltersScrollArea")
+    assert scroll_area is not None
+    assert shell.filter_widgets["suppliers"].count() == 1
+    assert shell.found_filter_widgets["fat_percent"].count() == 1
+    assert "Фильтры построены по разделу:" in shell.filter_context_label.text()
+    assert "товаров: 1" in shell.filter_context_label.text()
+
+
+def test_desktop_launcher_apply_filters_updates_product_table(tmp_path: Path) -> None:
+    shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
+    shell.state.products.items = [
+        {
+            "id": "ice-1",
+            "category": "Мороженое",
+            "name": "Пломбир",
+            "brand": "Бренд",
+            "raw_data": {"supplier": "Фабрика"},
+            "in_stock": True,
+        },
+        {
+            "id": "mayo-1",
+            "category": "Майонез",
+            "name": "Майонез",
+            "brand": "Бренд",
+            "raw_data": {"supplier": "Завод"},
+            "in_stock": True,
+        },
+    ]
+    shell.state.dynamic_filters.counts = {
+        "categories": {"Мороженое": 1, "Майонез": 1},
+    }
+    shell.create_window()
+    category_widget = shell.filter_widgets["categories"]
+    category_widget.item(0).setSelected(True)
+
+    shell._on_apply_filters()
+
+    table = shell.result_table
+    assert table.rowCount() == 1
+    assert table.item(0, 1).text() == "Майонез"
+    assert shell.state.filters.categories == ["Майонез"]
+    assert "Показано товаров: 1" in shell.state.task.message
+
+
+def test_desktop_launcher_show_all_products_clears_active_filters(tmp_path: Path) -> None:
+    shell = desktop_launcher.DesktopLauncherShell(root_dir=tmp_path)
+    shell.state.products.items = [
+        {
+            "id": "ice-1",
+            "category": "Мороженое",
+            "name": "Пломбир",
+            "brand": "Бренд",
+            "raw_data": {"supplier": "Фабрика"},
+            "in_stock": True,
+        },
+        {
+            "id": "mayo-1",
+            "category": "Майонез",
+            "name": "Майонез",
+            "brand": "Бренд",
+            "raw_data": {"supplier": "Завод"},
+            "in_stock": True,
+        },
+    ]
+    shell.state.dynamic_filters.counts = {
+        "categories": {"Мороженое": 1, "Майонез": 1},
+    }
+    shell.state.filters.categories = ["Майонез"]
+    shell.create_window()
+
+    shell._on_show_all_products()
+
+    assert shell.result_table.rowCount() == 2
+    assert shell.state.filters.categories == []
+    assert shell.state.task.message == "Показаны все товары: 2."
 
 
 def test_desktop_launcher_can_clear_selected_products(tmp_path: Path) -> None:

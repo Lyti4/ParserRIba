@@ -15,6 +15,11 @@ This document fixes the current launcher architecture in explicit terms:
 Use this file before changing launcher UX, onboarding/discovery flow, export
 flow, or report/filter behavior.
 
+Threading and one-way data flow are defined in
+`docs/DATA_FLOW_THREADING_PLAN.md`. Any launcher action that can block the UI
+must return data through the background-action boundary; only GUI-thread
+callbacks may mutate widgets or call `_refresh_ui()`.
+
 ## Current Source Of Truth
 
 Launcher V2 design is now tracked in:
@@ -49,6 +54,7 @@ Responsibilities:
 - render current task state, result summary, and result rows.
 
 The launcher must not call runtime scripts or store backends directly.
+The launcher must not let background workers create or mutate Qt widgets.
 
 ### 2. Desktop Controller
 
@@ -65,6 +71,9 @@ Responsibilities:
 - invoke launcher-facing task actions;
 - merge task results into one UI state;
 - keep the UI free of subprocess/runtime details.
+
+The controller may produce state changes and normalized data, but GUI-thread
+code owns actual widget rendering.
 
 ### 3. Launcher Task Controller
 

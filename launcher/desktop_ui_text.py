@@ -26,11 +26,13 @@ TASK_NAME_LABELS = {
     "site_onboarding_discovery": "Исследование магазина",
     "pyaterochka_fish_export": "Сбор товаров",
     "pyaterochka_wine_export": "Сбор товаров",
+    "source_adapter_collection": "Сбор из выбранного источника",
     "store_report_filter_options": "Загрузка фильтров",
     "store_report_export": "Сбор Excel",
 }
 
 FILTER_TITLES = {
+    "categories": "Категории",
     "suppliers": "Поставщики",
     "brands": "Бренды",
     "wine_styles": "Тип вина",
@@ -57,6 +59,7 @@ RESEARCH_PHASE_LABELS = {
 STOCK_OPTION_ANY = "Любое"
 STOCK_OPTION_IN_STOCK = "В наличии"
 STOCK_OPTION_OUT_OF_STOCK = "Нет в наличии"
+STOCK_OPTION_UNKNOWN = "Неизвестно"
 
 RESULT_TABLE_HEADERS = [
     "Категория",
@@ -103,6 +106,8 @@ def display_research_phase(value: str) -> str:
     return RESEARCH_PHASE_LABELS.get(value, value or "не указан")
 
 
-def display_stock_label(in_stock: bool) -> str:
+def display_stock_label(in_stock: bool | None) -> str:
     """Return one Russian stock label for a table row."""
+    if in_stock is None:
+        return STOCK_OPTION_UNKNOWN
     return STOCK_OPTION_IN_STOCK if in_stock else STOCK_OPTION_OUT_OF_STOCK

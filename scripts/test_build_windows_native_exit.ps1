@@ -43,6 +43,21 @@ $helper = $ast.Find(
 )
 Assert-Condition -Condition ($null -ne $helper) -Message "Invoke-NativeChecked was not found in build_windows.ps1."
 
+$buildSource = Get-Content -LiteralPath $buildScript -Raw
+Assert-Condition -Condition $buildSource.Contains('"import PySide6"') -Message "The build does not fail fast when its required PySide6 dependency is absent."
+Assert-Condition -Condition (-not $buildSource.Contains('"--collect-all", "PySide6"')) -Message "The build must not blanket-collect the entire PySide6 SDK."
+Assert-Condition -Condition $buildSource.Contains('"scripts\run_desktop_launcher.py"') -Message "The active desktop launcher entrypoint is missing from the PyInstaller arguments."
+
+$launcherEntry = Join-Path $projectRoot "scripts\run_desktop_launcher.py"
+$launcherSource = Get-Content -LiteralPath $launcherEntry -Raw
+Assert-Condition -Condition $launcherSource.Contains("from launcher.desktop_launcher import DesktopLauncherShell") -Message "The packaged entrypoint no longer imports the launcher shell."
+Assert-Condition -Condition $launcherSource.Contains("from scripts.smoke_desktop_launcher import main as smoke_main") -Message "The packaged entrypoint no longer imports the smoke entrypoint."
+
+foreach ($qtModule in @("PySide6.QtCore", "PySide6.QtGui", "PySide6.QtWidgets")) {
+    Assert-Condition -Condition $buildSource.Contains('"--hidden-import", "' + $qtModule + '"') -Message "PyInstaller is missing the source-derived hidden import $qtModule."
+}
+Assert-Condition -Condition $buildSource.Contains('"--recursive-copy-metadata", "PySide6"') -Message "PyInstaller must retain PySide6 dependency metadata for bundled GUI licensing review."
+
 . ([scriptblock]::Create($helper.Extent.Text))
 
 $cmd = $env:ComSpec

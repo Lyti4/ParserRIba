@@ -44,6 +44,7 @@ $BuildPython = Join-Path $BuildVenv "Scripts\python.exe"
 Invoke-NativeChecked -FilePath $BuildPython -ArgumentList @("-m", "pip", "install", "--upgrade", "pip") -Step "Upgrade build pip"
 Invoke-NativeChecked -FilePath $BuildPython -ArgumentList @("-m", "pip", "install", "-r", "requirements.txt") -Step "Install runtime requirements"
 Invoke-NativeChecked -FilePath $BuildPython -ArgumentList @("-m", "pip", "install", "-r", "requirements-build.txt") -Step "Install build requirements"
+Invoke-NativeChecked -FilePath $BuildPython -ArgumentList @("-c", "import PySide6") -Step "Verify PySide6 build dependency"
 
 $PyInstallerArguments = @(
     "-m",
@@ -60,6 +61,10 @@ $PyInstallerArguments = @(
     "--hidden-import", "geoip2",
     "--hidden-import", "maxminddb",
     "--hidden-import", "pydantic",
+    "--hidden-import", "PySide6.QtCore",
+    "--hidden-import", "PySide6.QtGui",
+    "--hidden-import", "PySide6.QtWidgets",
+    "--recursive-copy-metadata", "PySide6",
     "--add-data", "knowledge_base;knowledge_base",
     "--add-data", "config.yaml;.",
     "scripts\run_desktop_launcher.py"

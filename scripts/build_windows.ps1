@@ -23,6 +23,103 @@ function Invoke-NativeChecked {
     }
 }
 
+function Get-VirtualKeyboardRuntimeFiles {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root
+    )
+
+    if (-not (Test-Path -LiteralPath $Root)) {
+        throw "Runtime root not found: $Root"
+    }
+
+    return @(
+        Get-ChildItem -LiteralPath $Root -Recurse -File |
+            Where-Object {
+                $_.Extension -in ".dll", ".pyd" -and
+                    $_.Name -match "(?i)virtualkeyboard"
+            }
+    )
+}
+
+function Assert-RequiredQtRuntimeAssets {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$DistDir
+    )
+
+    $requiredPaths = @(
+        "_internal\PySide6\Qt6Core.dll",
+        "_internal\PySide6\Qt6Gui.dll",
+        "_internal\PySide6\Qt6Widgets.dll",
+        "_internal\PySide6\plugins\platforms\qwindows.dll"
+    )
+    foreach ($relativePath in $requiredPaths) {
+        if (-not (Test-Path -LiteralPath (Join-Path $DistDir $relativePath))) {
+            throw "Required Qt runtime asset is missing: $relativePath"
+        }
+    }
+}
+
+function Assert-NoVirtualKeyboardRuntime {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root
+    )
+
+    $remaining = @(Get-VirtualKeyboardRuntimeFiles -Root $Root)
+    if ($remaining.Count -gt 0) {
+        $paths = $remaining.FullName -join "; "
+        throw "Forbidden Virtual Keyboard runtime binaries remain: $paths"
+    }
+}
+
+function Remove-OptionalVirtualKeyboardRuntime {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$DistDir
+    )
+
+    $knownOptionalPaths = @(
+        "_internal\PySide6\Qt6VirtualKeyboard.dll",
+        "_internal\PySide6\plugins\platforminputcontexts\qtvirtualkeyboardplugin.dll"
+    )
+    foreach ($relativePath in $knownOptionalPaths) {
+        $runtimePath = Join-Path $DistDir $relativePath
+        if (Test-Path -LiteralPath $runtimePath) {
+            Remove-Item -LiteralPath $runtimePath -Force
+        }
+    }
+
+    Assert-RequiredQtRuntimeAssets -DistDir $DistDir
+    Assert-NoVirtualKeyboardRuntime -Root $DistDir
+}
+
+function Assert-NoVirtualKeyboardArchiveRuntime {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ZipPath
+    )
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [System.IO.Compression.ZipFile]::OpenRead($ZipPath)
+    try {
+        $remaining = @(
+            $archive.Entries | Where-Object {
+                $entryName = [System.IO.Path]::GetFileName($_.FullName)
+                [System.IO.Path]::GetExtension($entryName) -in ".dll", ".pyd" -and
+                    $entryName -match "(?i)virtualkeyboard"
+            }
+        )
+        if ($remaining.Count -gt 0) {
+            $paths = $remaining.FullName -join "; "
+            throw "Forbidden Virtual Keyboard runtime binaries remain in archive: $paths"
+        }
+    } finally {
+        $archive.Dispose()
+    }
+}
+
 if (-not (Test-Path -LiteralPath $Python)) {
     throw "Python not found: $Python"
 }
@@ -72,6 +169,7 @@ $PyInstallerArguments = @(
 Invoke-NativeChecked -FilePath $BuildPython -ArgumentList $PyInstallerArguments -Step "Build ParserRIba portable launcher"
 
 $DistDir = "dist\ParserRIba"
+Remove-OptionalVirtualKeyboardRuntime -DistDir $DistDir
 Copy-Item -LiteralPath ".env.example" -Destination (Join-Path $DistDir ".env.example") -Force
 Copy-Item -LiteralPath "README_START_HERE.txt" -Destination (Join-Path $DistDir "README_START_HERE.txt") -Force
 Copy-Item -LiteralPath "RUN_PYATEROCHKA_VISUAL.bat" -Destination (Join-Path $DistDir "RUN_PYATEROCHKA_VISUAL.bat") -Force
@@ -91,6 +189,7 @@ if (Test-Path -LiteralPath $ZipPath) {
     Remove-Item -LiteralPath $ZipPath -Force
 }
 Compress-Archive -Path "$DistDir\*" -DestinationPath $ZipPath -Force
+Assert-NoVirtualKeyboardArchiveRuntime -ZipPath $ZipPath
 $ChecksumPath = "$ZipPath.sha256"
 $Hash = Get-FileHash -LiteralPath $ZipPath -Algorithm SHA256
 "$($Hash.Hash)  $(Split-Path -Leaf $ZipPath)" | Set-Content -LiteralPath $ChecksumPath -Encoding ascii

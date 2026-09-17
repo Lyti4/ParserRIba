@@ -59,6 +59,24 @@ foreach ($qtModule in @("PySide6.QtCore", "PySide6.QtGui", "PySide6.QtWidgets"))
 Assert-Condition -Condition $buildSource.Contains('"--recursive-copy-metadata", "PySide6"') -Message "PyInstaller must retain PySide6 dependency metadata for bundled GUI licensing review."
 
 . ([scriptblock]::Create($helper.Extent.Text))
+foreach ($functionName in @(
+    "Get-VirtualKeyboardRuntimeFiles",
+    "Assert-RequiredQtRuntimeAssets",
+    "Assert-NoVirtualKeyboardRuntime",
+    "Remove-OptionalVirtualKeyboardRuntime",
+    "Assert-NoVirtualKeyboardArchiveRuntime"
+)) {
+    $functionAst = $ast.Find(
+        {
+            param($node)
+            $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+                $node.Name -eq $functionName
+        },
+        $true
+    )
+    Assert-Condition -Condition ($null -ne $functionAst) -Message "$functionName was not found in build_windows.ps1."
+    . ([scriptblock]::Create($functionAst.Extent.Text))
+}
 
 $cmd = $env:ComSpec
 Assert-Condition -Condition (-not [string]::IsNullOrWhiteSpace($cmd)) -Message "COMSPEC is required for the native child-process test."
@@ -85,5 +103,73 @@ $successAfterFailureReached = $true
 Assert-Condition -Condition $successAfterFailureReached -Message "A later native success did not run after the expected failure was handled."
 Assert-Condition -Condition ($LASTEXITCODE -eq 0) -Message "Expected child failure leaked into the successful harness exit state."
 
-Write-Output "PASS: Invoke-NativeChecked handles native success, nonzero exit and later success."
+$fixtureRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("ParserRIba-QtFixture-" + [guid]::NewGuid().ToString("N"))
+$cleanArchive = Join-Path ([System.IO.Path]::GetTempPath()) ("ParserRIba-QtFixture-" + [guid]::NewGuid().ToString("N") + ".zip")
+$unsafeArchive = Join-Path ([System.IO.Path]::GetTempPath()) ("ParserRIba-QtFixture-" + [guid]::NewGuid().ToString("N") + ".zip")
+try {
+    $requiredPaths = @(
+        "_internal\PySide6\Qt6Core.dll",
+        "_internal\PySide6\Qt6Gui.dll",
+        "_internal\PySide6\Qt6Widgets.dll",
+        "_internal\PySide6\plugins\platforms\qwindows.dll"
+    )
+    foreach ($relativePath in $requiredPaths) {
+        $path = Join-Path $fixtureRoot $relativePath
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $path) | Out-Null
+        Set-Content -LiteralPath $path -Value "required fixture" -NoNewline
+    }
+
+    $virtualKeyboardPaths = @(
+        "_internal\PySide6\Qt6VirtualKeyboard.dll",
+        "_internal\PySide6\plugins\platforminputcontexts\qtvirtualkeyboardplugin.dll"
+    )
+    foreach ($relativePath in $virtualKeyboardPaths) {
+        $path = Join-Path $fixtureRoot $relativePath
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $path) | Out-Null
+        Set-Content -LiteralPath $path -Value "optional fixture" -NoNewline
+    }
+
+    $licenseNotice = Join-Path $fixtureRoot "_internal\PySide6\Qt\LICENSES\VirtualKeyboard-NOTICE.txt"
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $licenseNotice) | Out-Null
+    Set-Content -LiteralPath $licenseNotice -Value "license fixture" -NoNewline
+
+    Remove-OptionalVirtualKeyboardRuntime -DistDir $fixtureRoot
+    foreach ($relativePath in $requiredPaths) {
+        Assert-Condition -Condition (Test-Path -LiteralPath (Join-Path $fixtureRoot $relativePath)) -Message "Required Qt fixture was removed: $relativePath"
+    }
+    Assert-Condition -Condition (Test-Path -LiteralPath $licenseNotice) -Message "License text must not be removed by runtime pruning."
+    Assert-NoVirtualKeyboardRuntime -Root $fixtureRoot
+
+    $vendorLayoutBinary = Join-Path $fixtureRoot "vendor\runtime\customVirtualKeyboardRuntime.dll"
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $vendorLayoutBinary) | Out-Null
+    Set-Content -LiteralPath $vendorLayoutBinary -Value "vendor fixture" -NoNewline
+    $directoryInventoryFailed = $false
+    try {
+        Assert-NoVirtualKeyboardRuntime -Root $fixtureRoot
+    } catch {
+        $directoryInventoryFailed = $_.Exception.Message -match "Virtual Keyboard runtime binaries remain"
+    }
+    Assert-Condition -Condition $directoryInventoryFailed -Message "Directory inventory did not fail closed for a vendor-layout VirtualKeyboard binary."
+    Remove-Item -LiteralPath $vendorLayoutBinary -Force
+
+    Compress-Archive -Path (Join-Path $fixtureRoot "*") -DestinationPath $cleanArchive -Force
+    Assert-NoVirtualKeyboardArchiveRuntime -ZipPath $cleanArchive
+
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $vendorLayoutBinary) | Out-Null
+    Set-Content -LiteralPath $vendorLayoutBinary -Value "vendor fixture" -NoNewline
+    Compress-Archive -Path (Join-Path $fixtureRoot "*") -DestinationPath $unsafeArchive -Force
+    $archiveInventoryFailed = $false
+    try {
+        Assert-NoVirtualKeyboardArchiveRuntime -ZipPath $unsafeArchive
+    } catch {
+        $archiveInventoryFailed = $_.Exception.Message -match "Virtual Keyboard runtime binaries remain in archive"
+    }
+    Assert-Condition -Condition $archiveInventoryFailed -Message "Archive inventory did not fail closed for a vendor-layout VirtualKeyboard binary."
+} finally {
+    Remove-Item -LiteralPath $fixtureRoot -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $cleanArchive -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $unsafeArchive -Force -ErrorAction SilentlyContinue
+}
+
+Write-Output "PASS: native exit handling and VirtualKeyboard runtime pruning inventory gates passed."
 exit 0

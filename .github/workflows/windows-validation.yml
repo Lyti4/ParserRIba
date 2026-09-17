@@ -1,0 +1,100 @@
+name: Windows offline build candidate
+
+on:
+  push:
+    branches:
+      - validation/windows-launcher-r2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-offline-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-smoke:
+    name: Build portable candidate and smoke launcher
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+    steps:
+      - name: Checkout source without credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Parse native build scripts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $scripts = @(
+            ".\scripts\build_windows.ps1",
+            ".\scripts\test_build_windows_native_exit.ps1"
+          )
+          foreach ($scriptPath in $scripts) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              $scriptPath,
+              [ref]$tokens,
+              [ref]$errors
+            )
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error $_.Message }
+              exit 1
+            }
+          }
+
+      - name: Test native build exit handling
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          & .\scripts\test_build_windows_native_exit.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build offline launcher candidate
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $pythonExe = (Get-Command python -ErrorAction Stop).Source
+          & .\scripts\build_windows.ps1 -Python $pythonExe -Clean
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Smoke the packaged launcher
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          & .\dist\ParserRIba\ParserRIba.exe --smoke
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify portable archive checksum
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $zip = "dist\ParserRIba-windows-x64.zip"
+          $sidecar = "$zip.sha256"
+          if (-not (Test-Path -LiteralPath $zip) -or -not (Test-Path -LiteralPath $sidecar)) {
+            throw "Expected portable ZIP and SHA256 sidecar were not produced."
+          }
+          $expected = ((Get-Content -LiteralPath $sidecar -Raw).Trim() -split "\s+")[0]
+          $actual = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash
+          if ($actual -ne $expected) { throw "Portable ZIP checksum mismatch." }
+
+      - name: Upload candidate artifacts for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: ParserRIba-windows-x64-candidate
+          path: |
+            dist/ParserRIba-windows-x64.zip
+            dist/ParserRIba-windows-x64.zip.sha256
+          if-no-files-found: error
+          retention-days: 7

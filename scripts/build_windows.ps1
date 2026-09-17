@@ -6,6 +6,23 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Invoke-NativeChecked {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
+        [Parameter(Mandatory = $true)]
+        [string]$Step,
+        [Parameter(Mandatory = $true)]
+        [string[]]$ArgumentList
+    )
+
+    & $FilePath @ArgumentList
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -ne 0) {
+        throw "$Step failed with native exit code $exitCode."
+    }
+}
+
 if (-not (Test-Path -LiteralPath $Python)) {
     throw "Python not found: $Python"
 }
@@ -19,32 +36,35 @@ if ($Clean -and (Test-Path -LiteralPath "dist")) {
 }
 
 if (-not (Test-Path -LiteralPath $BuildVenv)) {
-    & $Python -m venv $BuildVenv
+    Invoke-NativeChecked -FilePath $Python -ArgumentList @("-m", "venv", $BuildVenv) -Step "Create build virtual environment"
 }
 
 $BuildPython = Join-Path $BuildVenv "Scripts\python.exe"
 
-& $BuildPython -m pip install --upgrade pip
-& $BuildPython -m pip install -r requirements.txt
-& $BuildPython -m pip install -r requirements-build.txt
+Invoke-NativeChecked -FilePath $BuildPython -ArgumentList @("-m", "pip", "install", "--upgrade", "pip") -Step "Upgrade build pip"
+Invoke-NativeChecked -FilePath $BuildPython -ArgumentList @("-m", "pip", "install", "-r", "requirements.txt") -Step "Install runtime requirements"
+Invoke-NativeChecked -FilePath $BuildPython -ArgumentList @("-m", "pip", "install", "-r", "requirements-build.txt") -Step "Install build requirements"
 
-& $BuildPython -m PyInstaller `
-    --name ParserRIba `
-    --onedir `
-    --console `
-    --collect-submodules "models" `
-    --collect-submodules "parsers" `
-    --collect-submodules "scripts" `
-    --collect-submodules "utils" `
-    --collect-data "apify_fingerprint_datapoints" `
-    --collect-data "camoufox" `
-    --collect-data "language_tags" `
-    --hidden-import "geoip2" `
-    --hidden-import "maxminddb" `
-    --hidden-import "pydantic" `
-    --add-data "knowledge_base;knowledge_base" `
-    --add-data "config.yaml;." `
-    main.py
+$PyInstallerArguments = @(
+    "-m",
+    "PyInstaller",
+    "--name", "ParserRIba",
+    "--onedir",
+    "--console",
+    "--collect-submodules", "models",
+    "--collect-submodules", "scripts",
+    "--collect-submodules", "utils",
+    "--collect-data", "apify_fingerprint_datapoints",
+    "--collect-data", "camoufox",
+    "--collect-data", "language_tags",
+    "--hidden-import", "geoip2",
+    "--hidden-import", "maxminddb",
+    "--hidden-import", "pydantic",
+    "--add-data", "knowledge_base;knowledge_base",
+    "--add-data", "config.yaml;.",
+    "scripts\run_desktop_launcher.py"
+)
+Invoke-NativeChecked -FilePath $BuildPython -ArgumentList $PyInstallerArguments -Step "Build ParserRIba portable launcher"
 
 $DistDir = "dist\ParserRIba"
 Copy-Item -LiteralPath ".env.example" -Destination (Join-Path $DistDir ".env.example") -Force
@@ -75,5 +95,4 @@ Write-Host "Build complete: dist\ParserRIba\ParserRIba.exe"
 Write-Host "ZIP complete: $ZipPath"
 Write-Host "SHA256 complete: $ChecksumPath"
 Write-Host "Before publishing, test:"
-Write-Host "  dist\ParserRIba\ParserRIba.exe --list-stores"
-Write-Host "  dist\ParserRIba\ParserRIba.exe --check-env"
+Write-Host "  dist\ParserRIba\ParserRIba.exe --smoke"

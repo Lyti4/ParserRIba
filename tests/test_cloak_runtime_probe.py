@@ -11,20 +11,31 @@ from scripts import cloak_runtime_probe
 
 
 class _FakePage:
-    def __init__(self, marker: str) -> None:
+    def __init__(self, marker: str, title: str = "ParserRIba Cloak Probe") -> None:
         self.marker = marker
+        self.title_value = title
+        self.goto_url = ""
 
     async def set_content(self, html: str) -> None:
         assert "cloak-dom-ok" in html
+
+    async def goto(self, url: str, *, wait_until: str, timeout: int) -> None:
+        self.goto_url = url
+        assert url.startswith("data:text/html,")
+        assert wait_until == "load"
+        assert timeout == 10_000
 
     async def evaluate(self, expression: str) -> str:
         assert "#probe" in expression
         return self.marker
 
+    async def title(self) -> str:
+        return self.title_value
+
 
 class _FakeBrowser:
-    def __init__(self, marker: str) -> None:
-        self.page = _FakePage(marker)
+    def __init__(self, marker: str, title: str = "ParserRIba Cloak Probe") -> None:
+        self.page = _FakePage(marker, title)
 
     async def new_page(self) -> _FakePage:
         return self.page
@@ -38,11 +49,13 @@ def _available() -> BrowserRuntimeAvailability:
 async def test_cloak_probe_writes_allowlisted_success_receipt(monkeypatch, tmp_path: Path) -> None:
     closed = False
 
+    browser = _FakeBrowser("cloak-dom-ok")
+
     @asynccontextmanager
     async def fake_launch(_request):
         nonlocal closed
         try:
-            yield _FakeBrowser("cloak-dom-ok")
+            yield browser
         finally:
             closed = True
 
@@ -56,7 +69,8 @@ async def test_cloak_probe_writes_allowlisted_success_receipt(monkeypatch, tmp_p
     assert receipt["runtime"] == "cloak"
     assert receipt["started"] is True and receipt["closed"] is True
     assert receipt["dom_marker"] == "cloak-dom-ok"
-    assert set(receipt) == {"runtime", "frozen", "started", "dom_marker", "availability_status", "sdk_version", "runtime_identity", "closed"}
+    assert browser.page.goto_url.startswith("data:text/html,")
+    assert set(receipt) == {"runtime", "frozen", "started", "dom_marker", "dom_title", "availability_status", "sdk_version", "runtime_identity", "closed"}
     assert closed is True
 
 
@@ -84,4 +98,48 @@ async def test_cloak_probe_fails_without_receipt_on_dom_mismatch(monkeypatch, tm
 
     with pytest.raises(RuntimeError, match="DOM marker mismatch"):
         await cloak_runtime_probe._run_cloak_probe(result_path)
+    assert not result_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_cloak_probe_fails_without_receipt_on_title_mismatch(monkeypatch, tmp_path: Path) -> None:
+    @asynccontextmanager
+    async def fake_launch(_request):
+        yield _FakeBrowser("cloak-dom-ok", "wrong-title")
+
+    monkeypatch.setenv("PARSERRIBA_CLOAK_PROBE_PROFILE", str(tmp_path / "profile"))
+    monkeypatch.setattr(cloak_runtime_probe, "check_browser_runtime", lambda kind: _available())
+    monkeypatch.setattr(cloak_runtime_probe, "launch_research_browser", fake_launch)
+    result_path = tmp_path / "probe.json"
+    with pytest.raises(RuntimeError, match="title mismatch"):
+        await cloak_runtime_probe._run_cloak_probe(result_path)
+    assert not result_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_cloak_probe_propagates_navigation_failure_and_closes_context(monkeypatch, tmp_path: Path) -> None:
+    closed = False
+
+    class _FailingPage(_FakePage):
+        async def goto(self, *_args, **_kwargs) -> None:
+            raise TimeoutError("fixture navigation timeout")
+
+    @asynccontextmanager
+    async def fake_launch(_request):
+        nonlocal closed
+        try:
+            yield type("Browser", (), {"new_page": lambda self: _async_page(_FailingPage("cloak-dom-ok"))})()
+        finally:
+            closed = True
+
+    async def _async_page(page):
+        return page
+
+    monkeypatch.setenv("PARSERRIBA_CLOAK_PROBE_PROFILE", str(tmp_path / "profile"))
+    monkeypatch.setattr(cloak_runtime_probe, "check_browser_runtime", lambda kind: _available())
+    monkeypatch.setattr(cloak_runtime_probe, "launch_research_browser", fake_launch)
+    result_path = tmp_path / "probe.json"
+    with pytest.raises(TimeoutError, match="fixture navigation timeout"):
+        await cloak_runtime_probe._run_cloak_probe(result_path)
+    assert closed is True
     assert not result_path.exists()

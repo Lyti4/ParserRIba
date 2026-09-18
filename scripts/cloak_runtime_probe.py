@@ -5,10 +5,14 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from urllib.parse import quote
 from pathlib import Path
 
 from models.browser_runtime import BrowserRuntimeLaunchRequest
 from utils.browser_runtime import check_browser_runtime, launch_research_browser
+
+PROBE_TITLE = "ParserRIba Cloak Probe"
+PROBE_MARKER = "cloak-dom-ok"
 
 
 def run_cloak_probe(result_path: Path) -> int:
@@ -23,12 +27,16 @@ async def _run_cloak_probe(result_path: Path) -> int:
 
     profile_dir = Path(os.environ["PARSERRIBA_CLOAK_PROBE_PROFILE"])
     profile_dir.mkdir(parents=True, exist_ok=True)
-    request = BrowserRuntimeLaunchRequest(kind="cloak", headless=True, user_data_dir=profile_dir)
+    request = BrowserRuntimeLaunchRequest(kind="cloak", headless=False, user_data_dir=profile_dir)
     async with launch_research_browser(request) as browser:
         page = await browser.new_page()
-        await page.set_content("<title>ParserRIba Cloak Probe</title><main id='probe'>cloak-dom-ok</main>")
+        fixture = quote(f"<title>{PROBE_TITLE}</title><main id='probe'>{PROBE_MARKER}</main>")
+        await page.goto(f"data:text/html,{fixture}", wait_until="load", timeout=10_000)
+        actual_title = await page.title()
+        if actual_title != PROBE_TITLE:
+            raise RuntimeError("Cloak probe title mismatch")
         dom_marker = await page.evaluate("document.querySelector('#probe').textContent")
-        if dom_marker != "cloak-dom-ok":
+        if dom_marker != PROBE_MARKER:
             raise RuntimeError("Cloak probe DOM marker mismatch")
 
     result_path.parent.mkdir(parents=True, exist_ok=True)
@@ -39,6 +47,7 @@ async def _run_cloak_probe(result_path: Path) -> int:
                 "frozen": bool(getattr(__import__("sys"), "frozen", False)),
                 "started": True,
                 "dom_marker": dom_marker,
+                "dom_title": actual_title,
                 "availability_status": availability.status,
                 "sdk_version": str(availability.diagnostics.get("version") or ""),
                 "runtime_identity": str(availability.diagnostics.get("platform") or ""),

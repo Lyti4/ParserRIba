@@ -83,6 +83,7 @@ jobs:
       - name: Probe frozen selected Cloak runtime
         shell: pwsh
         env:
+          CLOAKBROWSER_LICENSE_KEY: ${{ secrets.CLOAKBROWSER_LICENSE_KEY }}
           CLOAKBROWSER_CACHE_DIR: ${{ runner.temp }}\parserriba-cloak-cache
           CLOAKBROWSER_AUTO_UPDATE: "false"
           PARSERRIBA_CLOAK_PROBE_PROFILE: ${{ runner.temp }}\parserriba-cloak-probe-profile
@@ -92,7 +93,7 @@ jobs:
           & .\dist\ParserRIba\ParserRIba.exe --cloak-probe-result $result
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $probe = Get-Content -LiteralPath $result -Raw | ConvertFrom-Json
-          if ($probe.runtime -ne "cloak" -or -not $probe.started -or $probe.dom_title -ne "" -or -not $probe.closed) {
+          if ($probe.runtime -ne "cloak" -or -not $probe.frozen -or -not $probe.started -or $probe.dom_marker -ne "cloak-dom-ok" -or -not $probe.closed) {
             throw "Frozen Cloak probe result did not meet the bounded startup/DOM/close contract."
           }
 

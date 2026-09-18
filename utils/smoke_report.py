@@ -5,6 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from utils.smoke_report_sections import (
+    append_browser_environment,
+    append_manual_phase_network,
+    append_proxy_diagnostics,
+)
+
 
 def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
     """Build a compact Markdown report for a Pyaterochka smoke result."""
@@ -99,6 +105,14 @@ def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
             )
 
     reason = str(result.get("block_reason", ""))
+    if reason == "pyaterochka_vpn_connection_block":
+        lines.extend(
+            [
+                "",
+                "## Network Action",
+                "Pyaterochka shows a connection/VPN blocker. Check the browser route, proxy/VPN endpoint, and store session before solving any captcha.",
+            ]
+        )
     if "captcha" in reason:
         lines.extend(
             [
@@ -149,30 +163,7 @@ def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
             for item in catalog_samples[:8]:
                 lines.append(f"  - {item.get('status')}: {item.get('url', '')}")
 
-    proxy_diagnostics = result.get("proxy_diagnostics") or {}
-    if proxy_diagnostics:
-        preflight = proxy_diagnostics.get("preflight") or {}
-        health = proxy_diagnostics.get("health") or {}
-        lines.extend(["", "## Proxy Diagnostics"])
-        lines.extend(
-            [
-                f"- Preflight enabled: {preflight.get('enabled', False)}",
-                f"- Preflight ok: {preflight.get('ok')}",
-                f"- Preflight status: {preflight.get('status')}",
-                f"- Preflight duration ms: {preflight.get('duration_ms', '')}",
-                f"- Preflight response bytes: {preflight.get('response_bytes', '')}",
-                f"- Preflight IP: {preflight.get('ip', '')}",
-                f"- Proxy health: {health.get('status', '')}",
-                f"- Proxy traffic risk: {health.get('traffic_risk', '')}",
-            ]
-        )
-        if preflight.get("error"):
-            lines.append(f"- Preflight error: {preflight.get('error')}")
-        notes = health.get("notes") or []
-        if notes:
-            lines.append("- Proxy notes:")
-            for note in notes:
-                lines.append(f"  - {note}")
+    append_proxy_diagnostics(lines, result.get("proxy_diagnostics") or {})
 
     proxy_history = result.get("proxy_history") or {}
     if proxy_history:
@@ -194,6 +185,9 @@ def build_pyaterochka_smoke_report(result: dict[str, Any]) -> str:
                     risk=item.get("high_risk_attempts", 0),
                 )
             )
+
+    append_browser_environment(lines, result.get("browser_environment") or {})
+    append_manual_phase_network(lines, result.get("manual_phase_network") or {})
 
     site_errors = result.get("site_errors") or {}
     if site_errors:

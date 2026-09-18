@@ -32,6 +32,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--input-stdin", action="store_true", dest="input_stdin")
     parser.add_argument("--input-base64", default="")
     parser.add_argument("--list", action="store_true", dest="list_tasks")
+    parser.add_argument("--include-compatibility", action="store_true", dest="include_compatibility")
     parser.add_argument("--summary", action="store_true", dest="show_summary")
     parser.add_argument("--root-dir", default="")
     return parser.parse_args(argv)
@@ -74,9 +75,11 @@ def _render_summary(manifest: dict) -> str:
         for label, field_name in (
             ("Suppliers", "suppliers"),
             ("Brands", "brands"),
-            ("Wine styles", "wine_styles"),
+            ("Subcategories", "subcategories"),
         ):
             counts = available_filter_counts.get(field_name)
+            if not counts and field_name == "subcategories":
+                counts = available_filter_counts.get("wine_styles")
             if isinstance(counts, dict) and counts:
                 parts = [f"{key}={value}" for key, value in counts.items()]
                 lines.append(f"{label}: {', '.join(parts)}")
@@ -91,35 +94,35 @@ def _render_summary(manifest: dict) -> str:
             if isinstance(counts, dict) and counts:
                 parts = [f"{key}={value}" for key, value in counts.items()]
                 lines.append(f"{label}: {', '.join(parts)}")
-        wine_breakdown = report_summary.get("wine_breakdown")
-        if isinstance(wine_breakdown, dict):
+        product_breakdown = report_summary.get("product_breakdown") or report_summary.get("wine_breakdown")
+        if isinstance(product_breakdown, dict):
             for label, field_name in (
-                ("Report wine styles", "style_counts"),
+                ("Report subcategories", "style_counts"),
                 ("Report alcohol types", "alcohol_type_counts"),
                 ("Report sugar classes", "sugar_class_counts"),
                 ("Report colors", "color_counts"),
             ):
-                counts = wine_breakdown.get(field_name)
+                counts = product_breakdown.get(field_name)
                 if isinstance(counts, dict) and counts:
                     parts = [f"{key}={value}" for key, value in counts.items()]
                     lines.append(f"{label}: {', '.join(parts)}")
     export_summary = summary.get("export_summary")
     if isinstance(export_summary, dict):
-        wine_breakdown = export_summary.get("wine_breakdown")
-        if isinstance(wine_breakdown, dict):
-            style_counts = wine_breakdown.get("style_counts")
+        product_breakdown = export_summary.get("product_breakdown") or export_summary.get("wine_breakdown")
+        if isinstance(product_breakdown, dict):
+            style_counts = product_breakdown.get("style_counts")
             if isinstance(style_counts, dict) and style_counts:
                 parts = [f"{key}={value}" for key, value in style_counts.items()]
-                lines.append(f"Wine styles: {', '.join(parts)}")
-            alcohol_type_counts = wine_breakdown.get("alcohol_type_counts")
+                lines.append(f"Subcategories: {', '.join(parts)}")
+            alcohol_type_counts = product_breakdown.get("alcohol_type_counts")
             if isinstance(alcohol_type_counts, dict) and alcohol_type_counts:
                 parts = [f"{key}={value}" for key, value in alcohol_type_counts.items()]
                 lines.append(f"Alcohol types: {', '.join(parts)}")
-            sugar_class_counts = wine_breakdown.get("sugar_class_counts")
+            sugar_class_counts = product_breakdown.get("sugar_class_counts")
             if isinstance(sugar_class_counts, dict) and sugar_class_counts:
                 parts = [f"{key}={value}" for key, value in sugar_class_counts.items()]
                 lines.append(f"Sugar classes: {', '.join(parts)}")
-            color_counts = wine_breakdown.get("color_counts")
+            color_counts = product_breakdown.get("color_counts")
             if isinstance(color_counts, dict) and color_counts:
                 parts = [f"{key}={value}" for key, value in color_counts.items()]
                 lines.append(f"Colors: {', '.join(parts)}")
@@ -130,7 +133,13 @@ if __name__ == "__main__":
     _configure_stdio()
     args = _parse_args()
     if args.list_tasks:
-        sys.stdout.write(json.dumps({"tasks": list_local_tasks()}, ensure_ascii=False, indent=2))
+        sys.stdout.write(
+            json.dumps(
+                {"tasks": list_local_tasks(include_compatibility=args.include_compatibility)},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
         raise SystemExit(0)
     if args.input_file:
         task_input = json.loads(Path(args.input_file).read_text(encoding="utf-8-sig"))

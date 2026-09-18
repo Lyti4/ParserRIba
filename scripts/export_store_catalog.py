@@ -20,8 +20,8 @@ from utils.store_export_runtime import build_store_export_payload, write_store_e
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Export store catalog products")
-    parser.add_argument("--shop", default="pyaterochka")
-    parser.add_argument("--intent", default="fish_catalog")
+    parser.add_argument("--shop", required=True)
+    parser.add_argument("--intent", required=True)
     parser.add_argument("--category", default="")
     parser.add_argument("--attempts", type=int, default=3)
     parser.add_argument("--listen-seconds", type=int, default=15)

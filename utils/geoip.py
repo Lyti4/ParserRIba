@@ -6,6 +6,7 @@ import importlib.util
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 from loguru import logger
 
@@ -59,3 +60,30 @@ def prepare_geoip() -> bool:
     os.environ["GEOIP_PATH"] = str(database_path)
     logger.info("GeoIP database enabled: {}", database_path)
     return True
+
+
+def lookup_ip_geoip(ip: str) -> dict[str, Any]:
+    """Return a small report-safe GeoIP summary for an IP address."""
+    if not ip or not geoip_extra_installed():
+        return {}
+    database_path = geoip_database_path()
+    if not database_path:
+        return {}
+    try:
+        import geoip2.database
+        import geoip2.errors
+
+        with geoip2.database.Reader(str(database_path)) as reader:
+            response = reader.city(ip)
+        return {
+            "ip": ip,
+            "country_iso": response.country.iso_code or "",
+            "country_name": response.country.name or "",
+            "city": response.city.name or "",
+            "timezone": response.location.time_zone or "",
+            "latitude": response.location.latitude,
+            "longitude": response.location.longitude,
+        }
+    except Exception as exc:
+        logger.debug("GeoIP lookup failed for {}: {}", ip, exc)
+        return {}

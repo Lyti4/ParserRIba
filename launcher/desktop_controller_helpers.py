@@ -7,14 +7,17 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from launcher.desktop_filter_aliases import RICH_FILTER_COUNT_KEYS
+
+from launcher.desktop_store_identity import active_store_code
 from models.launcher_state import LauncherAppState
 from utils.local_task_adapter import LocalTaskProcessResult, build_local_task_process_result
-
+from utils.site_filter_facets import merge_site_filter_facets
 
 def available_category_names(state: LauncherAppState) -> list[str]:
     """Return launcher-visible categories from structured state first."""
     view = state.result.launcher_view
-    if _launcher_view_target_mismatch(view, state.selection.shop, state.selection.intent):
+    if _launcher_view_target_mismatch(view, active_store_code(state), state.selection.intent):
         return []
     summary_tree = _dict_list(state.result.summary.get("category_tree"))
     if summary_tree:
@@ -28,42 +31,7 @@ def available_category_names(state: LauncherAppState) -> list[str]:
 def discovered_category_names(launcher_view: dict[str, Any]) -> list[str]:
     """Read category names from onboarding results when they exist."""
     category_tree = launcher_view.get("category_tree")
-    if not isinstance(category_tree, list):
-        return []
     return _category_names(_dict_list(category_tree))
-
-
-def _launcher_view_target_mismatch(
-    launcher_view: dict[str, Any],
-    current_shop: str,
-    current_intent: str,
-) -> bool:
-    view_shop = str(launcher_view.get("shop") or "").strip()
-    view_intent = str(launcher_view.get("intent") or "").strip()
-    return bool(
-        (view_shop and view_shop != current_shop)
-        or (view_intent and view_intent != current_intent)
-    )
-
-
-def _visible_catalog_roots(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    if len(nodes) != 1:
-        return nodes
-    children = nodes[0].get("children")
-    return _dict_list(children) or nodes
-
-
-def _category_names(nodes: list[dict[str, Any]]) -> list[str]:
-    names: list[str] = []
-    for node in nodes:
-        name = str(node.get("name") or "").strip()
-        if name:
-            names.append(name)
-    return names
-
-
-def _dict_list(value: Any) -> list[dict[str, Any]]:
-    return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
 
 
 def combine_export_results(
@@ -75,23 +43,19 @@ def combine_export_results(
     if len(results) == 1:
         return results[0]
     last_result = results[-1]
-    total_products = 0
-    combined_categories: list[str] = []
-    for result in results:
-        export_summary = result.export_summary or {}
-        total_products += int(export_summary.get("products_count") or 0)
-        for category_name in export_summary.get("categories") or []:
-            rendered = str(category_name)
-            if rendered not in combined_categories:
-                combined_categories.append(rendered)
+    combined_categories = _combined_export_categories(results, selected_categories)
+    total_products = sum(int((result.export_summary or {}).get("products_count") or 0) for result in results)
     summary = dict(last_result.manifest.summary or {})
     summary["products_count"] = total_products
-    summary["categories"] = combined_categories or list(selected_categories)
+    summary["categories"] = combined_categories
     summary["selected_categories"] = list(selected_categories)
+    summary["site_filter_facets"] = merge_site_filter_facets(
+        *(dict(result.manifest.summary or {}).get("site_filter_facets") for result in results)
+    )
     summary["export_summary"] = {
         **dict(last_result.export_summary or {}),
         "products_count": total_products,
-        "categories": combined_categories or list(selected_categories),
+        "categories": combined_categories,
     }
     artifact_paths = dict(last_result.manifest.artifact_paths or {})
     combined_json_path = write_combined_export_payload(
@@ -102,17 +66,12 @@ def combine_export_results(
     if combined_json_path:
         artifact_paths["json_path"] = combined_json_path
     manifest = last_result.manifest.model_copy(update={"summary": summary, "artifact_paths": artifact_paths})
-    return build_local_task_process_result(
-        manifest=manifest,
-        stdout=last_result.stdout,
-        stderr=last_result.stderr,
-    )
+    return build_local_task_process_result(manifest=manifest, stdout=last_result.stdout, stderr=last_result.stderr)
 
 
 def capture_export_payload(result: LocalTaskProcessResult) -> dict[str, Any] | None:
     """Read one export JSON payload while it still represents the finished category."""
-    artifacts = dict(result.manifest.artifact_paths or {})
-    path = Path(str(artifacts.get("json_path") or ""))
+    path = Path(str((result.manifest.artifact_paths or {}).get("json_path") or ""))
     if not path.exists():
         return None
     try:
@@ -132,8 +91,7 @@ def write_combined_export_payload(
     products = _merged_payload_products(captured_payloads)
     if not products:
         return ""
-    artifacts = dict(last_result.manifest.artifact_paths or {})
-    last_json_path = Path(str(artifacts.get("json_path") or ""))
+    last_json_path = Path(str((last_result.manifest.artifact_paths or {}).get("json_path") or ""))
     if not last_json_path.parent.exists():
         return ""
     payload = dict(captured_payloads[-1])
@@ -143,6 +101,7 @@ def write_combined_export_payload(
     payload["products_count"] = len(products)
     payload["combined_export"] = True
     payload["combined_from_categories"] = list(selected_categories)
+    payload["site_filter_facets"] = merge_site_filter_facets(*(item.get("site_filter_facets") for item in captured_payloads))
     payload["exported_at"] = datetime.now().isoformat(timespec="seconds")
     export_summary = dict(payload.get("export_summary") or {})
     export_summary["products_count"] = len(products)
@@ -153,26 +112,6 @@ def write_combined_export_payload(
     return str(target_path)
 
 
-def _merged_payload_products(captured_payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    products: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    for payload in captured_payloads:
-        raw_products = payload.get("products")
-        if not isinstance(raw_products, list):
-            continue
-        for item in raw_products:
-            if not isinstance(item, dict):
-                continue
-            key = str(item.get("id") or item.get("product_id") or item.get("product_link") or "").strip()
-            if not key:
-                key = f"row:{len(products)}"
-            if key in seen:
-                continue
-            seen.add(key)
-            products.append(dict(item))
-    return products
-
-
 def report_dir_from_artifacts(artifacts: dict[str, str], *, existing_report_dir: str) -> str:
     """Derive one user-openable output directory from task artifacts."""
     excel_path = str(artifacts.get("excel_path") or "")
@@ -181,25 +120,19 @@ def report_dir_from_artifacts(artifacts: dict[str, str], *, existing_report_dir:
     json_path = str(artifacts.get("json_path") or "")
     if json_path:
         return str(Path(json_path).parent)
-    runtime_report_dir = str(artifacts.get("runtime_report_dir") or "")
-    return runtime_report_dir or existing_report_dir
+    return str(artifacts.get("runtime_report_dir") or "") or existing_report_dir
 
 
 def artifact_or_existing(artifact_value: str | None, existing_value: str) -> str:
     """Keep the current artifact path when a task returns no replacement."""
-    value = str(artifact_value or "")
-    return value or existing_value
+    return str(artifact_value or "") or existing_value
 
 
 def has_rich_filter_counts(available_filter_counts: Any) -> bool:
     """Return whether supplier/brand/style filters already contain useful data."""
     if not isinstance(available_filter_counts, dict):
         return False
-    for key in ("suppliers", "brands", "wine_styles", "alcohol_types", "sugar_classes", "colors"):
-        facet = available_filter_counts.get(key)
-        if isinstance(facet, dict) and facet:
-            return True
-    return False
+    return any(isinstance(available_filter_counts.get(key), dict) and available_filter_counts.get(key) for key in RICH_FILTER_COUNT_KEYS)
 
 
 def merge_launcher_view(current_view: dict[str, Any], new_view: dict[str, Any]) -> dict[str, Any]:
@@ -214,6 +147,7 @@ def merge_launcher_view(current_view: dict[str, Any], new_view: dict[str, Any]) 
         "report_summary",
         "export_summary",
         "available_filter_counts",
+        "site_filter_facets",
         "diagnostics_summary",
         "catalog_discovery",
         "intent_category_links",
@@ -293,8 +227,72 @@ def selected_export_targets(
 
 def result_message(result: LocalTaskProcessResult) -> str:
     """Build one completion message for a normalized local task result."""
-    if result.summary_text:
-        return result.summary_text
     if result.manifest.task_name == "site_onboarding_discovery":
         return onboarding_result_message(dict(result.manifest.summary or {}))
+    if result.summary_text:
+        return result.summary_text
+    if result.manifest.status == "empty":
+        reason = _empty_result_reason(dict(result.manifest.summary or {}))
+        return f"Товары не собраны. Причина: {reason}" if reason else "Товары не собраны."
     return f"Завершено: {result.manifest.task_name}"
+
+
+def _launcher_view_target_mismatch(launcher_view: dict[str, Any], current_shop: str, current_intent: str) -> bool:
+    view_shop = str(launcher_view.get("shop") or "").strip()
+    view_intent = str(launcher_view.get("intent") or "").strip()
+    shop_mismatch = bool(current_shop and view_shop and view_shop != current_shop)
+    intent_mismatch = bool(current_intent and view_intent and view_intent != current_intent)
+    return shop_mismatch or intent_mismatch
+
+
+def _visible_catalog_roots(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if len(nodes) != 1:
+        return nodes
+    children = nodes[0].get("children")
+    return _dict_list(children) or nodes
+
+
+def _category_names(nodes: list[dict[str, Any]]) -> list[str]:
+    return [name for node in nodes if (name := str(node.get("name") or "").strip())]
+
+
+def _dict_list(value: Any) -> list[dict[str, Any]]:
+    return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+
+
+def _combined_export_categories(results: list[LocalTaskProcessResult], selected_categories: list[str]) -> list[str]:
+    combined: list[str] = []
+    for result in results:
+        for category_name in (result.export_summary or {}).get("categories") or []:
+            rendered = str(category_name)
+            if rendered not in combined:
+                combined.append(rendered)
+    return combined or list(selected_categories)
+
+
+def _merged_payload_products(captured_payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    products: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for payload in captured_payloads:
+        for item in payload.get("products") or []:
+            if not isinstance(item, dict):
+                continue
+            key = str(item.get("id") or item.get("product_id") or item.get("product_link") or "").strip()
+            key = key or f"row:{len(products)}"
+            if key in seen:
+                continue
+            seen.add(key)
+            products.append(dict(item))
+    return products
+
+
+def _empty_result_reason(summary: dict[str, Any]) -> str:
+    attempt = summary.get("attempt")
+    if isinstance(attempt, dict) and str(attempt.get("reason") or "").strip():
+        return str(attempt.get("reason") or "").strip()
+    export_summary = summary.get("export_summary")
+    if isinstance(export_summary, dict):
+        nested_attempt = export_summary.get("attempt")
+        if isinstance(nested_attempt, dict):
+            return str(nested_attempt.get("reason") or "").strip()
+    return ""

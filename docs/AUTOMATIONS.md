@@ -49,7 +49,7 @@ Health check:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m compileall -q main.py models parsers policies strategies utils scripts tests
+.\.venv\Scripts\python.exe -m compileall -q models utils scripts tests stores launcher
 .\.venv\Scripts\python.exe scripts\architecture_check.py
 git status --short
 ```

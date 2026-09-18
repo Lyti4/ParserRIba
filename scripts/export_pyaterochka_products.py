@@ -18,7 +18,7 @@ from models.schemas import Product
 from scripts.discover_pyaterochka_api import DEFAULT_CATEGORY, OUTPUT_DIR
 from utils.kb_loader import KBLoader
 from utils.pyaterochka_catalog_capture import capture_pyaterochka_catalog
-from utils.pyaterochka_export import (
+from stores.pyaterochka.product_export import (
     build_products_from_discovery_result,
     build_products_from_product_items,
     build_products_from_result,
@@ -42,7 +42,7 @@ async def export_pyaterochka_products(
 ) -> dict[str, Any]:
     """Retry discovery until products are captured and return export payload."""
     kb = KBLoader(str(ROOT_DIR / "knowledge_base")).load_shop("pyaterochka")
-    backend = get_store_export_backend("pyaterochka")
+    backend = get_store_export_backend("pyaterochka", "fish_catalog")
     return await build_store_export_payload(
         backend=backend,
         category_name=category_name,

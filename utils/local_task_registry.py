@@ -26,11 +26,16 @@ class LocalTask:
     task_name: str
     description: str
     run_func: TaskFunc
+    compatibility_alias: bool = False
 
 
-def list_local_tasks() -> list[str]:
+def list_local_tasks(*, include_compatibility: bool = False) -> list[str]:
     """Return registered local task names."""
-    return sorted(_TASKS)
+    return sorted(
+        name
+        for name, task in _TASKS.items()
+        if include_compatibility or not task.compatibility_alias
+    )
 
 
 async def run_local_task(
@@ -51,14 +56,17 @@ async def run_local_task(
     )
 
 
-async def _run_pyaterochka_fish_export_task(
+async def _run_store_catalog_export_task(
     *,
     task_input: dict[str, Any],
     root_dir: Path,
     discover_func: DiscoverFunc | None = None,
 ) -> RunManifest:
-    backend = get_store_export_backend("pyaterochka")
-    kb = KBLoader(str(root_dir / "knowledge_base")).load_shop("pyaterochka")
+    shop = _required_text(task_input, "shop", task_name="store_catalog_export")
+    intent = _required_text(task_input, "intent", task_name="store_catalog_export")
+    task_name = str(task_input.get("_task_name") or "store_catalog_export")
+    backend = get_store_export_backend(shop, intent)
+    kb = KBLoader(str(root_dir / "knowledge_base")).load_shop(backend.shop)
     output_dir = root_dir / "data"
     payload = await build_store_export_payload(
         backend=backend,
@@ -68,12 +76,30 @@ async def _run_pyaterochka_fish_export_task(
         listen_seconds=int(task_input.get("listen_seconds") or 15),
         headless=task_input.get("headless"),
         manual_wait=bool(task_input.get("manual_wait") or False),
+        browser_runtime=str(task_input.get("browser_runtime") or "camoufox"),
         kb_categories=kb.categories,
         discover_func=discover_func,
         expand_intent=bool(task_input.get("expand_intent", True)),
     )
-    write_store_export(payload, output_dir, task_name="pyaterochka_fish_export")
+    write_store_export(payload, output_dir, task_name=task_name)
     return RunManifest(**payload["run_manifest"])
+
+
+def _required_text(task_input: dict[str, Any], field: str, *, task_name: str) -> str:
+    value = str(task_input.get(field) or "").strip()
+    if not value:
+        raise ValueError(f"{task_name} requires explicit {field}")
+    return value
+
+
+async def _run_pyaterochka_catalog_export_task(
+    *,
+    task_input: dict[str, Any],
+    root_dir: Path,
+    discover_func: DiscoverFunc | None = None,
+) -> RunManifest:
+    payload = {**task_input, "shop": "pyaterochka", "intent": "fish_catalog", "_task_name": "pyaterochka_catalog_export"}
+    return await _run_store_catalog_export_task(task_input=payload, root_dir=root_dir, discover_func=discover_func)
 
 
 async def _run_pyaterochka_wine_export_task(
@@ -82,23 +108,8 @@ async def _run_pyaterochka_wine_export_task(
     root_dir: Path,
     discover_func: DiscoverFunc | None = None,
 ) -> RunManifest:
-    backend = get_store_export_backend("pyaterochka", "wine_catalog")
-    kb = KBLoader(str(root_dir / "knowledge_base")).load_shop("pyaterochka")
-    output_dir = root_dir / "data"
-    payload = await build_store_export_payload(
-        backend=backend,
-        category_name=str(task_input.get("category") or backend.default_category),
-        category_url=str(task_input.get("category_url") or ""),
-        attempts=int(task_input.get("attempts") or 3),
-        listen_seconds=int(task_input.get("listen_seconds") or 15),
-        headless=task_input.get("headless"),
-        manual_wait=bool(task_input.get("manual_wait") or False),
-        kb_categories=kb.categories,
-        discover_func=discover_func,
-        expand_intent=bool(task_input.get("expand_intent", True)),
-    )
-    write_store_export(payload, output_dir, task_name="pyaterochka_wine_export")
-    return RunManifest(**payload["run_manifest"])
+    payload = {**task_input, "shop": "pyaterochka", "intent": "wine_catalog", "_task_name": "pyaterochka_wine_export"}
+    return await _run_store_catalog_export_task(task_input=payload, root_dir=root_dir, discover_func=discover_func)
 
 
 async def _run_site_onboarding_discovery_task(
@@ -111,13 +122,14 @@ async def _run_site_onboarding_discovery_task(
     result = await asyncio.to_thread(
         run_site_onboarding,
         site_url=str(task_input.get("site_url") or ""),
-        intent=str(task_input.get("intent") or "fish_catalog"),
+        intent=str(task_input.get("intent") or ""),
         root_dir=root_dir,
         require_operator_confirmation=bool(task_input.get("require_operator_confirmation") or False),
         headless=task_input.get("headless"),
         manual_wait=bool(task_input.get("manual_wait") or False),
         listen_seconds=int(task_input.get("listen_seconds") or 6),
         research_mode=str(task_input.get("research_mode") or "live"),
+        browser_runtime=str(task_input.get("browser_runtime") or "camoufox"),
         selected_categories=[
             str(item)
             for item in (task_input.get("selected_categories") or [])
@@ -204,15 +216,28 @@ async def _run_store_report_filter_options_task(
 
 
 _TASKS: dict[str, LocalTask] = {
+    "store_catalog_export": LocalTask(
+        task_name="store_catalog_export",
+        description="Export selected runtime-ready store catalog products into local JSON and SQLite.",
+        run_func=_run_store_catalog_export_task,
+    ),
     "pyaterochka_fish_export": LocalTask(
         task_name="pyaterochka_fish_export",
-        description="Export Pyaterochka fish catalog products into local JSON and SQLite.",
-        run_func=_run_pyaterochka_fish_export_task,
+        description="Compatibility alias for Pyaterochka selected catalog export.",
+        run_func=_run_pyaterochka_catalog_export_task,
+        compatibility_alias=True,
+    ),
+    "pyaterochka_catalog_export": LocalTask(
+        task_name="pyaterochka_catalog_export",
+        description="Compatibility alias for Pyaterochka selected catalog export.",
+        run_func=_run_pyaterochka_catalog_export_task,
+        compatibility_alias=True,
     ),
     "pyaterochka_wine_export": LocalTask(
         task_name="pyaterochka_wine_export",
-        description="Export Pyaterochka wine catalog products into local JSON, SQLite, and Excel.",
+        description="Compatibility alias for Pyaterochka wine catalog export.",
         run_func=_run_pyaterochka_wine_export_task,
+        compatibility_alias=True,
     ),
     "site_onboarding_discovery": LocalTask(
         task_name="site_onboarding_discovery",

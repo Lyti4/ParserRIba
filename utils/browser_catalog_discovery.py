@@ -3,24 +3,22 @@
 from __future__ import annotations
 
 import asyncio
-import os
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from typing import Any
 
-from camoufox.async_api import AsyncCamoufox
-
+from models.browser_runtime import BrowserRuntimeKind, BrowserRuntimeLaunchRequest
 from models.catalog_discovery import CatalogDiscoveryResult, DiscoveryPhaseEvent
-from scripts.discover_pyaterochka_api import PROFILE_DIR
-from utils.antibot import wait_for_pyaterochka_state
-from utils.camoufox_launcher import build_research_camoufox_options, configure_windows_console
+from utils.browser_runtime import launch_research_browser
+from utils.camoufox_launcher import configure_windows_console
 from utils.catalog_tree_discovery.research_walker import CamoufoxResearchWalker
-from utils.env import load_dotenv_file
-from utils.human_behavior import browse_category_page, build_category_behavior_profile
-from utils.kb_loader import KBLoader
-from utils.proxy import choose_proxy_for_attempt, load_proxy_urls
+from utils.protected_browser_runtime_discovery import discover_catalog_site_with_protected_runtime
+from utils.protected_store_manual_gate import ProtectedStoreManualGateProfile, collect_generic_page_diagnostics, wait_for_manual_store_page
+from utils.reference_store_browser_discovery import discover_reference_store_catalog_site
 
-PROXY_ENV = "PARSER_PROXY"
 MAX_REPEAT_URLS = 3
 MAX_DISCOVERY_DEPTH = 3
+GENERIC_MANUAL_GATE_PROFILE = ProtectedStoreManualGateProfile()
 
 
 @dataclass(frozen=True)
@@ -39,30 +37,45 @@ async def discover_catalog_site_via_browser(
     site_url: str,
     *,
     shop: str | None = None,
+    browser_runtime: BrowserRuntimeKind = "camoufox",
     headless: bool | str | None = None,
     manual_wait: bool = False,
     listen_seconds: int = 6,
 ) -> CatalogDiscoveryResult:
     """Open one site in Camoufox and actively research the catalog surface."""
-    if str(shop or "").casefold() == "pyaterochka":
-        return await _discover_pyaterochka_catalog_site(
+    if browser_runtime == "cloak":
+        return await discover_catalog_site_with_protected_runtime(
             site_url,
+            browser_runtime=browser_runtime,
             headless=headless,
             manual_wait=manual_wait,
             listen_seconds=listen_seconds,
         )
 
+    if str(shop or "").casefold() == "pyaterochka":
+        return await discover_reference_store_catalog_site(
+            site_url,
+            browser_runtime=browser_runtime,
+            headless=headless,
+            manual_wait=manual_wait,
+            listen_seconds=listen_seconds,
+            research_runner=_run_active_browser_research,
+        )
+
     configure_windows_console()
-    launch_options = build_research_camoufox_options(
+    launch_request = BrowserRuntimeLaunchRequest(
+        kind=browser_runtime,
         headless=headless if headless is not None else False,
     )
-    async with AsyncCamoufox(**launch_options) as browser:
+    async with launch_research_browser(launch_request) as browser:
         page = await browser.new_page()
         response = await page.goto(site_url, wait_until="domcontentloaded", timeout=60_000)
         if manual_wait:
-            await asyncio.to_thread(
-                input,
-                "Исследование магазина: дождись загрузки каталога в Camoufox и нажми Enter...",
+            await wait_for_manual_store_page(
+                page,
+                listen_seconds=listen_seconds,
+                profile=GENERIC_MANUAL_GATE_PROFILE,
+                collect_diagnostics=collect_generic_page_diagnostics,
             )
         walker_result = await _run_active_browser_research(
             page=page,
@@ -77,6 +90,7 @@ async def discover_catalog_research_context_via_browser(
     site_url: str,
     *,
     shop: str | None = None,
+    browser_runtime: BrowserRuntimeKind = "camoufox",
     headless: bool | str | None = None,
     manual_wait: bool = False,
     listen_seconds: int = 6,
@@ -85,6 +99,7 @@ async def discover_catalog_research_context_via_browser(
     result = await discover_catalog_site_via_browser(
         site_url,
         shop=shop,
+        browser_runtime=browser_runtime,
         headless=headless,
         manual_wait=manual_wait,
         listen_seconds=listen_seconds,
@@ -97,64 +112,16 @@ async def discover_catalog_research_context_via_browser(
             status_code=int(result.status_code),
             manual_wait_used=bool(manual_wait),
             phase_events=list(result.phase_events),
-            streamed_categories=[
-                item.name or item.url for item in result.category_links[:8]
-            ],
+            streamed_categories=[item.name or item.url for item in result.category_links[:8]],
         ),
     )
-
-
-async def _discover_pyaterochka_catalog_site(
-    site_url: str,
-    *,
-    headless: bool | str | None = None,
-    manual_wait: bool = False,
-    listen_seconds: int = 6,
-) -> CatalogDiscoveryResult:
-    """Run launcher research through protected startup, then use the active walker."""
-    configure_windows_console()
-    load_dotenv_file(".env")
-    kb = KBLoader("knowledge_base").load_shop("pyaterochka")
-    proxy_urls = load_proxy_urls(
-        primary=os.environ.get(PROXY_ENV, ""),
-        pool=os.environ.get("PARSER_PROXIES", ""),
-    )
-    proxy_url = choose_proxy_for_attempt(proxy_urls, 1)
-    geoip_enabled = os.environ.get("PARSER_GEOIP", "").lower() in {"1", "true", "yes"}
-    launch_options = build_research_camoufox_options(
-        headless=headless if headless is not None else False,
-        proxy_url=proxy_url,
-        geoip=geoip_enabled,
-        user_data_dir=PROFILE_DIR,
-    )
-    behavior_profile = build_category_behavior_profile("Рыба")
-    async with AsyncCamoufox(**launch_options) as browser:
-        page = await browser.new_page()
-        if kb.headers.custom:
-            await page.set_extra_http_headers(kb.headers.custom)
-        response = await page.goto(site_url, wait_until="domcontentloaded", timeout=60_000)
-        if manual_wait:
-            await asyncio.to_thread(
-                input,
-                "Исследование магазина: дождись загрузки каталога в Camoufox, реши капчу при необходимости и нажми Enter...",
-            )
-        else:
-            await page.wait_for_timeout(5_000)
-        await wait_for_pyaterochka_state(page, response, seconds=max(10, min(int(listen_seconds), 60)))
-        await browse_category_page(page, behavior_profile)
-        walker_result = await _run_active_browser_research(
-            page=page,
-            site_url=site_url,
-            initial_response=response,
-            listen_seconds=listen_seconds,
-        )
-    return _attach_browser_research_metadata(walker_result.discovery, walker_result)
 
 
 def discover_catalog_site_via_browser_sync(
     site_url: str,
     *,
     shop: str | None = None,
+    browser_runtime: BrowserRuntimeKind = "camoufox",
     headless: bool | str | None = None,
     manual_wait: bool = False,
     listen_seconds: int = 6,
@@ -164,6 +131,7 @@ def discover_catalog_site_via_browser_sync(
         discover_catalog_site_via_browser(
             site_url,
             shop=shop,
+            browser_runtime=browser_runtime,
             headless=headless,
             manual_wait=manual_wait,
             listen_seconds=listen_seconds,
@@ -177,11 +145,17 @@ async def _run_active_browser_research(
     site_url: str,
     initial_response: object | None,
     listen_seconds: int,
+    use_browser_waits: bool = True,
+    after_navigation: Callable[[Any], Awaitable[None]] | None = None,
+    capture_network: bool = True,
 ):
     walker = CamoufoxResearchWalker(
         listen_seconds=listen_seconds,
         max_repeat_urls=MAX_REPEAT_URLS,
         max_depth=MAX_DISCOVERY_DEPTH,
+        use_browser_waits=use_browser_waits,
+        after_navigation=after_navigation,
+        capture_network=capture_network,
     )
     return await walker.run(
         site_url=site_url,

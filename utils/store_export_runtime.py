@@ -10,13 +10,11 @@ from typing import Any
 
 from loguru import logger
 
-from models.schemas import Product
-from scripts.discover_pyaterochka_api import OUTPUT_DIR
-from utils.excel_report import write_products_excel_report
 from utils.export_summary import build_export_summary
 from utils.product_storage import ProductStorage
-from utils.pyaterochka_export import build_products_from_result, filter_products_for_intent, merge_products
+from utils.report_excel_router import write_products_excel_report_for_intent
 from utils.run_manifest import build_store_export_manifest, write_run_manifest
+from utils.site_filter_facets import merge_site_filter_facets
 from utils.store_catalog_registry import StoreExportBackend, DiscoverFunc
 
 
@@ -28,6 +26,7 @@ async def build_store_export_payload(
     listen_seconds: int,
     headless: bool | str | None,
     manual_wait: bool,
+    browser_runtime: str = "camoufox",
     kb_categories: dict[str, str],
     category_url: str = "",
     discover_func: DiscoverFunc | None = None,
@@ -55,11 +54,14 @@ async def build_store_export_payload(
                 listen_seconds=listen_seconds,
                 headless=headless,
                 manual_wait=manual_wait,
+                browser_runtime=browser_runtime,
             )
             category_results.append(result)
             last_result = result
-            batch_products.extend(build_products_from_result(result))
-        products = filter_products_for_intent(merge_products(batch_products), backend.intent)
+            result_products = backend.build_products_from_result(result)
+            result["export_diagnostics"] = _export_diagnostics(result, result_products)
+            batch_products.extend(result_products)
+        products = backend.filter_products_for_intent(backend.merge_products(batch_products), backend.intent)
         if products:
             break
         logger.warning(
@@ -75,6 +77,7 @@ async def build_store_export_payload(
         for item in category_results
         if item.get("category") and item.get("category_url")
     }
+    site_filter_facets = merge_site_filter_facets(*(item.get("site_filter_facets") for item in category_results))
     return {
         "shop": backend.shop,
         "intent": backend.intent,
@@ -86,18 +89,21 @@ async def build_store_export_payload(
         "attempts_used": attempt_number,
         "attempt": {
             "status": "ok" if products else "empty",
-            "reason": "product_payload_captured" if products else "no_product_payload",
+            "reason": "product_payload_captured" if products else _empty_export_reason(category_results),
             "categories": [
                 {
                     "name": str(item.get("category") or ""),
                     "status": str((item.get("attempt") or {}).get("status") or ""),
                     "reason": str((item.get("attempt") or {}).get("reason") or ""),
+                    "diagnostics": item.get("export_diagnostics") or {},
                 }
                 for item in category_results
             ],
         },
+        "capture_diagnostics": [item.get("export_diagnostics") or {} for item in category_results],
         "products_count": len(products),
         "products": [product.model_dump(mode="json") for product in products],
+        "site_filter_facets": site_filter_facets,
         "exported_at": datetime.now().isoformat(timespec="seconds"),
         "export_summary": build_export_summary(
             {
@@ -105,7 +111,7 @@ async def build_store_export_payload(
                 "categories": target_categories,
                 "attempt": {
                     "status": "ok" if products else "empty",
-                    "reason": "product_payload_captured" if products else "no_product_payload",
+                    "reason": "product_payload_captured" if products else _empty_export_reason(category_results),
                 },
                 "products_count": len(products),
                 "products": [product.model_dump(mode="json") for product in products],
@@ -122,6 +128,7 @@ async def _run_discover_func(
     listen_seconds: int,
     headless: bool | str | None,
     manual_wait: bool,
+    browser_runtime: str,
 ) -> dict[str, Any]:
     """Call a discover function while keeping older test doubles compatible."""
     kwargs: dict[str, Any] = {
@@ -130,6 +137,8 @@ async def _run_discover_func(
         "headless": headless,
         "manual_wait": manual_wait,
     }
+    if _accepts_keyword(runner, "browser_runtime"):
+        kwargs["browser_runtime"] = browser_runtime
     if category_url and _accepts_keyword(runner, "category_url"):
         kwargs["category_url"] = category_url
     return await runner(**kwargs)
@@ -146,9 +155,37 @@ def _accepts_keyword(callable_obj: DiscoverFunc, keyword: str) -> bool:
     return any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in signature.parameters.values())
 
 
+def _export_diagnostics(result: dict[str, Any], products: list[Any]) -> dict[str, Any]:
+    dom_links = ((result.get("dom_link_evidence") or {}).get("links_by_id")) or {}
+    raw_items = result.get("raw_product_items") or []
+    return {
+        "category": str(result.get("category") or ""),
+        "category_url": str(result.get("category_url") or ""),
+        "raw_product_items": len(raw_items) if isinstance(raw_items, list) else 0,
+        "dom_links": len(dom_links) if isinstance(dom_links, dict) else 0,
+        "captured_product_urls": len(result.get("captured_product_urls") or []),
+        "built_products": len(products),
+        "capture_reason": str((result.get("attempt") or {}).get("reason") or ""),
+    }
+
+
+def _empty_export_reason(category_results: list[dict[str, Any]]) -> str:
+    diagnostics = [item.get("export_diagnostics") or {} for item in category_results]
+    capture_reasons = [str(item.get("capture_reason") or "") for item in diagnostics]
+    for reason in capture_reasons:
+        lowered = reason.lower()
+        if any(marker in lowered for marker in ("captcha", "antibot", "challenge", "proxy", "blocked", "unsupported")):
+            return reason
+    if any(int(item.get("raw_product_items") or 0) > 0 for item in diagnostics):
+        return "product_items_rejected"
+    if any(int(item.get("captured_product_urls") or 0) > 0 for item in diagnostics):
+        return "product_payload_unmapped"
+    return "no_product_payload"
+
+
 def write_store_export(
     payload: dict[str, Any],
-    output_dir: Path | str = OUTPUT_DIR,
+    output_dir: Path | str = Path("data"),
     *,
     task_name: str = "store_catalog_export",
 ) -> tuple[Path, Path]:
@@ -160,14 +197,17 @@ def write_store_export(
     db_path = target_dir / "products.db"
     manifest_path = target_dir / f"{shop}_run_manifest.json"
     storage = ProductStorage(db_path)
+    from models.schemas import Product
+
     products = [Product(**item) for item in (payload.get("products") or []) if isinstance(item, dict)]
     storage.initialize()
     storage.save_products(shop, products)
-    actual_excel_path = write_products_excel_report(
+    actual_excel_path = write_products_excel_report_for_intent(
         products,
         shop=shop,
         output_dir=target_dir,
         exported_at=str(payload.get("exported_at") or ""),
+        intent=str(payload.get("intent") or ""),
     )
     payload["export_summary"] = build_export_summary(payload)
     payload["db_path"] = str(db_path)

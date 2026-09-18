@@ -6,7 +6,6 @@ import argparse
 import asyncio
 import json
 import os
-import re
 import sys
 import warnings
 from pathlib import Path
@@ -19,7 +18,6 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from scripts.smoke_pyaterochka_camoufox import DEFAULT_CATEGORY, PROFILE_DIR  # noqa: E402
 from utils.api_discovery import (  # noqa: E402
     build_discovery_result,
     build_markdown_report,
@@ -28,17 +26,16 @@ from utils.camoufox_launcher import build_camoufox_options, configure_windows_co
 from utils.env import load_dotenv_file  # noqa: E402
 from utils.kb_loader import KBLoader  # noqa: E402
 from utils.network_capture import record_api_discovery_response  # noqa: E402
-from utils.interception_archive import write_interception_archive  # noqa: E402
+from utils.interception_diagnostics_snapshot import write_interception_diagnostics_snapshot  # noqa: E402
 from utils.interception_profiles import InterceptionProfile, get_interception_profile  # noqa: E402
-from utils.proxy import choose_proxy_for_attempt, load_proxy_urls, mask_proxy_url  # noqa: E402
+from utils.proxy import choose_proxy_for_attempt, load_proxy_config_from_env, mask_proxy_url  # noqa: E402
 from utils.proxy_history import ProxyHistoryStore, build_proxy_attempt_record  # noqa: E402
+from utils.pyaterochka_runtime import DEFAULT_CATEGORY, OUTPUT_DIR, PROFILE_DIR, collect_dom_product_links  # noqa: E402
 from utils.rate_profile import protected_store_rate_profile  # noqa: E402
 from utils.run_context import RunContext  # noqa: E402
 from utils.session_pool import SessionPool  # noqa: E402
 from utils.site_error_tracking import attach_site_error_summary  # noqa: E402
 
-OUTPUT_DIR = ROOT_DIR / "data"
-PROXY_ENV = "PARSER_PROXY"
 MANUAL_DISCOVERY_PROMPT = "Solve captcha if needed, then press Enter. After that, scroll/open catalog pages..."
 
 
@@ -68,7 +65,7 @@ async def discover_pyaterochka_api(
     if not category_url:
         category_name, category_url = next(iter(kb.categories.items()))
 
-    proxy_urls = load_proxy_urls(primary=os.environ.get(PROXY_ENV, ""), pool=os.environ.get("PARSER_PROXIES", ""))
+    proxy_urls = load_proxy_config_from_env(os.environ).urls
     proxy_history = ProxyHistoryStore(OUTPUT_DIR / "proxy_history.db")
     proxy_urls = proxy_history.rank_proxy_urls("pyaterochka", proxy_urls)
     rate_profile = protected_store_rate_profile("pyaterochka-discovery")
@@ -83,11 +80,8 @@ async def discover_pyaterochka_api(
         headless=browser_headless,
         proxy_url=proxy_url,
         geoip=geoip_enabled,
-        block_images=False,
-        block_webgl=False,
-        humanize=True,
-        fingerprint_os="windows",
         user_data_dir=PROFILE_DIR,
+        use_fingerprint_profile=False,
     )
     try:
         events, dom_link_evidence = await _capture_events(
@@ -169,7 +163,7 @@ async def _capture_events(
         await _wait_for_manual_ready(manual_wait=manual_wait)
         logger.info("Listening for catalog API responses for {} seconds", listen_seconds)
         await page.wait_for_timeout(listen_seconds * 1000)
-        dom_link_evidence = await _collect_dom_product_links(page)
+        dom_link_evidence = await collect_dom_product_links(page)
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
     return events, dom_link_evidence
@@ -187,63 +181,15 @@ async def _wait_for_manual_ready(
     await asyncio.to_thread(prompt_func, MANUAL_DISCOVERY_PROMPT)
 
 
-async def _collect_dom_product_links(page: Any, *, limit: int = 10) -> dict[str, Any]:
-    """Collect visible DOM product links for later comparison with API ids."""
-    raw_links = await page.evaluate(
-        """
-        (limit) => {
-          const anchors = Array.from(document.querySelectorAll('a[href*="/product/"]'));
-          return anchors.slice(0, Math.max(limit * 3, limit)).map((anchor) => ({
-            href: String(anchor.href || '').trim(),
-            title: String(anchor.textContent || '').replace(/\\s+/g, ' ').trim(),
-          }));
-        }
-        """,
-        limit,
-    )
-    unique_links: list[dict[str, str]] = []
-    seen: set[str] = set()
-    product_ids: list[str] = []
-    links_by_id: dict[str, str] = {}
-    for item in raw_links:
-        if not isinstance(item, dict):
-            continue
-        href = str(item.get("href") or "").strip()
-        if not href or href in seen or "/product/" not in href:
-            continue
-        seen.add(href)
-        unique_links.append({"href": href, "title": str(item.get("title") or "").strip()})
-        product_id = _extract_product_id_from_href(href)
-        if product_id:
-            product_ids.append(product_id)
-            links_by_id[product_id] = href
-        if len(unique_links) >= limit:
-            break
-    return {
-        "count": len(unique_links),
-        "sample_links": unique_links,
-        "product_ids": product_ids,
-        "links_by_id": links_by_id,
-    }
-
-
-def _extract_product_id_from_href(href: str) -> str:
-    """Extract numeric product id from a public 5ka product URL."""
-    match = re.search(r"/product/[^/]*--(\d+)/?$", href)
-    if match:
-        return match.group(1)
-    return ""
-
-
 def _write_outputs(result: dict[str, Any]) -> tuple[Path, Path, Path]:
-    """Write JSON and Markdown discovery reports."""
+    """Write JSON, Markdown and safe diagnostics snapshot outputs."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     json_path = OUTPUT_DIR / "pyaterochka_api_discovery.json"
     md_path = OUTPUT_DIR / "pyaterochka_api_discovery.md"
     json_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     md_path.write_text(build_markdown_report(result), encoding="utf-8")
-    archive_path = write_interception_archive(result, OUTPUT_DIR / "interception")
-    return json_path, md_path, archive_path
+    snapshot_path = write_interception_diagnostics_snapshot(result, OUTPUT_DIR / "interception")
+    return json_path, md_path, snapshot_path
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -271,7 +217,7 @@ if __name__ == "__main__":
             manual_wait=args.manual_wait,
         )
     )
-    output_path, report_path, archive_path = _write_outputs(result_payload)
+    output_path, report_path, snapshot_path = _write_outputs(result_payload)
     logger.info("Discovery JSON saved: {}", output_path)
     logger.info("Discovery report saved: {}", report_path)
-    logger.info("Interception archive saved: {}", archive_path)
+    logger.info("Interception diagnostics snapshot saved: {}", snapshot_path)

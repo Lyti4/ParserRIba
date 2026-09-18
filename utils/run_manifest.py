@@ -10,6 +10,7 @@ from typing import Any
 from models.onboarding import OnboardingResult
 from models.task_actor import RunManifest
 from utils.export_summary import build_export_summary
+from utils.product_filter_facets import build_found_filter_counts
 
 
 def build_store_export_manifest(
@@ -32,10 +33,11 @@ def build_store_export_manifest(
     if excel_path is not None:
         artifact_paths["excel_path"] = str(excel_path)
     export_summary = build_export_summary(payload)
+    products = [item for item in (payload.get("products") or []) if isinstance(item, dict)]
     return RunManifest(
         task_name=task_name,
         shop=str(payload.get("shop") or "store"),
-        intent=str(payload.get("intent") or "fish_catalog"),
+        intent=str(payload.get("intent") or ""),
         input={
             "category": str(payload.get("category") or ""),
             "categories": list(payload.get("categories") or []),
@@ -46,11 +48,15 @@ def build_store_export_manifest(
         summary={
             "backend": str(payload.get("shop") or "store"),
             "products_count": products_count,
+            "products": products,
             "stored_products_count": int(payload.get("stored_products_count") or 0),
             "attempts_used": int(payload.get("attempts_used") or 0),
             "categories": list(payload.get("categories") or []),
             "attempt": payload.get("attempt") or {},
+            "found_filters": build_found_filter_counts(products),
+            "site_filter_facets": dict(payload.get("site_filter_facets") or {}),
             "proxy_summary": {"mode": "local", "paid_services": False},
+            "product_breakdown": export_summary["product_breakdown"],
             "wine_breakdown": export_summary["wine_breakdown"],
             "export_summary": export_summary,
         },

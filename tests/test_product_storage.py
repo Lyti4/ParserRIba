@@ -11,11 +11,11 @@ from utils.product_storage import ProductStorage
 def _build_product(*, price: float, in_stock: bool = True) -> Product:
     return Product(
         id="4023639",
-        name="РўСЂРµСЃРєР°",
+        name="\u0420\u045e\u0421\u0402\u0420\u00b5\u0421\u0403\u0420\u0454\u0420\u00b0",
         price=price,
         image_url="https://img.example/4023639.webp",
         product_link="https://5ka.ru/product/treska--4023639/",
-        category="Р С‹Р±Р°",
+        category="\u0420\u00a0\u0421\u2039\u0420\u00b1\u0420\u00b0",
         in_stock=in_stock,
     )
 
@@ -32,10 +32,10 @@ def test_product_storage_upserts_current_product_state(tmp_path) -> None:
         {
             "store": "pyaterochka",
             "product_id": "4023639",
-            "name": "РўСЂРµСЃРєР°",
+            "name": "\u0420\u045e\u0421\u0402\u0420\u00b5\u0421\u0403\u0420\u0454\u0420\u00b0",
             "product_link": "https://5ka.ru/product/treska--4023639/",
             "image_url": "https://img.example/4023639.webp",
-            "category": "Р С‹Р±Р°",
+            "category": "\u0420\u00a0\u0421\u2039\u0420\u00b1\u0420\u00b0",
             "subcategory": "",
             "in_stock": False,
             "current_price": 899.99,
@@ -70,11 +70,11 @@ def test_product_storage_reports_latest_snapshot_changes(tmp_path) -> None:
             _build_product(price=999.99, in_stock=True),
             Product(
                 id="4015936",
-                name="Р“РѕСЂР±СѓС€Р°",
+                name="\u0420\u201c\u0420\u0455\u0421\u0402\u0420\u00b1\u0421\u0453\u0421\u20ac\u0420\u00b0",
                 price=519.99,
                 image_url="https://img.example/4015936.webp",
                 product_link="https://5ka.ru/product/gorbusha--4015936/",
-                category="Р С‹Р±Р°",
+                category="\u0420\u00a0\u0421\u2039\u0420\u00b1\u0420\u00b0",
                 in_stock=True,
             ),
         ],
@@ -85,11 +85,11 @@ def test_product_storage_reports_latest_snapshot_changes(tmp_path) -> None:
             _build_product(price=899.99, in_stock=False),
             Product(
                 id="4015936",
-                name="Р“РѕСЂР±СѓС€Р°",
+                name="\u0420\u201c\u0420\u0455\u0421\u0402\u0420\u00b1\u0421\u0453\u0421\u20ac\u0420\u00b0",
                 price=519.99,
                 image_url="https://img.example/4015936.webp",
                 product_link="https://5ka.ru/product/gorbusha--4015936/",
-                category="Р С‹Р±Р°",
+                category="\u0420\u00a0\u0421\u2039\u0420\u00b1\u0420\u00b0",
                 in_stock=True,
             ),
         ],
@@ -103,7 +103,7 @@ def test_product_storage_reports_latest_snapshot_changes(tmp_path) -> None:
     assert report["changed_prices"] == [
         {
             "product_id": "4023639",
-            "name": "РўСЂРµСЃРєР°",
+            "name": "\u0420\u045e\u0421\u0402\u0420\u00b5\u0421\u0403\u0420\u0454\u0420\u00b0",
             "previous_price": 999.99,
             "current_price": 899.99,
         }
@@ -111,7 +111,7 @@ def test_product_storage_reports_latest_snapshot_changes(tmp_path) -> None:
     assert report["changed_availability"] == [
         {
             "product_id": "4023639",
-            "name": "РўСЂРµСЃРєР°",
+            "name": "\u0420\u045e\u0421\u0402\u0420\u00b5\u0421\u0403\u0420\u0454\u0420\u00b0",
             "previous_in_stock": True,
             "current_in_stock": False,
         }
@@ -126,7 +126,7 @@ def test_product_storage_saves_and_loads_onboarding_session(tmp_path) -> None:
         site_url="https://5ka.ru",
         intent="fish_catalog",
         status="runtime_ready",
-        selected_categories=["Р С‹Р±Р°", "РњРѕСЂРµРїСЂРѕРґСѓРєС‚С‹"],
+        selected_categories=["\u0420\u00a0\u0421\u2039\u0420\u00b1\u0420\u00b0", "\u0420\u045a\u0420\u0455\u0421\u0402\u0420\u00b5\u0420\u0457\u0421\u0402\u0420\u0455\u0420\u0491\u0421\u0453\u0420\u0454\u0421\u201a\u0421\u2039"],
         artifact_paths=ArtifactPaths(session_state_path=str(tmp_path / "session.json")),
     )
 
@@ -135,7 +135,7 @@ def test_product_storage_saves_and_loads_onboarding_session(tmp_path) -> None:
 
     assert saved["session_id"] == "session-1"
     assert saved["status"] == "runtime_ready"
-    assert saved["selected_categories"] == ["Р С‹Р±Р°", "РњРѕСЂРµРїСЂРѕРґСѓРєС‚С‹"]
+    assert saved["selected_categories"] == ["\u0420\u00a0\u0421\u2039\u0420\u00b1\u0420\u00b0", "\u0420\u045a\u0420\u0455\u0421\u0402\u0420\u00b5\u0420\u0457\u0421\u0402\u0420\u0455\u0420\u0491\u0421\u0453\u0420\u0454\u0421\u201a\u0421\u2039"]
     assert saved["schema_version"] == 1
 
 

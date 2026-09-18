@@ -58,10 +58,10 @@ safe base for the next refactor step.
 
 ## Next Refactor Order
 
-1. Replace legacy `utils/session_manager.py` with the new `SessionPool` after
-   tests cover the behavior that is still needed.
-2. Choose one canonical parser base contract and make `main.ParserFactory`
-   import checks clean for all stores.
+1. Keep active session behavior on `utils.session_pool.SessionPool`; the old
+   session manager is removed from active source and remains available through
+   git history.
+2. Keep architecture checks on the launcher-first task/store registries.
 3. After Pyaterochka product API discovery captures real product payloads,
    promote API-first candidates into the final `Product` mapper and leave DOM
    extraction as fallback.

@@ -19,8 +19,8 @@ captcha tokens.
 - `knowledge_base/pyaterochka.md` now contains an `API Interception` section.
   `utils.kb_interception` parses it and `utils.interception_profiles` can build
   route classifiers from the loaded KB with code defaults as fallback.
-- `utils.interception_archive` writes compact safe JSON archives under
-  `data/interception/` for later extractor work.
+- `utils.interception_diagnostics_snapshot` writes compact safe JSON
+  diagnostics snapshots under `data/interception/` for later extractor work.
 - `utils.api_first_extractor` now turns safe product samples from intercepted
   responses into deduplicated API-first candidates with readiness diagnostics.
 - `utils.site_error_tracking` normalizes browser, proxy, network, challenge,

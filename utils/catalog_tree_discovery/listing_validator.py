@@ -60,7 +60,7 @@ def classify_catalog_surface(signals: SurfaceSignals) -> ValidationProbeResult:
     if signals.api_hints:
         return ValidationProbeResult(
             surface_type="api_backed",
-            validation_state="listing_valid",
+            validation_state="empty",
             route_hints=[RouteHint(kind=item.kind, value=item.value, source="dom") for item in signals.api_hints],
         )
     if signals.region_hint:

@@ -12,6 +12,7 @@ from openpyxl.styles import Font
 from openpyxl.worksheet.worksheet import Worksheet
 
 from models.schemas import Product
+from utils.report_filter_facets import alcohol_type as report_alcohol_type
 
 NETWORK_COLUMNS = (
     "Деликатеска",
@@ -251,11 +252,7 @@ def _extract_supplier(product: Product) -> str:
 
 
 def _extract_alcohol_type(product: Product) -> str:
-    raw_data = dict(product.raw_data or {})
-    value = raw_data.get("alcohol_type")
-    if isinstance(value, str):
-        return value.strip()
-    return ""
+    return report_alcohol_type(product)
 
 
 def _extract_sugar_class(name: str) -> str:

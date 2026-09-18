@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "note": "Intentional mojibake-like compatibility markers. These are not legacy debt; they preserve matching against old saved data or dirty site payloads.",
+  "allowed": [
+    {
+      "path": "utils/product_display_fields.py",
+      "fingerprint": "2bda0d1a6ca1c807017c1c8474f1e4a167a4fbb8",
+      "marker": "Рў",
+      "reason": "Detect broken raw product fields before deriving readable display values."
+    },
+    {
+      "path": "utils/product_report_display_fields.py",
+      "fingerprint": "a76c1a36468aefda1cb1e0e878a304ff1521ac98",
+      "marker": "РЎ",
+      "reason": "Detect broken raw report fields before deriving readable report values."
+    },
+    {
+      "path": "utils/site_filter_descriptors.py",
+      "fingerprint": "012d66eac96ae8280d7c9b3ad54e9e89e2698c4a",
+      "marker": "Рґ",
+      "reason": "Map dirty site facet brand alias to the normalized brand field."
+    },
+    {
+      "path": "utils/site_filter_descriptors.py",
+      "fingerprint": "07f092295694a25bc5c6fb0b3fcef513e491d7ab",
+      "marker": "Рё",
+      "reason": "Map dirty site facet fat alias to the normalized fat field."
+    },
+    {
+      "path": "utils/site_filter_descriptors.py",
+      "fingerprint": "259ec8ddd3ea92a6575f251fcf5d1ee69a50d27f",
+      "marker": "Рґ",
+      "reason": "Map dirty site facet brand alias to the normalized brand field."
+    },
+    {
+      "path": "utils/site_filter_descriptors.py",
+      "fingerprint": "52788031f7ab331b0c7b79e2c43b24f8c8aeb5f5",
+      "marker": "Рґ",
+      "reason": "Map dirty site facet discount alias to the normalized special-offers field."
+    },
+    {
+      "path": "utils/site_filter_descriptors.py",
+      "fingerprint": "831fafcd71cba449d00df063fc0abc6fce697101",
+      "marker": "Рё",
+      "reason": "Map dirty site facet fat alias to the normalized fat field."
+    },
+    {
+      "path": "utils/site_filter_descriptors.py",
+      "fingerprint": "87c18b97483f1ee2c4d309013f0d659ad4dfb53e",
+      "marker": "Рµ",
+      "reason": "Map dirty site facet weight alias to the normalized weight field."
+    },
+    {
+      "path": "utils/site_filter_descriptors.py",
+      "fingerprint": "c0a176d1f71d2876e45ebc4b0ac97e1538da8cef",
+      "marker": "Рµ",
+      "reason": "Map dirty site facet price alias to the normalized price field."
+    },
+    {
+      "path": "utils/site_filter_descriptors.py",
+      "fingerprint": "caee7cacca853ed5af8cef5c1cbb58cdeced70f6",
+      "marker": "Рµ",
+      "reason": "Map dirty site facet price alias with currency suffix to the normalized price field."
+    },
+    {
+      "path": "utils/site_filter_descriptors.py",
+      "fingerprint": "d1f8bc51574a917ac98ecc48f94da460680ec968",
+      "marker": "Рґ",
+      "reason": "Map dirty site facet discount alias to the normalized special-offers field."
+    }
+  ]
+}

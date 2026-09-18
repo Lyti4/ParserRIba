@@ -13,6 +13,7 @@ from loguru import logger
 
 from utils.antibot import collect_page_diagnostics
 from utils.fingerprint import fingerprint_summary_from_options
+from utils.geoip import lookup_ip_geoip
 from utils.human_behavior import hover_product_cards
 from utils.network_diagnostics import build_network_summary, classify_proxy_health
 from utils.page_context import extract_pyaterochka_page_context
@@ -27,6 +28,21 @@ def split_selectors(selector_config: Any) -> list[str]:
     if not selector_config or not selector_config.css:
         return []
     return [item.strip() for item in selector_config.css.split("|") if item.strip()]
+
+
+def build_manual_phase_network_diagnostics(
+    network_events: list[dict[str, Any]],
+    *,
+    before_prompt_count: int,
+    after_prompt_count: int,
+    after_post_wait_count: int,
+) -> dict[str, Any]:
+    """Summarize network activity around manual captcha solving."""
+    return {
+        "before_prompt": build_network_summary(network_events[:before_prompt_count]),
+        "during_manual": build_network_summary(network_events[before_prompt_count:after_prompt_count]),
+        "post_manual_wait": build_network_summary(network_events[after_prompt_count:after_post_wait_count]),
+    }
 
 
 async def browser_external_ip(page: Any) -> str:
@@ -45,6 +61,52 @@ async def browser_external_ip(page: Any) -> str:
     except Exception as exc:
         logger.warning("Browser IP check failed: {}", exc)
         return ""
+
+
+async def browser_environment_snapshot(page: Any) -> dict[str, Any]:
+    """Collect report-safe browser runtime fields useful for proxy/GeoIP checks."""
+    try:
+        value = await page.evaluate(
+            """async () => {
+                const permissionState = async (name) => {
+                    try {
+                        if (!navigator.permissions || !navigator.permissions.query) return "";
+                        const result = await navigator.permissions.query({ name });
+                        return result.state || "";
+                    } catch (_) {
+                        return "";
+                    }
+                };
+                return {
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
+                    language: navigator.language || "",
+                    languages: Array.from(navigator.languages || []),
+                    webdriver: navigator.webdriver === undefined ? null : navigator.webdriver,
+                    platform: navigator.platform || "",
+                    hardware_concurrency: navigator.hardwareConcurrency || 0,
+                    device_memory: navigator.deviceMemory || 0,
+                    geolocation_api: Boolean(navigator.geolocation),
+                    geolocation_permission: await permissionState("geolocation"),
+                    webrtc_api: Boolean(window.RTCPeerConnection || window.webkitRTCPeerConnection),
+                    screen: {
+                        width: window.screen ? window.screen.width : 0,
+                        height: window.screen ? window.screen.height : 0,
+                        avail_width: window.screen ? window.screen.availWidth : 0,
+                        avail_height: window.screen ? window.screen.availHeight : 0,
+                        color_depth: window.screen ? window.screen.colorDepth : 0,
+                    },
+                    viewport: {
+                        width: window.innerWidth || 0,
+                        height: window.innerHeight || 0,
+                        device_pixel_ratio: window.devicePixelRatio || 0,
+                    },
+                };
+            }"""
+        )
+        return dict(value or {})
+    except Exception as exc:
+        logger.warning("Browser environment check failed: {}", exc)
+        return {"error": str(exc).splitlines()[0][:220]}
 
 
 async def wait_for_cards_after_manual_challenge(
@@ -92,11 +154,13 @@ async def build_attempt_result(
     cards_override: list[Any] | None = None,
     manual_wait: bool = False,
     manual_cards_ready: bool = False,
+    manual_phase_network: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Collect the final smoke result from the current page state."""
     block_reason = navigation_reason or diagnostics.reason
     blocked = bool(navigation_reason) or diagnostics.blocked
     external_ip = await browser_external_ip(page)
+    browser_environment = await browser_environment_snapshot(page)
     page_html = await page.content()
     page_context = extract_pyaterochka_page_context(page_html)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -121,6 +185,12 @@ async def build_attempt_result(
         network=network_summary,
         browser_external_ip=external_ip,
     )
+    preflight_ip = str(proxy_preflight.get("ip") or "")
+    preflight_geoip = lookup_ip_geoip(preflight_ip)
+    browser_environment["external_ip_matches_preflight"] = bool(external_ip and preflight_ip and external_ip == preflight_ip)
+    browser_timezone = str(browser_environment.get("timezone") or "")
+    geoip_timezone = str(preflight_geoip.get("timezone") or "")
+    browser_environment["timezone_matches_preflight_geoip"] = bool(browser_timezone and geoip_timezone and browser_timezone == geoip_timezone)
     result = {
         "shop": "pyaterochka",
         "category": category_name,
@@ -144,13 +214,16 @@ async def build_attempt_result(
         "fingerprint": fingerprint_summary_from_options(launch_options),
         "behavior_profile": behavior_profile.summary(),
         "browser_external_ip": external_ip,
+        "browser_environment": browser_environment,
         "screenshot_path": str(screenshot_path),
         "html_path": str(html_path),
         "cards_found": len(cards),
         "products_sample": products,
         "network": network_summary,
+        "manual_phase_network": manual_phase_network or {},
         "proxy_diagnostics": {
             "preflight": proxy_preflight,
+            "preflight_geoip": preflight_geoip,
             "health": proxy_diagnostics,
         },
         "product_api_diagnostics": {
@@ -178,6 +251,7 @@ def failed_attempt_result(
     attempt: int,
     attempts: int,
     exc: Exception,
+    proxy_url: str = "",
 ) -> dict[str, Any]:
     """Build a smoke result for one failed attempt."""
     result = {
@@ -189,6 +263,8 @@ def failed_attempt_result(
         "blocked": True,
         "block_reason": "attempt_failed",
         "navigation_error": str(exc),
+        "proxy_enabled": bool(proxy_url),
+        "proxy": mask_proxy_url(proxy_url) if proxy_url else "",
         "cards_found": 0,
         "products_sample": [],
         "parsed_at": datetime.now().isoformat(timespec="seconds"),
@@ -206,6 +282,7 @@ def parse_args(default_category: str) -> argparse.Namespace:
     parser.add_argument("--no-headless", action="store_false", dest="headless")
     parser.add_argument("--pause", action="store_true", help="Keep browser open after the smoke attempt")
     parser.add_argument("--load-images", action="store_true", help="Allow images for visual captcha checks")
+    parser.add_argument("--allow-webrtc", action="store_true", help="Leave WebRTC API available for challenge diagnostics")
     parser.add_argument("--persistent-profile", action="store_true", help="Reuse local Camoufox profile/session")
     parser.add_argument("--manual-wait", action="store_true", help="Wait for Enter after manual captcha solving")
     return parser.parse_args()

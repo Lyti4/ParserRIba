@@ -18,7 +18,7 @@ async def test_local_task_registry_runs_pyaterochka_export_task(tmp_path: Path) 
             "raw_product_items": [
                 {
                     "plu": 4023639,
-                    "name": "РўСЂРµСЃРєР°",
+                    "name": "\u0420\u045e\u0421\u0402\u0420\u00b5\u0421\u0403\u0420\u0454\u0420\u00b0",
                     "prices": {"regular": "999.99"},
                     "image_links": [{"url": "https://img.example/4023639.webp"}],
                     "is_available": True,
@@ -35,7 +35,7 @@ async def test_local_task_registry_runs_pyaterochka_export_task(tmp_path: Path) 
     manifest = await run_local_task(
         "pyaterochka_fish_export",
         {
-            "category": "Р С‹Р±Р°",
+            "category": "\u0420\u00a0\u0421\u2039\u0420\u00b1\u0420\u00b0",
             "attempts": 1,
             "listen_seconds": 1,
             "manual_wait": False,
@@ -46,7 +46,7 @@ async def test_local_task_registry_runs_pyaterochka_export_task(tmp_path: Path) 
     )
 
     assert isinstance(manifest, RunManifest)
-    assert manifest.task_name == "pyaterochka_fish_export"
+    assert manifest.task_name == "pyaterochka_catalog_export"
     assert manifest.shop == "pyaterochka"
     assert manifest.intent == "fish_catalog"
     assert manifest.status == "ok"
@@ -74,14 +74,14 @@ async def test_local_task_registry_runs_pyaterochka_wine_export_task(tmp_path: P
             "raw_product_items": [
                 {
                     "plu": 4225897,
-                    "name": "Р’РёРЅРѕ Free Feather Chardonnay Р±РµР·Р°Р»РєРѕРіРѕР»СЊРЅРѕРµ РїРѕР»СѓСЃР»Р°РґРєРѕРµ Р±РµР»РѕРµ 750РјР»",
+                    "name": "\u0420\u2019\u0420\u0451\u0420\u0405\u0420\u0455 Free Feather Chardonnay \u0420\u00b1\u0420\u00b5\u0420\u00b7\u0420\u00b0\u0420\u00bb\u0420\u0454\u0420\u0455\u0420\u0456\u0420\u0455\u0420\u00bb\u0421\u040a\u0420\u0405\u0420\u0455\u0420\u00b5 \u0420\u0457\u0420\u0455\u0420\u00bb\u0421\u0453\u0421\u0403\u0420\u00bb\u0420\u00b0\u0420\u0491\u0420\u0454\u0420\u0455\u0420\u00b5 \u0420\u00b1\u0420\u00b5\u0420\u00bb\u0420\u0455\u0420\u00b5 750\u0420\u0458\u0420\u00bb",
                     "prices": {"regular": "699.99"},
                     "image_links": [{"url": "https://img.example/4225897.webp"}],
                     "is_available": True,
                 },
                 {
                     "plu": 4225898,
-                    "name": "Р’РёРЅРѕ РёРіСЂРёСЃС‚РѕРµ OddBird Spumante Veneto Р±РµР»РѕРµ Р±РµР·Р°Р»РєРѕРіРѕР»СЊРЅРѕРµ 750РјР»",
+                    "name": "\u0420\u2019\u0420\u0451\u0420\u0405\u0420\u0455 \u0420\u0451\u0420\u0456\u0421\u0402\u0420\u0451\u0421\u0403\u0421\u201a\u0420\u0455\u0420\u00b5 OddBird Spumante Veneto \u0420\u00b1\u0420\u00b5\u0420\u00bb\u0420\u0455\u0420\u00b5 \u0420\u00b1\u0420\u00b5\u0420\u00b7\u0420\u00b0\u0420\u00bb\u0420\u0454\u0420\u0455\u0420\u0456\u0420\u0455\u0420\u00bb\u0421\u040a\u0420\u0405\u0420\u0455\u0420\u00b5 750\u0420\u0458\u0420\u00bb",
                     "prices": {"regular": "899.99"},
                     "image_links": [{"url": "https://img.example/4225898.webp"}],
                     "is_available": True,
@@ -99,7 +99,7 @@ async def test_local_task_registry_runs_pyaterochka_wine_export_task(tmp_path: P
     manifest = await run_local_task(
         "pyaterochka_wine_export",
         {
-            "category": "Р’РёРЅРѕ",
+            "category": "\u0420\u2019\u0420\u0451\u0420\u0405\u0420\u0455",
             "attempts": 1,
             "listen_seconds": 1,
             "manual_wait": False,
@@ -126,8 +126,12 @@ async def test_local_task_registry_runs_pyaterochka_wine_export_task(tmp_path: P
 def test_local_task_registry_lists_export_and_onboarding_tasks() -> None:
     tasks = list_local_tasks()
 
-    assert "pyaterochka_fish_export" in tasks
-    assert "pyaterochka_wine_export" in tasks
+    assert tasks == [
+        "site_onboarding_discovery",
+        "store_catalog_export",
+        "store_report_export",
+        "store_report_filter_options",
+    ]
     assert "store_report_export" in tasks
     assert "store_report_filter_options" in tasks
     assert "site_onboarding_discovery" in tasks
@@ -181,7 +185,7 @@ async def test_local_task_registry_runs_onboarding_discovery_task(tmp_path: Path
             {
                 "site_url": "https://unknown-store.example",
                 "intent": "fish_catalog",
-                "selected_categories": ["Р С‹Р±Р°"],
+                "selected_categories": ["\u0420\u00a0\u0421\u2039\u0420\u00b1\u0420\u00b0"],
             },
             root_dir=tmp_path,
         )
@@ -193,7 +197,7 @@ async def test_local_task_registry_runs_onboarding_discovery_task(tmp_path: Path
     assert manifest.intent == "fish_catalog"
     assert manifest.status == "discovery_only"
     assert manifest.summary["category_count"] == 1
-    assert manifest.summary["selected_categories"] == ["Р С‹Р±Р°"]
+    assert manifest.summary["selected_categories"] == ["\u0420\u00a0\u0421\u2039\u0420\u00b1\u0420\u00b0"]
     assert Path(manifest.artifact_paths["session_state_path"]).exists()
 
 
@@ -275,32 +279,32 @@ async def test_local_task_registry_runs_store_report_export_task(tmp_path: Path)
         [
             Product(
                 id="4225897",
-                name="Р’РёРЅРѕ Free Feather Chardonnay Р±РµР·Р°Р»РєРѕРіРѕР»СЊРЅРѕРµ РїРѕР»СѓСЃР»Р°РґРєРѕРµ Р±РµР»РѕРµ 750РјР»",
+                name="\u0420\u2019\u0420\u0451\u0420\u0405\u0420\u0455 Free Feather Chardonnay \u0420\u00b1\u0420\u00b5\u0420\u00b7\u0420\u00b0\u0420\u00bb\u0420\u0454\u0420\u0455\u0420\u0456\u0420\u0455\u0420\u00bb\u0421\u040a\u0420\u0405\u0420\u0455\u0420\u00b5 \u0420\u0457\u0420\u0455\u0420\u00bb\u0421\u0453\u0421\u0403\u0420\u00bb\u0420\u00b0\u0420\u0491\u0420\u0454\u0420\u0455\u0420\u00b5 \u0420\u00b1\u0420\u00b5\u0420\u00bb\u0420\u0455\u0420\u00b5 750\u0420\u0458\u0420\u00bb",
                 brand="Free Feather",
                 price=699.99,
                 image_url="https://img.example/4225897.webp",
                 product_link="https://5ka.ru/product/vino-free-feather--4225897/",
-                category="Р‘РµР·Р°Р»РєРѕРіРѕР»СЊРЅРѕРµ РІРёРЅРѕ",
-                subcategory="РўРёС…РѕРµ",
+                category="\u0420\u2018\u0420\u00b5\u0420\u00b7\u0420\u00b0\u0420\u00bb\u0420\u0454\u0420\u0455\u0420\u0456\u0420\u0455\u0420\u00bb\u0421\u040a\u0420\u0405\u0420\u0455\u0420\u00b5 \u0420\u0406\u0420\u0451\u0420\u0405\u0420\u0455",
+                subcategory="\u0420\u045e\u0420\u0451\u0421\u2026\u0420\u0455\u0420\u00b5",
                 in_stock=True,
                 raw_data={
                     "supplier": "Free Feather",
-                    "alcohol_type": "Р‘РµР·Р°Р»РєРѕРіРѕР»СЊРЅРѕРµ",
+                    "alcohol_type": "\u0420\u2018\u0420\u00b5\u0420\u00b7\u0420\u00b0\u0420\u00bb\u0420\u0454\u0420\u0455\u0420\u0456\u0420\u0455\u0420\u00bb\u0421\u040a\u0420\u0405\u0420\u0455\u0420\u00b5",
                 },
             ),
             Product(
                 id="4225898",
-                name="Р’РёРЅРѕ OddBird Spumante Р±РµР·Р°Р»РєРѕРіРѕР»СЊРЅРѕРµ Р±РµР»РѕРµ 750РјР»",
+                name="\u0420\u2019\u0420\u0451\u0420\u0405\u0420\u0455 OddBird Spumante \u0420\u00b1\u0420\u00b5\u0420\u00b7\u0420\u00b0\u0420\u00bb\u0420\u0454\u0420\u0455\u0420\u0456\u0420\u0455\u0420\u00bb\u0421\u040a\u0420\u0405\u0420\u0455\u0420\u00b5 \u0420\u00b1\u0420\u00b5\u0420\u00bb\u0420\u0455\u0420\u00b5 750\u0420\u0458\u0420\u00bb",
                 brand="OddBird",
                 price=899.99,
                 image_url="https://img.example/4225898.webp",
                 product_link="https://5ka.ru/product/vino-oddbird--4225898/",
-                category="Р‘РµР·Р°Р»РєРѕРіРѕР»СЊРЅРѕРµ РІРёРЅРѕ",
-                subcategory="РРіСЂРёСЃС‚РѕРµ",
+                category="\u0420\u2018\u0420\u00b5\u0420\u00b7\u0420\u00b0\u0420\u00bb\u0420\u0454\u0420\u0455\u0420\u0456\u0420\u0455\u0420\u00bb\u0421\u040a\u0420\u0405\u0420\u0455\u0420\u00b5 \u0420\u0406\u0420\u0451\u0420\u0405\u0420\u0455",
+                subcategory="\u0420\u0098\u0420\u0456\u0421\u0402\u0420\u0451\u0421\u0403\u0421\u201a\u0420\u0455\u0420\u00b5",
                 in_stock=True,
                 raw_data={
                     "supplier": "OddBird",
-                    "alcohol_type": "Р‘РµР·Р°Р»РєРѕРіРѕР»СЊРЅРѕРµ",
+                    "alcohol_type": "\u0420\u2018\u0420\u00b5\u0420\u00b7\u0420\u00b0\u0420\u00bb\u0420\u0454\u0420\u0455\u0420\u0456\u0420\u0455\u0420\u00bb\u0421\u040a\u0420\u0405\u0420\u0455\u0420\u00b5",
                 },
             ),
         ],
@@ -312,7 +316,7 @@ async def test_local_task_registry_runs_store_report_export_task(tmp_path: Path)
             "selection": {
                 "shop": "pyaterochka",
                 "intent": "wine_catalog",
-                "categories": ["Р‘РµР·Р°Р»РєРѕРіРѕР»СЊРЅРѕРµ РІРёРЅРѕ"],
+                "categories": ["\u0420\u2018\u0420\u00b5\u0420\u00b7\u0420\u00b0\u0420\u00bb\u0420\u0454\u0420\u0455\u0420\u0456\u0420\u0455\u0420\u00bb\u0421\u040a\u0420\u0405\u0420\u0455\u0420\u00b5 \u0420\u0406\u0420\u0451\u0420\u0405\u0420\u0455"],
             },
             "filters": {"suppliers": ["Free Feather"]},
             "output_name": "wine_free_feather",
@@ -325,7 +329,7 @@ async def test_local_task_registry_runs_store_report_export_task(tmp_path: Path)
     assert manifest.intent == "wine_catalog"
     assert manifest.status == "ok"
     assert manifest.summary["products_count"] == 1
-    assert manifest.summary["categories"] == ["Р‘РµР·Р°Р»РєРѕРіРѕР»СЊРЅРѕРµ РІРёРЅРѕ"]
+    assert manifest.summary["categories"] == ["\u0420\u2018\u0420\u00b5\u0420\u00b7\u0420\u00b0\u0420\u00bb\u0420\u0454\u0420\u0455\u0420\u0456\u0420\u0455\u0420\u00bb\u0421\u040a\u0420\u0405\u0420\u0455\u0420\u00b5 \u0420\u0406\u0420\u0451\u0420\u0405\u0420\u0455"]
     assert Path(manifest.artifact_paths["excel_path"]).name == "wine_free_feather.xlsx"
     assert Path(manifest.artifact_paths["excel_path"]).exists()
 
@@ -338,32 +342,32 @@ async def test_local_task_registry_runs_store_report_filter_options_task(tmp_pat
         [
             Product(
                 id="4225897",
-                name="Р’РёРЅРѕ Free Feather Chardonnay Р±РµР·Р°Р»РєРѕРіРѕР»СЊРЅРѕРµ РїРѕР»СѓСЃР»Р°РґРєРѕРµ Р±РµР»РѕРµ 750РјР»",
+                name="\u0420\u2019\u0420\u0451\u0420\u0405\u0420\u0455 Free Feather Chardonnay \u0420\u00b1\u0420\u00b5\u0420\u00b7\u0420\u00b0\u0420\u00bb\u0420\u0454\u0420\u0455\u0420\u0456\u0420\u0455\u0420\u00bb\u0421\u040a\u0420\u0405\u0420\u0455\u0420\u00b5 \u0420\u0457\u0420\u0455\u0420\u00bb\u0421\u0453\u0421\u0403\u0420\u00bb\u0420\u00b0\u0420\u0491\u0420\u0454\u0420\u0455\u0420\u00b5 \u0420\u00b1\u0420\u00b5\u0420\u00bb\u0420\u0455\u0420\u00b5 750\u0420\u0458\u0420\u00bb",
                 brand="Free Feather",
                 price=699.99,
                 image_url="https://img.example/4225897.webp",
                 product_link="https://5ka.ru/product/vino-free-feather--4225897/",
-                category="Р‘РµР·Р°Р»РєРѕРіРѕР»СЊРЅРѕРµ РІРёРЅРѕ",
-                subcategory="РўРёС…РѕРµ",
+                category="\u0420\u2018\u0420\u00b5\u0420\u00b7\u0420\u00b0\u0420\u00bb\u0420\u0454\u0420\u0455\u0420\u0456\u0420\u0455\u0420\u00bb\u0421\u040a\u0420\u0405\u0420\u0455\u0420\u00b5 \u0420\u0406\u0420\u0451\u0420\u0405\u0420\u0455",
+                subcategory="\u0420\u045e\u0420\u0451\u0421\u2026\u0420\u0455\u0420\u00b5",
                 in_stock=True,
                 raw_data={
                     "supplier": "Free Feather",
-                    "alcohol_type": "Р‘РµР·Р°Р»РєРѕРіРѕР»СЊРЅРѕРµ",
+                    "alcohol_type": "\u0420\u2018\u0420\u00b5\u0420\u00b7\u0420\u00b0\u0420\u00bb\u0420\u0454\u0420\u0455\u0420\u0456\u0420\u0455\u0420\u00bb\u0421\u040a\u0420\u0405\u0420\u0455\u0420\u00b5",
                 },
             ),
             Product(
                 id="4225898",
-                name="Р’РёРЅРѕ OddBird Spumante Р±РµР·Р°Р»РєРѕРіРѕР»СЊРЅРѕРµ Р±РµР»РѕРµ 750РјР»",
+                name="\u0420\u2019\u0420\u0451\u0420\u0405\u0420\u0455 OddBird Spumante \u0420\u00b1\u0420\u00b5\u0420\u00b7\u0420\u00b0\u0420\u00bb\u0420\u0454\u0420\u0455\u0420\u0456\u0420\u0455\u0420\u00bb\u0421\u040a\u0420\u0405\u0420\u0455\u0420\u00b5 \u0420\u00b1\u0420\u00b5\u0420\u00bb\u0420\u0455\u0420\u00b5 750\u0420\u0458\u0420\u00bb",
                 brand="OddBird",
                 price=899.99,
                 image_url="https://img.example/4225898.webp",
                 product_link="https://5ka.ru/product/vino-oddbird--4225898/",
-                category="Р‘РµР·Р°Р»РєРѕРіРѕР»СЊРЅРѕРµ РІРёРЅРѕ",
-                subcategory="РРіСЂРёСЃС‚РѕРµ",
+                category="\u0420\u2018\u0420\u00b5\u0420\u00b7\u0420\u00b0\u0420\u00bb\u0420\u0454\u0420\u0455\u0420\u0456\u0420\u0455\u0420\u00bb\u0421\u040a\u0420\u0405\u0420\u0455\u0420\u00b5 \u0420\u0406\u0420\u0451\u0420\u0405\u0420\u0455",
+                subcategory="\u0420\u0098\u0420\u0456\u0421\u0402\u0420\u0451\u0421\u0403\u0421\u201a\u0420\u0455\u0420\u00b5",
                 in_stock=True,
                 raw_data={
                     "supplier": "OddBird",
-                    "alcohol_type": "Р‘РµР·Р°Р»РєРѕРіРѕР»СЊРЅРѕРµ",
+                    "alcohol_type": "\u0420\u2018\u0420\u00b5\u0420\u00b7\u0420\u00b0\u0420\u00bb\u0420\u0454\u0420\u0455\u0420\u0456\u0420\u0455\u0420\u00bb\u0421\u040a\u0420\u0405\u0420\u0455\u0420\u00b5",
                 },
             ),
         ],
@@ -375,7 +379,7 @@ async def test_local_task_registry_runs_store_report_filter_options_task(tmp_pat
             "selection": {
                 "shop": "pyaterochka",
                 "intent": "wine_catalog",
-                "categories": ["Р‘РµР·Р°Р»РєРѕРіРѕР»СЊРЅРѕРµ РІРёРЅРѕ"],
+                "categories": ["\u0420\u2018\u0420\u00b5\u0420\u00b7\u0420\u00b0\u0420\u00bb\u0420\u0454\u0420\u0455\u0420\u0456\u0420\u0455\u0420\u00bb\u0421\u040a\u0420\u0405\u0420\u0455\u0420\u00b5 \u0420\u0406\u0420\u0451\u0420\u0405\u0420\u0455"],
             },
             "filters": {},
             "output_name": "",

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from models.task_actor import RunManifest
+from utils.product_breakdown_summary import with_product_breakdown_alias
 
 
 def build_launcher_task_view(
@@ -22,6 +23,7 @@ def build_launcher_task_view(
     catalog_discovery: dict[str, Any] | None = None,
     intent_category_links: list[dict[str, Any]] | None = None,
     found_filters: dict[str, Any] | None = None,
+    site_filter_facets: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build one unified launcher view-model for any local task result."""
     summary = dict(manifest.summary or {})
@@ -41,10 +43,11 @@ def build_launcher_task_view(
         "full_catalog_tree": list(full_catalog_tree or []),
         "full_catalog_links": list(full_catalog_links or []),
         "full_catalog_count": int(summary.get("full_catalog_count") or len(full_catalog_links or [])),
-        "report_summary": dict(report_summary or {}),
+        "report_summary": with_product_breakdown_alias(report_summary),
         "export_summary": dict(export_summary or {}),
         "available_filter_counts": dict(available_filter_counts or {}),
         "found_filters": dict(found_filters or {}),
+        "site_filter_facets": dict(site_filter_facets or {}),
         "diagnostics_summary": dict(diagnostics_summary or {}),
         "catalog_discovery": dict(catalog_discovery or {}),
         "intent_category_links": list(intent_category_links or []),

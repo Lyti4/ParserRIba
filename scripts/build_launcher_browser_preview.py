@@ -12,7 +12,6 @@ if str(ROOT_DIR) not in sys.path:
 from launcher.browser_preview import build_browser_preview_html
 from launcher.desktop_controller import DesktopLauncherController
 
-
 def _apply_preview_demo_state(controller: DesktopLauncherController) -> None:
     """Seed a useful demo state when local task runners are unavailable."""
     categories = ["Fish", "Seafood", "Caviar & Snacks", "Cutlets & Mince"]
@@ -44,7 +43,7 @@ def _apply_preview_demo_state(controller: DesktopLauncherController) -> None:
         "available_filter_counts": {
             "suppliers": {"Russian Sea": 27, "Baltic Coast": 18, "Vici": 14},
             "brands": {"Russian Sea": 27, "Baltic Coast": 18, "Vici": 14},
-            "wine_styles": {},
+            "subcategories": {},
             "alcohol_types": {},
             "sugar_classes": {},
             "colors": {},

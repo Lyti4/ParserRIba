@@ -25,9 +25,11 @@ loguru>=0.7.2
 PySide6>=6.8.0
 beautifulsoup4>=4.12.0
 lxml>=4.9.0
+ftfy>=6.3.0
 
 # Export
 openpyxl>=3.1.0
+markitdown[docx,pdf,pptx,xlsx]>=0.1.6
 
 # Testing
 pytest>=7.4.0

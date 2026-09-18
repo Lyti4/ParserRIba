@@ -5,6 +5,7 @@ from __future__ import annotations
 
 WINDOW_TITLE = "ParserRIba Лаунчер"
 LAUNCHER_TITLE = "ParserRIba Desktop Launcher"
+STORE_URL_PLACEHOLDER = "Вставьте URL магазина, например https://example-shop.ru"
 
 SHOP_LABELS = {
     "pyaterochka": "Пятёрочка",
@@ -24,6 +25,8 @@ TASK_STATUS_LABELS = {
 
 TASK_NAME_LABELS = {
     "site_onboarding_discovery": "Исследование магазина",
+    "store_catalog_export": "Сбор товаров",
+    "pyaterochka_catalog_export": "Сбор товаров",
     "pyaterochka_fish_export": "Сбор товаров",
     "pyaterochka_wine_export": "Сбор товаров",
     "store_report_filter_options": "Загрузка фильтров",
@@ -31,17 +34,42 @@ TASK_NAME_LABELS = {
 }
 
 FILTER_TITLES = {
+    "categories": "Категории",
     "suppliers": "Поставщики",
     "brands": "Бренды",
-    "wine_styles": "Тип вина",
+    "brand": "Бренд",
+    "supplier": "Поставщик",
+    "producer": "Производитель",
+    "manufacturer": "Изготовитель",
+    "subcategories": "Подкатегория",
+    "wine_styles": "Подкатегория",
     "alcohol_types": "Алкогольный тип",
     "sugar_classes": "Сахар",
     "colors": "Цвет",
+    "country": "Страна",
+    "country_of_origin": "Страна происхождения",
+    "origin_country": "Страна происхождения",
+    "weight": "Вес",
+    "volume": "Объём",
+    "unit": "Единица",
+    "packaging": "Упаковка",
+    "fat": "Жирность",
+    "product_state": "Состояние",
+    "product_form": "Форма товара",
+    "protein": "Белки",
+    "carbohydrate": "Углеводы",
+    "calories": "Калорийность",
 }
 
 RESEARCH_MODE_LABELS = {
     "live": "Пошаговое исследование",
     "quiet": "Только итоговый результат",
+}
+
+BROWSER_RUNTIME_LABELS = {
+    "camoufox": "Camoufox (рекомендуется)",
+    "chromium": "Chromium (экспериментально)",
+    "cloak": "CloakBrowser (экспериментально)",
 }
 
 RESEARCH_PHASE_LABELS = {
@@ -61,21 +89,22 @@ STOCK_OPTION_OUT_OF_STOCK = "Нет в наличии"
 RESULT_TABLE_HEADERS = [
     "Категория",
     "Товар",
-    "Бренд",
     "Поставщик",
     "Тип",
-    "Алкогольный тип",
     "Цена",
     "В наличии",
     "Ссылка",
 ]
 
-REPORT_TABLE_HEADERS = ["Категория", "Товаров", "Топ поставщик", "Топ бренд"]
+REPORT_TABLE_HEADERS = ["Категория", "Товаров", "Топ поставщик"]
 
 
 def display_shop(value: str) -> str:
     """Return one Russian display label for a store code."""
-    return SHOP_LABELS.get(value, value)
+    normalized = str(value or "").strip()
+    if not normalized:
+        return "магазин ещё не выбран"
+    return SHOP_LABELS.get(normalized, normalized)
 
 
 def display_intent(value: str) -> str:

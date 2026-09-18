@@ -41,13 +41,16 @@ def resolve_known_site_categories(
 ) -> list[str]:
     """Resolve intent-aware categories from discovery evidence and KB."""
     kb_categories = load_kb_categories(root_dir, site_profile.kb_shop)
+    normalized_intent = str(intent or "").strip()
     if discovery.category_links:
         discovered_categories = {item.name or item.url: item.url for item in discovery.category_links}
-        if not kb_categories:
+        if not kb_categories or not normalized_intent:
             return list(discovered_categories)
-        return get_category_intent_resolver(intent)("Рыба", discovered_categories)
+        return get_category_intent_resolver(normalized_intent)("Рыба", discovered_categories)
     if kb_categories:
-        return get_category_intent_resolver(intent)("Рыба", kb_categories)
+        if not normalized_intent:
+            return list(kb_categories)
+        return get_category_intent_resolver(normalized_intent)("Рыба", kb_categories)
     return []
 
 

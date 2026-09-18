@@ -6,6 +6,9 @@ Date: 2026-05-14
 
 The architecture steward is a local Codex workflow for keeping ParserRIba stable
 while the project moves from smoke scripts to a distributable parser app.
+It treats `C:\tmp\ParserRIba-clean` as the authoritative local workspace.
+GitHub is for commits, history, backup and review; it is not the active runtime
+environment.
 
 The main target architecture for the current stage is tracked in
 `docs/TARGET_ARCHITECTURE.md`; delivery order is tracked in
@@ -13,7 +16,7 @@ The main target architecture for the current stage is tracked in
 
 It is not part of the user-facing program, does not run in the background, and
 does not call paid scraping, captcha, LLM, or cloud services. Its job is to
-review the repository before large changes and before release builds.
+review the local workspace before large changes and before release builds.
 
 ## Steward Responsibilities
 
@@ -26,8 +29,11 @@ review the repository before large changes and before release builds.
   binary caches out of Git.
 - Keep diagnostic scripts useful, but stop them from becoming the permanent
   runtime architecture.
-- Track when a file is a target-core dependency, a store adapter, or an archive
-  candidate.
+- Track when a file is a target-core dependency, a store adapter, or an
+  obsolete cleanup candidate.
+- Enforce replacement discipline: when a new feature supersedes old behavior,
+  the old active path must be removed or documented with a concrete
+  removal condition.
 
 ## Regular Checks
 
@@ -35,7 +41,7 @@ Run the fast checks before large parser changes:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m compileall -q main.py models parsers policies strategies utils scripts tests
+.\.venv\Scripts\python.exe -m compileall -q models utils scripts tests stores launcher
 .\.venv\Scripts\python.exe scripts\architecture_check.py
 ```
 
@@ -50,28 +56,28 @@ dist\ParserRIba\ParserRIba.exe --check-env
 
 ## Current Refactor Candidates
 
-- `main.py`, `parsers/`, `strategies/` and `policies/`: legacy archive
-  candidates. Do not develop them as product runtime.
-- `utils/session_manager.py`: legacy experimental session code. Extract useful
-  mechanics into the Browser Core or archive it.
+- old `main.py` and `parsers/`: removed legacy reference. Do not restore them
+  as product runtime; use git history only when evidence is needed.
+- `utils/session_manager.py`: removed legacy experimental session code. Active
+  session state belongs in `utils.session_pool`.
 - old non-Pyaterochka store parsers: do not stabilize. New stores enter through
   discovery and store adapters.
-- `parsers/playwright_parser.py`: archive after any useful fallback mechanics
-  are extracted.
+- old parser bridge files and `parsers/pyaterochka.py` are removed; useful
+  Pyaterochka mechanics belong in the adapter/browser/discovery path.
 - `scripts/smoke_pyaterochka_camoufox.py`: useful but too large. Split later
   into network diagnostics, card extraction, attempt orchestration, and report
   writing.
 
-These files should not be deleted just because they are listed here. Tests or a
-compatibility path are only for proving a migration; after useful mechanics are
-extracted, archive the old behavior and do not add new product logic to legacy
-modules.
+Removed files should not be restored just because a historical behavior is
+useful. Tests or a compatibility path are only for proving a migration; after
+useful mechanics are extracted, remove the old behavior and do not add new
+product logic to legacy modules.
 
 ## Supporting Plans
 
 - `docs/ROADMAP_V1.md`: primary architecture and delivery roadmap.
 - `docs/TARGET_ARCHITECTURE.md`: canonical layer doctrine and product workflow.
-- `docs/PROJECT_STRUCTURE.md`: active folder/layer map and archive policy.
+- `docs/PROJECT_STRUCTURE.md`: active folder/layer map and cleanup policy.
 - `docs/PROJECT_FILE_FLOW_MAP.md`: generated physical map of Python file
   dependencies, launch paths, runtime circumstances and cleanup candidates.
 - `docs/PLATFORM_FOUNDATION.md`: platform primitives and refactor base.
@@ -102,6 +108,10 @@ Created locally in `C:\Users\Дима\.codex\skills`:
 5. `parserriba-site-error-diagnostics`: unified `Site Error Tracking`,
    `browser_observations`, MCP console/network observations, challenge,
    product API and selector-vs-runtime triage.
+6. `parserriba-replacement-discipline`: prevents duplicate old/new active
+   implementations when adding or replacing functionality.
+7. `parserriba-safe-file-split`: prevents encoding corruption, BOM insertion
+   and broad rewrites when splitting long ParserRIba files or moving tests.
 
 Use the architecture steward for broad repo health, target-core boundary checks,
 smoke diagnostics after visual/API discovery runs, and proxy diagnostics

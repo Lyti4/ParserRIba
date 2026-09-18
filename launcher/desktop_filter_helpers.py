@@ -6,9 +6,10 @@ from typing import Any
 
 
 FILTER_COUNT_KEYS = {
+    "categories": "categories",
     "suppliers": "suppliers",
     "brands": "brands",
-    "wine_styles": "wine_styles",
+    "subcategories": "subcategories",
     "alcohol_types": "alcohol_types",
     "sugar_classes": "sugar_classes",
     "colors": "colors",

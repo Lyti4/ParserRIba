@@ -13,7 +13,7 @@ browser:
   timeout: 30000  # мс
   user_agent_rotation: true
   fingerprinting: true  # Включить цифровые отпечатки через BrowserForge
-  
+
   # Camoufox настройки
   camoufox:
     humanize: true  # Human-like курсор (C++ реализация надёжнее)
@@ -22,7 +22,7 @@ browser:
     block_webgl: true  # Блокировка WebGL
     block_resources: true  # Блокировка трекеров и аналитики
     addons: []  # Пути к аддонам (например, ["addons/ublock"])
-    
+
   # Fingerprint настройки
   fingerprint:
     auto_generate: true  # Автоматическая генерация отпечатков через BrowserForge
@@ -42,7 +42,7 @@ network:
   retry_delay: 5  # секунды
   proxy_rotation: true
   request_timeout: 15  # секунд
-  
+
   # Proxy с geoip согласованием
   proxy:
     geoip_enabled: false  # Включить согласование региона прокси
@@ -120,7 +120,7 @@ output:
   directory: "data"
   filename_pattern: "{store}_{category}_{date}.json"
   pretty_print: true
-  
+
   # Метрики
   export_metrics: true  # Экспорт метрик (время, блокировки)
 

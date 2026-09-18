@@ -12,8 +12,10 @@ from launcher.desktop_state_readers import (
     diagnostics_summary,
     full_catalog_links,
     full_catalog_tree,
+    product_items,
     report_summary,
 )
+from launcher.desktop_store_identity import active_store_display_name
 from launcher.desktop_ui_text import (
     display_research_mode,
     display_research_phase,
@@ -29,7 +31,7 @@ def build_status_text(state: LauncherAppState) -> str:
     task = state.task
     research = state.research
     parts = [
-        f"Магазин: {display_shop(state.selection.shop)}",
+        f"Магазин: {display_shop(active_store_display_name(state))}",
         f"Режим исследования: {display_research_mode(research.mode)}",
     ]
     if task.task_name == "site_onboarding_discovery" or task.status == "running":
@@ -49,7 +51,7 @@ def build_summary_text(state: LauncherAppState) -> str:
         lines.append(state.task.message.strip())
     if state.task.status == "running":
         lines.append("Лаунчер ожидает завершения текущего действия.")
-    if state.task.last_error:
+    if state.task.status == "failed" and state.task.last_error:
         lines.append(f"Последняя ошибка: {state.task.last_error}")
     _append_research_summary(lines, state)
 
@@ -89,6 +91,18 @@ def build_result_caption_text(state: LauncherAppState) -> str:
     return " | ".join(parts) if parts else "Пока нет строк результата."
 
 
+def build_product_workspace_summary_text(state: LauncherAppState) -> str:
+    """Build an always-visible product table summary."""
+    products = product_items(state)
+    shown_count = len(build_result_rows(state)) if products else 0
+    selected_count = len(state.selection.selected_product_ids)
+    return (
+        f"\u0422\u043e\u0432\u0430\u0440\u044b: {len(products)} | "
+        f"\u041f\u043e\u043a\u0430\u0437\u0430\u043d\u043e: {shown_count} | "
+        f"\u0412\u044b\u0431\u0440\u0430\u043d\u043e: {selected_count}"
+    )
+
+
 def build_result_rows(state: LauncherAppState) -> list[list[str]]:
     """Build rows for the launcher result table."""
     table = build_result_table(state)
@@ -115,28 +129,6 @@ def _append_research_summary(lines: list[str], state: LauncherAppState) -> None:
         lines.append("Предупреждение: частично исследовано.")
 
 
-def _append_top_counts(lines: list[str], title: str, counts: object) -> None:
-    if not isinstance(counts, dict) or not counts:
-        return
-    pairs = sorted(
-        ((str(name), int(count)) for name, count in counts.items()),
-        key=lambda item: (-item[1], item[0]),
-    )[:3]
-    lines.append(f"{title}: {', '.join(f'{name}={count}' for name, count in pairs)}")
-
-
-def _append_wine_breakdown(lines: list[str], breakdown: object) -> None:
-    if not isinstance(breakdown, dict):
-        return
-    for title, key in (
-        ("Типы вина", "style_counts"),
-        ("Алкогольный тип", "alcohol_type_counts"),
-        ("Классы сахара", "sugar_class_counts"),
-        ("Цвета", "color_counts"),
-    ):
-        _append_top_counts(lines, title, breakdown.get(key))
-
-
 def _append_result_context(lines: list[str], state: LauncherAppState) -> None:
     lines.extend(_result_context_parts(state))
 
@@ -146,26 +138,28 @@ def _result_context_parts(state: LauncherAppState) -> list[str]:
     rows = table.get("rows")
     row_count = len(rows) if isinstance(rows, list) else 0
     parts: list[str] = []
+    products = product_items(state)
+    empty_export_text = _empty_export_text(state)
+    if products:
+        parts.append(f"Показано {row_count} из {len(products)} товаров")
+    if not products and empty_export_text:
+        parts.append(empty_export_text)
     if row_count == 0:
         report_summary = _report_summary(state)
         category_counts = report_summary.get("category_counts") if isinstance(report_summary, dict) else None
         if isinstance(category_counts, dict):
             row_count = len(category_counts)
-    if row_count:
+    if row_count and not products:
         parts.append(f"Строк показано: {row_count}")
     selected_count = len(state.selection.selected_product_ids)
     if selected_count:
         parts.append(f"Выбрано товаров: {selected_count}")
     active_filters = _active_filter_parts(state)
-    if state.result.json_path and Path(state.result.json_path).exists():
+    if state.result.json_path and Path(state.result.json_path).exists() and not empty_export_text:
         parts.append("\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a: \u043e\u0442\u0444\u0438\u043b\u044c\u0442\u0440\u043e\u0432\u0430\u043d\u043d\u044b\u0439 JSON \u0432\u044b\u0433\u0440\u0443\u0437\u043a\u0438" if active_filters else "\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a: JSON \u0432\u044b\u0433\u0440\u0443\u0437\u043a\u0438")
     elif _report_summary(state):
         parts.append("\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a: \u0441\u0432\u043e\u0434\u043a\u0430 \u043f\u043e \u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d\u043d\u043e\u043c\u0443 \u043e\u0442\u0447\u0451\u0442\u0443")
-    elif full_catalog_tree(state):
-        parts.append("\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a: \u043f\u043e\u043b\u043d\u044b\u0439 \u043a\u0430\u0442\u0430\u043b\u043e\u0433 \u0438\u0441\u0441\u043b\u0435\u0434\u043e\u0432\u0430\u043d\u0438\u044f")
-    elif _category_tree(state):
-        parts.append("\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a: \u0438\u0441\u0441\u043b\u0435\u0434\u043e\u0432\u0430\u043d\u0438\u0435 \u043c\u0430\u0433\u0430\u0437\u0438\u043d\u0430")
-    if state.result.json_path and Path(state.result.json_path).exists():
+    if state.result.json_path and Path(state.result.json_path).exists() and not empty_export_text:
         if selected_count:
             parts.append("\u041e\u0442\u0447\u0451\u0442 \u0431\u0443\u0434\u0435\u0442 \u043f\u043e\u0441\u0442\u0440\u043e\u0435\u043d \u043f\u043e \u0432\u044b\u0431\u0440\u0430\u043d\u043d\u044b\u043c \u0442\u043e\u0432\u0430\u0440\u0430\u043c")
         elif row_count:
@@ -175,13 +169,26 @@ def _result_context_parts(state: LauncherAppState) -> list[str]:
     return parts
 
 
+def _empty_export_text(state: LauncherAppState) -> str:
+    summary = state.result.summary
+    if str(summary.get("products_count") or "") not in {"", "0"}:
+        return ""
+    attempt = summary.get("attempt")
+    reason = str((attempt or {}).get("reason") or "") if isinstance(attempt, dict) else ""
+    if not reason:
+        return ""
+    if "captcha" in reason or "challenge" in reason or "antibot" in reason:
+        return f"Сбор остановлен защитой сайта: {reason}"
+    return f"Сбор завершился без карточек товаров: {reason}"
+
+
 def _active_filter_parts(state: LauncherAppState) -> list[str]:
     parts: list[str] = []
     for label, values in (
         ("поставщики", state.filters.suppliers),
         ("бренды", state.filters.brands),
         ("категории", state.filters.categories),
-        ("типы вина", state.filters.wine_styles),
+        ("подкатегории", state.filters.subcategories),
         ("алкогольный тип", state.filters.alcohol_types),
         ("сахар", state.filters.sugar_classes),
         ("цвет", state.filters.colors),

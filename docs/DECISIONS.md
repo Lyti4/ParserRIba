@@ -37,11 +37,18 @@ Date: 2026-05-15
    Local skills guide Codex work across chats, but they are not runtime features
    shipped to users.
 
+9. Second browser work is deferred after the initial runtime contract.
+   Keep Camoufox as the stable default. The completed browser-runtime contract
+   may remain as a neutral boundary, but launcher browser switching,
+   StoreProfile runtime preferences, CloakBrowser backend work and A/B browser
+   smoke wait until full store-neutral unification is completed.
+
 ## Open Decisions
 
 - Exact SQLite product and price-history schema.
 - Whether Pyaterochka can be extracted through API-first flow or needs DOM
   fallback for some categories.
 - Which second store should be stabilized after Pyaterochka.
+- When to resume optional second-browser work after store-neutral unification.
 - When to move from local SQLite to Postgres.
 - When to build GUI/installer after parser reliability improves.

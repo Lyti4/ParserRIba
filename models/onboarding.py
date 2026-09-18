@@ -34,7 +34,7 @@ class OnboardingResult(BaseModel):
     session_id: str
     shop_slug: str
     site_url: str
-    intent: str = "fish_catalog"
+    intent: str
     status: OnboardingStatus
     category_tree: list[DiscoveredCategoryNode] = Field(default_factory=list)
     selected_categories: list[str] = Field(default_factory=list)

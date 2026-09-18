@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
-from models.launcher_state import LauncherAppState
+from launcher.desktop_export_facets import build_available_filter_counts_from_products, merge_filter_option_maps
+from models.launcher_state import LauncherAppState, LauncherFilterState
 from utils.local_task_adapter import LocalTaskProcessResult
 
 
@@ -17,7 +20,10 @@ def sync_workspace_state(state: LauncherAppState, result: LocalTaskProcessResult
     _sync_profile_state(state, result, summary, view)
     _sync_catalog_state(state, summary, view)
     _sync_product_state(state, summary, artifacts, view)
-    _sync_dynamic_filter_state(state, view)
+    if _is_empty_product_export(result, summary):
+        _clear_empty_product_export_filters(state)
+        return
+    _sync_dynamic_filter_state(state, summary, view, state.products.items)
 
 
 def _sync_result_state(
@@ -125,14 +131,27 @@ def _sync_product_state(
     state.products.selected_product_ids = list(state.selection.selected_product_ids)
     state.products.json_path = str(artifacts.get("json_path") or state.result.json_path or "")
     state.products.excel_path = str(artifacts.get("excel_path") or state.result.excel_path or "")
+    product_items = _products_from_summary(summary)
+    json_items, json_loaded = _products_from_json_path(state.products.json_path)
+    if not product_items and json_loaded:
+        product_items = json_items
+    if product_items or "products" in summary or json_loaded:
+        state.products.items = product_items
+        state.products.products_count = len(product_items)
     found_fields = view.get("found_filters") or summary.get("found_filters")
     if isinstance(found_fields, dict):
         state.products.discovered_fields = dict(found_fields)
 
 
-def _sync_dynamic_filter_state(state: LauncherAppState, view: dict[str, Any]) -> None:
-    available = view.get("available_filter_counts")
-    found = view.get("found_filters")
+def _sync_dynamic_filter_state(state: LauncherAppState, summary: dict[str, Any], view: dict[str, Any], product_items: list[dict[str, Any]]) -> None:
+    product_counts = build_available_filter_counts_from_products(product_items)
+    found_from_products = product_counts.pop("found_filters", {})
+    available = view.get("available_filter_counts") or product_counts
+    found = merge_filter_option_maps(
+        found_from_products,
+        summary.get("site_filter_facets") or view.get("site_filter_facets"),
+        view.get("found_filters"),
+    )
     state.dynamic_filters.available_filters = {}
     state.dynamic_filters.counts = {}
     state.dynamic_filters.ranges = {}
@@ -144,6 +163,7 @@ def _sync_dynamic_filter_state(state: LauncherAppState, view: dict[str, Any]) ->
             for key in available
         }
     if isinstance(found, dict) and found:
+        state.products.discovered_fields = dict(found)
         state.dynamic_filters.available_filters.update(
             {
                 str(key): {"kind": "found_field", "source": "found_filters"}
@@ -158,10 +178,50 @@ def _sync_dynamic_filter_state(state: LauncherAppState, view: dict[str, Any]) ->
         ]
 
 
+def _is_empty_product_export(result: LocalTaskProcessResult, summary: dict[str, Any]) -> bool:
+    if result.manifest.task_name != "store_catalog_export" and not isinstance(summary.get("attempt"), dict):
+        return False
+    return _int_value(summary.get("products_count"), 0) == 0
+
+
+def _clear_empty_product_export_filters(state: LauncherAppState) -> None:
+    state.products.items = []
+    state.products.products_count = 0
+    state.products.selected_product_ids = []
+    state.products.discovered_fields = {}
+    state.selection.selected_product_ids = []
+    state.filters = LauncherFilterState()
+    state.dynamic_filters.available_filters = {}
+    state.dynamic_filters.counts = {}
+    state.dynamic_filters.ranges = {}
+    state.dynamic_filters.missing_fields = []
+    state.dynamic_filters.applied_values = {}
+    state.result.launcher_view.pop("found_filters", None)
+    state.result.launcher_view.pop("site_filter_facets", None)
+    state.result.launcher_view.pop("report_summary", None)
+    state.result.launcher_view.pop("available_filter_counts", None)
+
+
 def _dict_list(value: Any) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
     return [item for item in value if isinstance(item, dict)]
+
+
+def _products_from_summary(summary: dict[str, Any]) -> list[dict[str, Any]]:
+    return _dict_list(summary.get("products"))
+
+
+def _products_from_json_path(json_path: str) -> tuple[list[dict[str, Any]], bool]:
+    path = Path(str(json_path or ""))
+    if not path.exists():
+        return [], False
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return [], False
+    products = payload.get("products")
+    return _dict_list(products), isinstance(products, list)
 
 
 def _str_list(value: Any) -> list[str]:

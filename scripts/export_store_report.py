@@ -26,7 +26,7 @@ def _configure_stdio() -> None:
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build a filtered store Excel report from SQLite")
     parser.add_argument("--shop", required=True)
-    parser.add_argument("--intent", default="fish_catalog")
+    parser.add_argument("--intent", required=True)
     parser.add_argument("--category", action="append", default=[])
     parser.add_argument("--product-id", action="append", default=[])
     parser.add_argument("--supplier", action="append", default=[])
@@ -59,7 +59,7 @@ def _build_request(args: argparse.Namespace) -> ReportRequest:
             min_price=args.min_price,
             max_price=args.max_price,
             in_stock=True if args.in_stock_only else None,
-            wine_styles=list(args.wine_style or []),
+            subcategories=list(args.wine_style or []),
             alcohol_types=list(args.alcohol_type or []),
             sugar_classes=list(args.sugar_class or []),
             colors=list(args.color or []),

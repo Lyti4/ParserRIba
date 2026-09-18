@@ -261,7 +261,10 @@ def test_desktop_launcher_controller_runs_selected_export_for_every_category(tmp
         "Supplier Рыба": 1,
         "Supplier Морепродукты": 1,
     }
-    assert controller.state.products.discovered_fields == {"country": {"Норвегия": 2}}
+    assert controller.state.products.discovered_fields == {
+        "country": {"Норвегия": 2},
+        "alcohol_type": {"Безалкогольное": 2},
+    }
 
 
 def test_desktop_launcher_controller_save_settings_sets_message(tmp_path: Path) -> None:
@@ -304,8 +307,8 @@ def test_open_path_with_system_handler_uses_linux_opener(monkeypatch: pytest.Mon
     def fake_popen(command: list[str]) -> None:
         captured["command"] = command
 
-    monkeypatch.setattr("launcher.desktop_controller.sys.platform", "linux")
-    monkeypatch.setattr("launcher.desktop_controller.subprocess.Popen", fake_popen)
+    monkeypatch.setattr("launcher.desktop_path_opener.sys.platform", "linux")
+    monkeypatch.setattr("launcher.desktop_path_opener.subprocess.Popen", fake_popen)
 
     open_path_with_system_handler("/tmp/report.xlsx")
 

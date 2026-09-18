@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
 from pathlib import Path
 from typing import Any, Callable
 
@@ -19,40 +16,48 @@ from launcher.desktop_controller_helpers import (
     result_message,
     selected_export_targets,
 )
-from launcher.desktop_controller_reports import (
-    apply_filter_counts_from_export_json,
-    load_filter_options,
-    refresh_filter_counts_after_export,
-    run_selected_report_export,
-)
-from launcher.desktop_controller_profile import persist_launcher_profile_snapshot
+from launcher.desktop_controller_favorites_mixin import DesktopControllerFavoritesMixin
+from launcher.desktop_controller_reports import apply_filter_counts_from_export_json, load_filter_options, refresh_filter_counts_after_export, run_selected_report_export
+from launcher.desktop_controller_profile import persist_launcher_profile_snapshot, save_current_profile_session
+from launcher.desktop_controller_profile_load import list_profile_sessions as list_saved_profile_sessions, load_latest_profile_session as load_latest_profile_session_action, load_profile_session as load_profile_session_action
+from launcher.desktop_controller_open import open_controller_path
 from launcher.desktop_controller_selection import update_selection_state
+from launcher.desktop_controller_task_state import launcher_task_status_from_manifest, mark_product_export_started
 from launcher.desktop_controller_research import sync_research_state
 from launcher.desktop_controller_workspace import sync_workspace_state
+from launcher.desktop_project_workspace import (
+    create_controller_workspace,
+    ensure_controller_workspace,
+    list_controller_workspace_profiles,
+    rename_controller_workspace,
+    select_controller_workspace,
+)
+from launcher.desktop_path_opener import open_path_with_system_handler
+from launcher.desktop_store_identity import active_store_code
+from launcher.desktop_workspace_reset import clear_product_workspace_for_research
+from launcher.desktop_workspace_journal import record_task_completed_event, record_task_failed_event
 from launcher.desktop_user_messages import (
     friendly_error_message,
     no_selected_categories_message,
-    no_output_path_message,
-    opened_path_message,
     settings_saved_message,
     task_progress_message,
     task_running_message,
 )
+from models.launcher_state import LauncherFilterState
 from utils.launcher_settings import LauncherSettingsStore
 from utils.local_task_adapter import LocalTaskProcessResult
-
-TaskRunner = Callable[..., LocalTaskProcessResult]
-PathOpener = Callable[[str], None]
-
-class DesktopLauncherController:
+TaskRunner = Callable[..., LocalTaskProcessResult]; PathOpener = Callable[[str], None]
+class DesktopLauncherController(DesktopControllerFavoritesMixin):
     """Manage launcher state transitions and local task execution."""
-
     def __init__(
         self,
         *,
         root_dir: Path | str,
         settings_store: LauncherSettingsStore | None = None,
         onboarding_runner: TaskRunner | None = None,
+        store_export_runner: TaskRunner | None = None,
+        report_runner: TaskRunner | None = None,
+        filter_options_runner: TaskRunner | None = None,
         fish_export_runner: TaskRunner | None = None,
         wine_export_runner: TaskRunner | None = None,
         fish_report_runner: TaskRunner | None = None,
@@ -69,17 +74,12 @@ class DesktopLauncherController:
         from utils import launcher_task_controller as task_controller
 
         self.onboarding_runner = onboarding_runner or task_controller.run_launcher_onboarding_discovery
-        self.fish_export_runner = fish_export_runner or task_controller.run_launcher_fish_export
-        self.wine_export_runner = wine_export_runner or task_controller.run_launcher_wine_export
-        self.fish_report_runner = fish_report_runner or task_controller.run_launcher_fish_report_export
-        self.wine_report_runner = wine_report_runner or task_controller.run_launcher_wine_report_export
-        self.fish_filter_options_runner = (
-            fish_filter_options_runner or task_controller.run_launcher_fish_report_filter_options
-        )
-        self.wine_filter_options_runner = (
-            wine_filter_options_runner or task_controller.run_launcher_wine_report_filter_options
-        )
+        self.store_export_runner = store_export_runner or fish_export_runner or wine_export_runner or task_controller.run_launcher_store_export
+        self.report_runner = report_runner or fish_report_runner or wine_report_runner or task_controller.run_launcher_report_export
+        self.filter_options_runner = filter_options_runner or fish_filter_options_runner or wine_filter_options_runner or task_controller.run_launcher_report_filter_options
         self.path_opener = path_opener or open_path_with_system_handler
+        ensure_controller_workspace(self)
+        self.hydrate_workspace_favorites()
 
     def set_selection(
         self,
@@ -101,7 +101,7 @@ class DesktopLauncherController:
 
     def set_filters(self, filters: dict[str, Any]) -> None:
         """Replace current filter state from a plain mapping."""
-        self.state.filters = self.state.filters.model_copy(update=filters)
+        self.state.filters = LauncherFilterState().model_copy(update=filters)
 
     def set_settings(self, settings: dict[str, Any]) -> None:
         """Replace launcher settings from a plain mapping."""
@@ -134,7 +134,12 @@ class DesktopLauncherController:
             manual_wait=self.state.settings.manual_wait,
             listen_seconds=self.state.settings.listen_seconds,
             research_mode=self.state.research.mode,
-            timeout_seconds=_task_timeout_seconds(self.state.settings.listen_seconds),
+            browser_runtime=self.state.settings.browser_runtime,
+            timeout_seconds=_research_timeout_seconds(
+                self.state.settings.listen_seconds,
+                manual_wait=self.state.settings.manual_wait,
+                headless=self.state.settings.headless,
+            ),
         )
 
     def run_selected_export(self) -> LocalTaskProcessResult:
@@ -154,19 +159,25 @@ class DesktopLauncherController:
             raise error
         common = {
             "root_dir": self.root_dir,
+            "shop": active_store_code(self.state),
+            "intent": self.state.selection.intent,
             "attempts": self.state.settings.attempts,
             "listen_seconds": self.state.settings.listen_seconds,
             "headless": self.state.settings.headless,
             "manual_wait": self.state.settings.manual_wait,
+            "browser_runtime": self.state.settings.browser_runtime,
             "expand_intent": False,
             "timeout_seconds": _task_timeout_seconds(self.state.settings.listen_seconds),
         }
         self._start_task(task_name)
+        mark_product_export_started(self.state, total_targets=len(targets))
+        self.save_state()
         results: list[LocalTaskProcessResult] = []
         captured_payloads: list[dict[str, Any]] = []
         try:
             for index, target in enumerate(targets, start=1):
                 category_name = target["name"]
+                self.state.task.progress_current = index
                 self.state.task.message = task_progress_message(task_name, category_name, index, len(categories))
                 result = runner(category=category_name, category_url=target.get("url", ""), **common)
                 results.append(result)
@@ -175,6 +186,7 @@ class DesktopLauncherController:
                     captured_payloads.append(payload)
         except Exception as error:
             self._fail_task(error)
+            self.save_state()
             raise
         result = combine_export_results(results, categories, captured_payloads=captured_payloads)
         self._apply_result(result)
@@ -185,21 +197,43 @@ class DesktopLauncherController:
     def run_selected_report_export(self) -> LocalTaskProcessResult:
         """Build the selected local Excel report from stored products."""
         return run_selected_report_export(self)
-
     def load_filter_options(self) -> LocalTaskProcessResult:
         """Load post-capture filter options for the current selection."""
         return load_filter_options(self)
 
+    def load_latest_profile_session(self, *, shop: str = "", site_url: str = "") -> bool:
+        loaded = load_latest_profile_session_action(self, shop=shop, site_url=site_url); self.save_state(); return loaded
+
+    def load_profile_session(self, *, workspace_id: str = "", profile_id: str = "", version_id: str = "") -> bool:
+        loaded = load_profile_session_action(self, workspace_id=workspace_id, profile_id=profile_id, version_id=version_id); self.save_state(); return loaded
+
+    def list_profile_sessions(self, *, profile_id: str = "") -> list[dict[str, Any]]:
+        return list_saved_profile_sessions(self, profile_id=profile_id)
+
+    def save_profile_session(self) -> bool:
+        saved = save_current_profile_session(self); self.save_state(); return saved
+
+    def create_workspace(self, name: str) -> dict[str, Any]:
+        workspace = create_controller_workspace(self, name); self.save_state(); return workspace
+
+    def rename_workspace(self, workspace_id: str, name: str) -> dict[str, Any]:
+        workspace = rename_controller_workspace(self, workspace_id, name); self.save_state(); return workspace
+
+    def select_workspace(self, workspace_id: str) -> bool:
+        selected = select_controller_workspace(self, workspace_id); self.save_state(); return selected
+
+    def list_workspace_profiles(self) -> list[dict[str, str]]:
+        return list_controller_workspace_profiles(self)
+
     def open_excel(self) -> bool:
         """Open the latest Excel artifact if it exists."""
-        return self._open_path(self.state.result.excel_path)
+        return open_controller_path(self, self.path_opener, self.state.result.excel_path)
     def open_report_dir(self) -> bool:
         """Open the latest report directory if it exists."""
-        return self._open_path(self.state.result.report_dir)
+        return open_controller_path(self, self.path_opener, self.state.result.report_dir)
     def open_json(self) -> bool:
         """Open the latest JSON artifact if it exists."""
-        return self._open_path(self.state.result.json_path)
-
+        return open_controller_path(self, self.path_opener, self.state.result.json_path)
     def _run_task(self, *, task_name: str, runner: TaskRunner, **kwargs: Any) -> LocalTaskProcessResult:
         self._start_task(task_name)
         try:
@@ -215,6 +249,10 @@ class DesktopLauncherController:
     def _start_task(self, task_name: str) -> None:
         self.state.task.status = "running"
         self.state.task.task_name = task_name
+        self.state.task.task_kind = ""
+        self.state.task.phase = ""
+        self.state.task.progress_current = 0
+        self.state.task.progress_total = 0
         self.state.task.message = task_running_message(task_name)
         self.state.task.last_error = ""
         if task_name == "site_onboarding_discovery":
@@ -225,7 +263,8 @@ class DesktopLauncherController:
     def _fail_task(self, error: Exception) -> None:
         self.state.task.status = "failed"
         self.state.task.message = friendly_error_message(error)
-        self.state.task.last_error = str(error)
+        self.state.task.last_error = friendly_error_message(error)
+        record_task_failed_event(self)
         if self.state.task.task_name == "site_onboarding_discovery":
             self.state.research.current_status = "failed"
 
@@ -235,9 +274,9 @@ class DesktopLauncherController:
             self.state.result.json_path = ""
             self.state.result.report_dir = ""
             self.state.result.launcher_view = reset_result_state_for_onboarding(self.state.result.launcher_view)
-            self.state.selection.categories = []
-            self.state.selection.selected_catalog_nodes = []
-            self.state.selection.selected_product_ids = []
+            self.state.selection.categories, self.state.selection.selected_catalog_nodes, self.state.selection.selected_product_ids = [], [], []
+            self.state.selection.intent = str(result.manifest.intent or "").strip()
+            clear_product_workspace_for_research(self.state)
         artifacts = dict(result.manifest.artifact_paths or {})
         self.state.result.launcher_view = merge_launcher_view(
             dict(self.state.result.launcher_view),
@@ -248,49 +287,29 @@ class DesktopLauncherController:
         self.state.result.report_dir = report_dir_from_artifacts(artifacts, existing_report_dir=self.state.result.report_dir)
         apply_filter_counts_from_export_json(self)
         sync_workspace_state(self.state, result)
-        self.state.task.status = "succeeded" if result.manifest.status != "failed" else "failed"
+        self.state.task.status = launcher_task_status_from_manifest(result.manifest.status)
         self.state.task.message = result_message(result)
         self.state.task.last_error = result.manifest.error
         selected = self.state.result.launcher_view.get("selected_categories")
         if result.manifest.task_name != "site_onboarding_discovery" and isinstance(selected, list) and selected:
-            self.state.selection.categories = [str(item) for item in selected]
+            self.state.selection.categories = list(map(str, selected))
         phase_label = sync_research_state(self.state, result)
         if phase_label:
             self.state.task.message = f"{result_message(result)} Текущая фаза: {phase_label}"
         persist_launcher_profile_snapshot(self, result.manifest.task_name)
+        record_task_completed_event(self, event_type=result.manifest.task_name)
 
     def _export_runner_and_task(self) -> tuple[TaskRunner, str]:
-        return (
-            (self.wine_export_runner, "pyaterochka_wine_export")
-            if self.state.selection.intent == "wine_catalog"
-            else (self.fish_export_runner, "pyaterochka_fish_export")
-        )
+        return self.store_export_runner, "store_catalog_export"
 
-    def _open_path(self, path_value: str) -> bool:
-        path = str(path_value or "").strip()
-        if not path:
-            self.state.task.message = no_output_path_message()
-            return False
-        try:
-            self.path_opener(path)
-        except OSError as error:
-            self.state.task.message = friendly_error_message(error)
-            self.state.task.last_error = str(error)
-            return False
-        self.state.task.message = opened_path_message(path)
-        self.state.task.last_error = ""
-        return True
-
-
-def open_path_with_system_handler(path: str) -> None:
-    """Open a local path with the platform default application."""
-    if sys.platform == "win32":
-        os.startfile(path)  # type: ignore[attr-defined]
-        return
-    command = ["open", path] if sys.platform == "darwin" else ["xdg-open", path]
-    subprocess.Popen(command)
-
-
-def _task_timeout_seconds(listen_seconds: int) -> int:
-    """Return a bounded subprocess timeout derived from launcher wait settings."""
-    return max(180, int(listen_seconds) + 120)
+def _task_timeout_seconds(listen_seconds: int) -> int: return max(900, int(listen_seconds) * 8 + 240)
+def _research_timeout_seconds(
+    listen_seconds: int,
+    *,
+    manual_wait: bool = False,
+    headless: bool | str | None = None,
+) -> int | None:
+    del listen_seconds
+    if manual_wait and headless in (False, "false", "False", "0"):
+        return 900
+    return 900

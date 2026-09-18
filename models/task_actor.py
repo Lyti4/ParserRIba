@@ -16,7 +16,7 @@ class RunManifest(BaseModel):
 
     task_name: str
     shop: str
-    intent: str = "fish_catalog"
+    intent: str
     input: dict[str, Any] = Field(default_factory=dict)
     status: TaskStatus
     started_at: datetime = Field(default_factory=datetime.utcnow)

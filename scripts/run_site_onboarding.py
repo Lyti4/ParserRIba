@@ -18,7 +18,7 @@ from utils.catalog_tree_discovery.runner import run_catalog_tree_discovery
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run guided site onboarding")
     parser.add_argument("--site-url", default="")
-    parser.add_argument("--intent", default="fish_catalog")
+    parser.add_argument("--intent", default="")
     parser.add_argument("--require-operator-confirmation", action="store_true")
     parser.add_argument("--resume-session-id", default="")
     parser.add_argument("--selected-category", action="append", default=[])

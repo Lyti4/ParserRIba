@@ -90,7 +90,7 @@ def test_desktop_launcher_controller_passes_bounded_task_timeout(tmp_path: Path)
     controller.run_onboarding_discovery(site_url="https://5ka.ru")
 
     assert captured["listen_seconds"] == 15
-    assert captured["timeout_seconds"] == 180
+    assert captured["timeout_seconds"] == 900
 
 
 def test_desktop_launcher_controller_syncs_result_summary_and_artifacts(tmp_path: Path) -> None:

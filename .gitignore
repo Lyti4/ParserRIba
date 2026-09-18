@@ -35,6 +35,8 @@ GeoLite2-*.mmdb
 # Build artifacts
 build/
 dist/
+.serena/cache/
+graphify-out/
 *.spec
 
 # Codex/browser-act local installs

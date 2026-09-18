@@ -6,14 +6,16 @@ import re
 from typing import Any
 
 from models.schemas import Product
-from scripts.discover_pyaterochka_api import DEFAULT_CATEGORY
 from utils.category_intents import get_category_intent_resolver
 from utils.interception import (
     PRODUCT_AVAILABILITY_KEYS,
+    PRODUCT_LINK_KEYS,
     PRODUCT_PRICE_KEYS,
     build_product_candidate,
     iter_dicts,
 )
+from utils.product_raw_fields import extract_raw_product_fields
+from utils.pyaterochka_runtime import DEFAULT_CATEGORY
 from utils.wine_product_classification import (
     ALCOHOL_FREE,
     ALCOHOL_REGULAR,
@@ -172,10 +174,10 @@ def build_products_from_product_items(
     products: list[Product] = []
     for item in items:
         source_id = str(item.get("plu") or "").strip()
-        link = str(dom_links_by_id.get(source_id) or "").strip()
+        candidate = build_product_candidate(item)
+        link = str(dom_links_by_id.get(source_id) or _extract_link_from_item(item) or candidate.get("link") or "").strip()
         if not source_id or not link:
             continue
-        candidate = build_product_candidate(item)
         price = _extract_price_from_item(item)
         name = str(candidate.get("name") or "").strip()
         if not name or price is None:
@@ -187,7 +189,7 @@ def build_products_from_product_items(
             "price": raw_sources.get("price") or "",
             "image": raw_sources.get("image") or "",
             "availability": raw_sources.get("availability") or "",
-            "link": "dom_product_href",
+            "link": "dom_product_href" if source_id in dom_links_by_id else raw_sources.get("link") or "payload_link",
         }
         alcohol_type = classify_wine_alcohol_type(name, category)
         products.append(
@@ -208,6 +210,21 @@ def build_products_from_product_items(
             )
         )
     return products
+
+
+def _extract_link_from_item(item: dict[str, Any]) -> str:
+    for key in PRODUCT_LINK_KEYS:
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            return _normalize_product_link(value)
+    return ""
+
+
+def _normalize_product_link(value: str) -> str:
+    link = value.strip()
+    if link.startswith("/"):
+        return f"https://5ka.ru{link}"
+    return link
 
 
 def _extract_price_from_item(item: dict[str, Any]) -> float | None:
@@ -256,41 +273,5 @@ def _build_raw_product_data(
             key: value for key, value in field_sources.items() if value
         },
     }
-    for key in (
-        "brand",
-        "supplier",
-        "producer",
-        "manufacturer",
-        "vendor",
-        "country",
-        "country_of_origin",
-        "origin_country",
-        "composition",
-        "description",
-        "weight",
-        "volume",
-        "unit",
-        "packaging",
-        "fat",
-        "protein",
-        "carbohydrate",
-        "calories",
-        "shelf_life",
-        "storage_conditions",
-    ):
-        value = _raw_filter_value(item.get(key))
-        if value not in ("", [], {}):
-            raw_data[key] = value
+    raw_data.update(extract_raw_product_fields(item))
     return raw_data
-
-
-def _raw_filter_value(value: Any) -> Any:
-    if isinstance(value, (str, int, float)) and not isinstance(value, bool):
-        return value
-    if isinstance(value, list):
-        return [_raw_filter_value(item) for item in value if _raw_filter_value(item) not in ("", [], {})]
-    if isinstance(value, dict):
-        for key in ("name", "title", "value", "label"):
-            if key in value:
-                return _raw_filter_value(value[key])
-    return ""

@@ -66,9 +66,12 @@ def _add_block_reason(events: list[dict[str, Any]], result: dict[str, Any]) -> N
     if not reason or reason == "ok":
         return
     severity = "warning"
+    source = "challenge"
+    if reason == "pyaterochka_vpn_connection_block":
+        source = "network"
     if "captcha" in reason or "antibot" in reason:
         severity = "error"
-    events.append(_event(code=reason, source="challenge", severity=severity, message=reason))
+    events.append(_event(code=reason, source=source, severity=severity, message=reason))
 
 
 def _add_proxy_errors(events: list[dict[str, Any]], diagnostics: dict[str, Any]) -> None:

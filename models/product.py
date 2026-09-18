@@ -9,7 +9,7 @@ from datetime import datetime
 @dataclass
 class FishProduct:
     """Модель рыбного продукта"""
-    
+
     name: str  # Название товара
     price: float  # Цена
     store: str  # Магазин
@@ -20,7 +20,7 @@ class FishProduct:
     image_url: str = ""  # URL изображения
     description: str = ""  # Описание
     scraped_at: datetime = field(default_factory=datetime.now)  # Время парсинга
-    
+
     def to_dict(self) -> dict:
         """Преобразование в словарь"""
         return {

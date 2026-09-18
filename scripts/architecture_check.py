@@ -19,6 +19,10 @@ from loguru import logger
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.encoding_guard import collect_encoding_findings
 EXCLUDED_DIRS = {
     ".git",
     ".pytest_cache",
@@ -26,9 +30,11 @@ EXCLUDED_DIRS = {
     ".mypy_cache",
     ".venv",
     ".build-venv",
+    "archive",
     "build",
     "dist",
     "data",
+    "logs",
     "profiles",
     "__pycache__",
 }
@@ -40,19 +46,28 @@ TRACKED_ARTIFACT_MARKERS = (
     "dist/",
     "GeoLite2",
 )
+REMOVED_STARTUP_DOC_MARKERS = (
+    "archive/legacy_code", "archive\\legacy_code",
+    "docs/LEGACY_MIGRATION_BACKLOG.md", "docs\\LEGACY_MIGRATION_BACKLOG.md",
+    "docs/PROJECT_REVISION_2026-05-31.md", "docs\\PROJECT_REVISION_2026-05-31.md",
+)
+REQUIRED_STARTUP_DOCS = (
+    "AGENTS.md", "docs/PROJECT_STATE.md", "docs/NEXT_STEPS.md", "docs/DECISIONS.md",
+    "docs/TARGET_ARCHITECTURE.md", "docs/PROJECT_STRUCTURE.md",
+)
+REQUIRED_GITIGNORE_PATTERNS = (
+    ".venv/", "data/", "logs/", "profiles/", "build/", "dist/", "graphify-out/", ".serena/cache/",
+)
 DEFAULT_LONG_FILE_LIMIT = 300
 EXTENDED_LONG_FILE_LIMIT = 450
 EXTENDED_LONG_FILE_PATH_PREFIXES = ("tests/", "scripts/")
-EXTENDED_LONG_FILE_PATHS = {"main.py"}
-LEGACY_ARCHIVE_PATHS = {
-    "parsers/auchan.py",
-    "parsers/base_parser.py",
-    "parsers/lenta.py",
-    "parsers/magnit.py",
-    "parsers/okey.py",
-    "parsers/perekrestok.py",
-    "parsers/playwright_parser.py",
-}
+EXTENDED_LONG_FILE_PATHS: set[str] = set()
+LEGACY_ARCHIVE_PATHS: set[str] = set()
+RUNTIME_PATH_PREFIXES = ("launcher/", "utils/", "stores/", "models/")
+STORE_SPECIFIC_IMPORT_ALLOWED_PATHS = {"utils/store_catalog_registry.py"}
+STORE_SPECIFIC_IMPORT_ALLOWED_PREFIXES = ("stores/pyaterochka/", "utils/pyaterochka_")
+STORE_SPECIFIC_IMPORT_PREFIXES = ("stores.pyaterochka", "utils.pyaterochka_")
+RLM_IMPORT_PREFIXES = ("rlm", "rlms")
 
 
 @dataclass(frozen=True)
@@ -152,11 +167,59 @@ def scan_python_file(path: Path, root: Path = ROOT) -> list[Finding]:
         return findings
 
     for node in ast.walk(tree):
+        if _is_runtime_path(rel):
+            imported_module = _script_import_module(node)
+            if imported_module:
+                findings.append(
+                    Finding(
+                        severity="error",
+                        code="runtime-imports-script",
+                        path=rel,
+                        line=getattr(node, "lineno", 0),
+                        message=f"Runtime code must not import script entrypoints ({imported_module}).",
+                    )
+                )
+            archive_module = _archive_import_module(node)
+            if archive_module:
+                findings.append(
+                    Finding(
+                        severity="error",
+                        code="runtime-imports-archive",
+                        path=rel,
+                        line=getattr(node, "lineno", 0),
+                        message=f"Active runtime must not import archived legacy code ({archive_module}).",
+                    )
+                )
+            store_module = _store_specific_import_module(node)
+            if store_module and not _allows_store_specific_import(rel):
+                findings.append(
+                    Finding(
+                        severity="error",
+                        code="shared-root-store-specific-import",
+                        path=rel,
+                        line=getattr(node, "lineno", 0),
+                        message=f"Shared runtime must not import store-specific code directly ({store_module}).",
+                    )
+                )
+            rlm_module = _rlm_import_module(node)
+            if rlm_module:
+                findings.append(
+                    Finding(
+                        severity="error",
+                        code="runtime-imports-rlm",
+                        path=rel,
+                        line=getattr(node, "lineno", 0),
+                        message=(
+                            "RLM packages are Codex sidecar tooling only and must not "
+                            f"be imported by product runtime ({rlm_module})."
+                        ),
+                    )
+                )
         if isinstance(node, ast.Call):
             if isinstance(node.func, ast.Name) and node.func.id == "print":
                 findings.append(
                     Finding(
-                        severity="warning",
+                        severity="error" if _is_runtime_path(rel) else "warning",
                         code="print-call",
                         path=rel,
                         line=node.lineno,
@@ -186,22 +249,57 @@ def scan_python_file(path: Path, root: Path = ROOT) -> list[Finding]:
                             message="Review close() call; AsyncCamoufox must be closed via async with or __aexit__.",
                         )
                     )
-        if isinstance(node, ast.Constant) and isinstance(node.value, str):
-            if rel.startswith("parsers/") and ("http://" in node.value or "https://" in node.value):
-                findings.append(
-                    Finding(
-                        severity="warning",
-                        code="hardcoded-url",
-                        path=rel,
-                        line=getattr(node, "lineno", 0),
-                        message="Store-specific URLs should live in knowledge_base/.",
-                    )
-                )
     return findings
 
 
+def _is_runtime_path(rel_path: str) -> bool:
+    normalized = rel_path.replace("\\", "/")
+    return any(normalized.startswith(prefix) for prefix in RUNTIME_PATH_PREFIXES)
+
+
+def _script_import_module(node: ast.AST) -> str:
+    return _matched_import_module(node, ("scripts",), exact_prefix=True)
+
+
+def _archive_import_module(node: ast.AST) -> str:
+    return _matched_import_module(node, ("archive",), exact_prefix=True)
+
+
+def _store_specific_import_module(node: ast.AST) -> str:
+    return _matched_import_module(node, STORE_SPECIFIC_IMPORT_PREFIXES)
+
+
+def _rlm_import_module(node: ast.AST) -> str:
+    return _matched_import_module(node, RLM_IMPORT_PREFIXES, exact_prefix=True)
+
+
+def _matched_import_module(
+    node: ast.AST,
+    prefixes: tuple[str, ...],
+    *,
+    exact_prefix: bool = False,
+) -> str:
+    modules: list[str] = []
+    if isinstance(node, ast.ImportFrom):
+        modules.append(str(node.module or ""))
+    elif isinstance(node, ast.Import):
+        modules.extend(str(alias.name or "") for alias in node.names)
+    for module in modules:
+        for prefix in prefixes:
+            if exact_prefix:
+                if module == prefix or module.startswith(f"{prefix}."):
+                    return module
+            elif module.startswith(prefix):
+                return module
+    return ""
+
+
+def _allows_store_specific_import(rel_path: str) -> bool:
+    normalized = rel_path.replace("\\", "/")
+    return normalized in STORE_SPECIFIC_IMPORT_ALLOWED_PATHS or normalized.startswith(STORE_SPECIFIC_IMPORT_ALLOWED_PREFIXES)
+
+
 def _long_file_limit_for_path(rel_path: str) -> int:
-    """Return the pragmatic file-length guideline for one repo path."""
     normalized = rel_path.replace("\\", "/")
     if normalized in EXTENDED_LONG_FILE_PATHS:
         return EXTENDED_LONG_FILE_LIMIT
@@ -210,15 +308,18 @@ def _long_file_limit_for_path(rel_path: str) -> int:
     return DEFAULT_LONG_FILE_LIMIT
 
 
-def check_parser_factory(root: Path = ROOT) -> list[Finding]:
-    """Check whether ParserFactory can be imported and parser modules inspected."""
+def check_active_runtime_imports(root: Path = ROOT) -> list[Finding]:
     script = (
-        "from main import ParserFactory\n"
-        "for store in ParserFactory.PARSERS:\n"
-        "    try:\n"
-        "        ParserFactory._load_parser_class(store)\n"
-        "    except Exception as exc:\n"
-        "        print(f'CHECK::{store}: {type(exc).__name__}: {exc}')\n"
+        "from utils.local_task_registry import list_local_tasks\n"
+        "from utils.store_catalog_registry import get_store_export_backend\n"
+        "tasks = set(list_local_tasks())\n"
+        "required = {'site_onboarding_discovery', 'store_catalog_export', 'store_report_export'}\n"
+        "missing = sorted(required - tasks)\n"
+        "if missing:\n"
+        "    raise RuntimeError(f'missing local tasks: {missing}')\n"
+        "backend = get_store_export_backend('pyaterochka', 'fish_catalog')\n"
+        "if backend.shop != 'pyaterochka' or backend.intent != 'fish_catalog':\n"
+        "    raise RuntimeError('invalid Pyaterochka store export backend')\n"
     )
     result = subprocess.run(
         [sys.executable, "-c", script],
@@ -228,42 +329,84 @@ def check_parser_factory(root: Path = ROOT) -> list[Finding]:
         text=True,
         encoding="utf-8",
     )
-    lines = [
-        line
-        for line in result.stdout.splitlines()
-        if line.strip().startswith("CHECK::")
-    ]
     findings: list[Finding] = []
     if result.returncode != 0:
         findings.append(
             Finding(
                 severity="warning",
-                code="parser-factory",
-                path="main.py",
+                code="active-runtime-import",
+                path="utils/local_task_registry.py",
                 line=0,
-                message=result.stderr.strip() or "ParserFactory import check failed.",
-            )
-        )
-    for line in lines:
-        findings.append(
-            Finding(
-                severity="warning",
-                code="parser-factory",
-                path="main.py",
-                line=0,
-                message=f"Parser module check: {line.removeprefix('CHECK::')}",
+                message=result.stderr.strip() or "Active runtime import check failed.",
             )
         )
     return findings
 
 
+def check_required_startup_docs(root: Path = ROOT) -> list[Finding]:
+    findings: list[Finding] = []
+    for rel_path in REQUIRED_STARTUP_DOCS:
+        path = root / rel_path
+        if not path.exists():
+            findings.append(Finding("error", "startup-doc-missing", rel_path, 0, "Required startup document is missing."))
+            continue
+        for line_number, line in enumerate(path.read_text(encoding="utf-8", errors="ignore").splitlines(), start=1):
+            for marker in REMOVED_STARTUP_DOC_MARKERS:
+                if marker in line:
+                    findings.append(
+                        Finding(
+                            severity="error",
+                            code="startup-doc-removed-reference",
+                            path=rel_path,
+                            line=line_number,
+                            message=f"Required startup docs must not point to removed legacy context ({marker}).",
+                        )
+                    )
+    return findings
+
+
+def check_local_runtime_ignore_policy(root: Path = ROOT) -> list[Finding]:
+    gitignore = root / ".gitignore"
+    if not gitignore.exists():
+        return [Finding("error", "gitignore-missing", ".gitignore", 0, "Local runtime and generated artifact ignore policy is missing.")]
+    patterns = {
+        line.strip()
+        for line in gitignore.read_text(encoding="utf-8", errors="ignore").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+    findings: list[Finding] = []
+    for pattern in REQUIRED_GITIGNORE_PATTERNS:
+        if pattern not in patterns:
+            findings.append(
+                Finding("error", "runtime-ignore-policy", ".gitignore", 0, f"Local runtime/generated path must stay ignored: {pattern}")
+            )
+    return findings
+
+
 def collect_findings(root: Path = ROOT) -> list[Finding]:
-    """Run all architecture checks."""
     findings = find_tracked_artifacts(tracked_files(root))
+    findings.extend(check_required_startup_docs(root))
+    findings.extend(check_local_runtime_ignore_policy(root))
+    findings.extend(check_encoding_integrity(root))
     for file_path in iter_python_files(root):
         findings.extend(scan_python_file(file_path, root=root))
-    findings.extend(check_parser_factory(root))
+    findings.extend(check_active_runtime_imports(root))
     return sorted(findings, key=lambda item: (item.severity, item.code, item.path, item.line))
+
+
+def check_encoding_integrity(root: Path = ROOT) -> list[Finding]:
+    findings: list[Finding] = []
+    for item in collect_encoding_findings(root, mode="all"):
+        findings.append(
+            Finding(
+                severity="error",
+                code=item.code,
+                path=item.path,
+                line=item.line,
+                message=f"Unexpected encoding artifact marker {item.marker!r}; update text or explicit baseline.",
+            )
+        )
+    return findings
 
 
 def render_findings(findings: Iterable[Finding]) -> str:
@@ -285,7 +428,6 @@ def render_findings(findings: Iterable[Finding]) -> str:
 
 
 def main() -> int:
-    """Run the architecture check CLI."""
     parser = argparse.ArgumentParser(description="Check ParserRIba architecture hygiene")
     parser.add_argument("--strict", action="store_true", help="Fail on warnings as well as errors")
     args = parser.parse_args()

@@ -12,13 +12,10 @@ from typing import Any
 
 from models.report_request import ReportBuildResult, ReportFilterOptionsResult, ReportRequest, ProductFilter
 from models.schemas import Product
-from utils.excel_report import write_products_excel_report
+from utils.product_classification import classify_product_subcategory, extract_product_brand_from_name
+from utils.product_report_display_fields import readable_alcohol_type
 from utils.report_export_summary import build_report_summary
-from utils.wine_product_classification import (
-    classify_wine_alcohol_type,
-    classify_wine_style,
-    extract_brand_from_name,
-)
+from utils.report_excel_router import write_products_excel_report_for_intent
 from utils.report_filter_facets import (
     alcohol_type as report_alcohol_type,
     build_report_filter_options_result,
@@ -27,7 +24,6 @@ from utils.report_filter_facets import (
     sugar_class as report_sugar_class,
     supplier as report_supplier,
 )
-
 
 @dataclass(frozen=True)
 class BuiltReport:
@@ -49,7 +45,6 @@ class BuiltReport:
             report_summary=self.report_summary,
         )
 
-
 def build_excel_report_from_storage(
     request: ReportRequest,
     *,
@@ -61,11 +56,17 @@ def build_excel_report_from_storage(
     products = load_products_from_storage(db_path=db_path, shop=request.selection.shop)
     products = _apply_selection(products, request)
     products = filter_products(products, request.filters)
-    report_path = write_products_excel_report(
+    report_path = write_products_excel_report_for_intent(
         products,
-        shop=_safe_output_stem(request),
+        shop=request.selection.shop,
         output_dir=output_dir,
         exported_at=exported_at,
+        intent=request.selection.intent,
+        selected_columns=request.report_columns,
+        column_titles=request.report_column_titles,
+        products_sheet_title=str(request.selection.categories[0])
+        if len(request.selection.categories) == 1 and not request.report_columns and not request.selection.selected_product_ids
+        else "",
     )
     report_path = _normalize_report_path(report_path, request)
     return BuiltReport(
@@ -76,7 +77,6 @@ def build_excel_report_from_storage(
         report_summary=build_report_summary(products),
     )
 
-
 def build_report_filter_options(
     request: ReportRequest,
     *,
@@ -86,7 +86,6 @@ def build_report_filter_options(
     products = load_products_from_storage(db_path=db_path, shop=request.selection.shop)
     products = _apply_selection(products, request)
     return build_report_filter_options_result(request, products)
-
 
 def load_products_from_storage(*, db_path: Path | str, shop: str) -> list[Product]:
     """Load current Product models from SQLite storage."""
@@ -150,13 +149,15 @@ def _matches_product_filter(product: Product, filters: ProductFilter) -> bool:
         return False
     if not _matches_text_list(str(product.category or ""), filters.categories, filters.strict_missing):
         return False
-    if not _matches_text_list(str(product.subcategory or ""), filters.wine_styles, filters.strict_missing):
+    if not _matches_text_list(str(product.subcategory or ""), filters.subcategories, filters.strict_missing):
         return False
     if not _matches_text_list(report_alcohol_type(product), filters.alcohol_types, filters.strict_missing):
         return False
     if not _matches_text_list(report_sugar_class(product.name), filters.sugar_classes, filters.strict_missing):
         return False
     if not _matches_text_list(report_color(product.name), filters.colors, filters.strict_missing):
+        return False
+    if not _matches_found_filters(product, filters.found_filters):
         return False
     return True
 
@@ -168,11 +169,13 @@ def _row_to_product(row: sqlite3.Row) -> Product:
     brand = _first_text(
         raw_data,
         ("brand", "supplier", "producer", "manufacturer", "vendor"),
-    ) or extract_brand_from_name(name)
-    alcohol_type = _first_text(raw_data, ("alcohol_type",)) or classify_wine_alcohol_type(name, category)
+    ) or extract_product_brand_from_name(name)
+    alcohol_type = readable_alcohol_type(raw_data, name, category)
     raw_copy = dict(raw_data)
     if alcohol_type:
         raw_copy["alcohol_type"] = alcohol_type
+    else:
+        raw_copy.pop("alcohol_type", None)
     return Product(
         id=str(row["product_id"]),
         name=name,
@@ -186,7 +189,7 @@ def _row_to_product(row: sqlite3.Row) -> Product:
         image_url=str(row["image_url"]) or None,
         product_link=str(row["product_link"]),
         category=category or None,
-        subcategory=str(row["subcategory"] or "") or classify_wine_style(name, category),
+        subcategory=str(row["subcategory"] or "") or classify_product_subcategory(name, category),
         in_stock=bool(row["in_stock"]),
         raw_data=raw_copy,
     )
@@ -219,6 +222,49 @@ def _matches_text_list(value: str, filters: list[str], strict_missing: bool) -> 
     return normalized_value in allowed
 
 
+def _matches_found_filters(
+    product: Product,
+    found_filters: dict[str, list[str]],
+) -> bool:
+    if not found_filters:
+        return True
+    for field_name, selected_values in found_filters.items():
+        values = [str(item).strip() for item in selected_values if str(item).strip()]
+        if not values:
+            continue
+        product_values = _field_values(product, str(field_name))
+        if not product_values:
+            return False
+        allowed = {_normalize_text(item) for item in values}
+        normalized_values = {_normalize_text(item) for item in product_values}
+        if not normalized_values.intersection(allowed):
+            return False
+    return True
+
+
+def _field_values(product: Product, field_name: str) -> list[str]:
+    raw = dict(product.raw_data or {})
+    aliases = {
+        "brand": ("brand",),
+        "supplier": ("supplier", "producer", "manufacturer", "vendor", "brand"),
+        "producer": ("producer", "manufacturer", "vendor", "supplier", "brand"),
+        "manufacturer": ("manufacturer", "producer", "vendor", "supplier", "brand"),
+    }
+    values: list[str] = []
+    if field_name == "category":
+        values.append(str(product.category or ""))
+    elif field_name == "product_type":
+        values.append(_first_text(raw, ("product_type",)))
+        values.append(str(product.subcategory or ""))
+    elif field_name == "brand":
+        values.append(str(product.brand or ""))
+    for key in aliases.get(field_name, (field_name,)):
+        value = raw.get(key)
+        if isinstance(value, list):
+            values.extend(str(item) for item in value)
+        else:
+            values.append(_stringify(value))
+    return [item.strip() for item in values if item and item.strip()]
 def _first_text(raw_data: dict[str, Any], keys: tuple[str, ...]) -> str:
     for key in keys:
         value = raw_data.get(key)
@@ -227,6 +273,12 @@ def _first_text(raw_data: dict[str, Any], keys: tuple[str, ...]) -> str:
             if text:
                 return text
     return ""
+def _stringify(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (str, int, float, bool)):
+        return str(value)
+    return json.dumps(value, ensure_ascii=False, sort_keys=True)
 
 
 def _json_dict(value: str) -> dict[str, Any]:

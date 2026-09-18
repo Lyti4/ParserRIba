@@ -12,6 +12,7 @@ class CamoufoxResearchRuntimeProfile:
     locale: str = "ru-RU"
     humanize: float = 1.5
     block_images: bool = False
+    block_webrtc: bool = False
     block_webgl: bool = False
     require_persistent_context: bool = True
     allow_disable_coop: bool = False

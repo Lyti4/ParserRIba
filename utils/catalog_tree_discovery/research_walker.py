@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
@@ -18,27 +19,41 @@ from utils.catalog_tree_discovery.surface_collectors import SurfaceSignals, coll
 
 MAX_VISITED_PAGES = 4
 CATALOG_TREE_SATISFIED_THRESHOLD = 12
-
+MAX_SURFACE_SETTLE_SECONDS = 8
+MAX_NETWORK_RESPONSE_TASKS = 24
+NETWORK_RESPONSE_TEXT_TIMEOUT_SECONDS = 2
+NETWORK_RESPONSE_DRAIN_TIMEOUT_SECONDS = 5
+PAGE_CONTENT_RETRY_ATTEMPTS = 5
+PAGE_CONTENT_RETRY_SECONDS = 1
 
 @dataclass
 class ResearchWalkerResult:
     """Serializable output of an active browser research walk."""
-
     discovery: CatalogDiscoveryResult
     phase_events: list[Any]
     streamed_categories: list[str]
     final_url: str
     status_code: int
 
-
 class CamoufoxResearchWalker:
     """Drive one browser page through a small serial catalog exploration loop."""
-
-    def __init__(self, *, listen_seconds: int, max_repeat_urls: int, max_depth: int) -> None:
+    def __init__(
+        self,
+        *,
+        listen_seconds: int,
+        max_repeat_urls: int,
+        max_depth: int,
+        use_browser_waits: bool = True,
+        after_navigation: Callable[[Any], Awaitable[None]] | None = None,
+        capture_network: bool = True,
+    ) -> None:
         self.listen_seconds = max(1, int(listen_seconds))
+        self.surface_settle_seconds = min(self.listen_seconds, MAX_SURFACE_SETTLE_SECONDS)
         self.max_depth = max(1, int(max_depth))
         self.queue = ResearchQueue(max_repeat_urls=max_repeat_urls)
-
+        self.use_browser_waits = bool(use_browser_waits)
+        self.after_navigation = after_navigation
+        self.capture_network = bool(capture_network)
     async def run(
         self,
         *,
@@ -49,15 +64,14 @@ class CamoufoxResearchWalker:
         """Expand menu surfaces and walk a few discovered catalog branches."""
         phase_events = [make_phase_event("open_site", "completed", "Открытие сайта")]
         capture = DiscoveryEventCapture()
-        tasks = self._attach_network_capture(page, capture)
+        tasks = self._attach_network_capture(page, capture) if self.capture_network else []
         aggregate = SurfaceSignals()
         visited_urls: list[str] = []
         final_url = page.url or site_url
         status_code = int(getattr(initial_response, "status", 0) or 0)
-
         phase_events.append(make_phase_event("expand_menu", "running", "Раскрытие меню"))
         await expand_menu_surfaces(page)
-        await page.wait_for_timeout(self.listen_seconds * 1000)
+        await self._settle_surface(page)
 
         current_signals, current_entrypoints, final_url, status_code = await self._scan_current_page(
             page=page,
@@ -91,7 +105,9 @@ class CamoufoxResearchWalker:
                 self.queue.skip(next_url, "product_or_listing_branch")
                 continue
             response = await page.goto(next_url, wait_until="domcontentloaded", timeout=60_000)
-            await page.wait_for_timeout(self.listen_seconds * 1000)
+            await self._settle_surface(page)
+            if self.after_navigation is not None:
+                await self.after_navigation(page)
             current_signals, current_entrypoints, final_url, status_code = await self._scan_current_page(
                 page=page,
                 site_url=next_url,
@@ -112,7 +128,7 @@ class CamoufoxResearchWalker:
             steps += 1
 
         if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+            await self._drain_network_tasks(tasks)
 
         discovery = build_catalog_discovery_result(
             site_url=site_url,
@@ -135,6 +151,12 @@ class CamoufoxResearchWalker:
             status_code=status_code,
         )
 
+    async def _settle_surface(self, page: Any) -> None:
+        if self.use_browser_waits:
+            await page.wait_for_timeout(self.surface_settle_seconds * 1000)
+            return
+        await asyncio.sleep(self.surface_settle_seconds)
+
     def _attach_network_capture(self, page: Any, capture: DiscoveryEventCapture) -> list[asyncio.Task[None]]:
         tasks: list[asyncio.Task[None]] = []
 
@@ -142,9 +164,15 @@ class CamoufoxResearchWalker:
             tasks.append(asyncio.create_task(capture.record_request(str(request.url))))
 
         def track_response(response: Any) -> None:
+            if len(tasks) >= MAX_NETWORK_RESPONSE_TASKS:
+                return
+
             async def _record() -> None:
                 try:
-                    body_text = await response.text()
+                    body_text = await asyncio.wait_for(
+                        response.text(),
+                        timeout=NETWORK_RESPONSE_TEXT_TIMEOUT_SECONDS,
+                    )
                 except Exception:
                     body_text = ""
                 await capture.record_response(
@@ -160,6 +188,18 @@ class CamoufoxResearchWalker:
         page.on("response", track_response)
         return tasks
 
+    async def _drain_network_tasks(self, tasks: list[asyncio.Task[None]]) -> None:
+        done, pending = await asyncio.wait(
+            tasks,
+            timeout=NETWORK_RESPONSE_DRAIN_TIMEOUT_SECONDS,
+        )
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+        if done:
+            await asyncio.gather(*done, return_exceptions=True)
+
     async def _scan_current_page(
         self,
         *,
@@ -167,7 +207,7 @@ class CamoufoxResearchWalker:
         site_url: str,
         fallback_status: int,
     ) -> tuple[SurfaceSignals, list[CategoryEvidence], str, int]:
-        html = await page.content()
+        html = await self._safe_page_content(page)
         final_url = page.url or site_url
         status_code = int(fallback_status or 0)
         signals = collect_catalog_surface_signals(
@@ -179,11 +219,18 @@ class CamoufoxResearchWalker:
         entrypoints = collect_catalog_entrypoints_from_html(final_url or site_url, html)
         return signals, entrypoints, final_url, status_code
 
+    async def _safe_page_content(self, page: Any) -> str:
+        for attempt in range(PAGE_CONTENT_RETRY_ATTEMPTS):
+            try:
+                return str(await page.content())
+            except Exception:
+                if attempt < PAGE_CONTENT_RETRY_ATTEMPTS - 1:
+                    await asyncio.sleep(PAGE_CONTENT_RETRY_SECONDS)
+        return ""
+
     def _tree_is_sufficient(self, final_url: str, signals: SurfaceSignals) -> bool:
-        normalized = str(final_url or "").casefold()
-        if len(signals.dom_categories) >= CATALOG_TREE_SATISFIED_THRESHOLD:
-            return True
-        return "/catalog" in normalized and len(signals.dom_categories) > 1
+        del final_url
+        return len(signals.dom_categories) >= CATALOG_TREE_SATISFIED_THRESHOLD
 
     def _maybe_enqueue(self, root_url: str, item: CategoryEvidence) -> None:
         if not self._same_host(root_url, item.url):
@@ -217,13 +264,7 @@ class CamoufoxResearchWalker:
         for url in capture.response_category_urls:
             if any(existing.url == url for existing in target.dom_categories):
                 continue
-            target.dom_categories.append(
-                CategoryEvidence(
-                    name="Каталог",
-                    url=url,
-                    source="network_response",
-                )
-            )
+            target.dom_categories.append(CategoryEvidence(name="Каталог", url=url, source="network_response"))
         target.evidence_items = self._dedup_links(target.evidence_items + capture.response_evidence_items)
         if capture.protection_hints:
             target.challenge_hint = True
@@ -232,10 +273,7 @@ class CamoufoxResearchWalker:
         seen: set[tuple[str, str]] = set()
         result: list[Any] = []
         for item in items:
-            key = (
-                str(getattr(item, "kind", "")),
-                str(getattr(item, "url", "") or getattr(item, "value", "")),
-            )
+            key = (str(getattr(item, "kind", "")), str(getattr(item, "url", "") or getattr(item, "value", "")))
             if key in seen:
                 continue
             seen.add(key)

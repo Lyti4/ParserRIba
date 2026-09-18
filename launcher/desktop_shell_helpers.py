@@ -8,6 +8,7 @@ from typing import Any
 
 from launcher.desktop_catalog_tree_widget import set_all_catalog_tree_items_checked
 from launcher.desktop_list_widget_helpers import clear_multi_select_widgets, set_all_items_selected
+from launcher.desktop_result_table import build_result_table
 
 
 def load_pyside6() -> tuple[Any, Any, Any]:
@@ -54,6 +55,17 @@ def sync_setting_widgets(shell: Any) -> None:
         index = shell.research_mode_combo.findData(shell.state.research.mode)
         if index >= 0:
             shell.research_mode_combo.setCurrentIndex(index)
+    if getattr(shell, "browser_runtime_combo", None) is not None:
+        index = shell.browser_runtime_combo.findData(shell.state.settings.browser_runtime)
+        if index >= 0:
+            shell.browser_runtime_combo.setCurrentIndex(index)
+    combo = getattr(shell, "theme_combo", None)
+    if combo is not None:
+        index = combo.findData(shell.state.settings.theme_mode)
+        if index >= 0:
+            combo.blockSignals(True)
+            combo.setCurrentIndex(index)
+            combo.blockSignals(False)
 
 
 def set_category_selection(shell: Any, selected: bool) -> None:
@@ -72,24 +84,30 @@ def set_result_selection(shell: Any, selected: bool) -> None:
     if shell.result_table is None:
         return
     if selected:
-        shell.result_table.selectAll()
+        table = build_result_table(shell.state)
+        product_ids = [
+            str(item).strip()
+            for item in table.get("product_ids", [])
+            if str(item).strip()
+        ]
+        shell.controller.set_selection(selected_product_ids=list(dict.fromkeys(product_ids)))
     else:
-        shell.result_table.clearSelection()
-    shell._on_result_selection_changed()
+        shell.controller.set_selection(selected_product_ids=[])
     shell._refresh_ui()
 
 
 def clear_filter_selections(shell: Any, filter_keys: tuple[str, ...]) -> None:
     """Clear all visible multi-select filters and sync launcher state."""
     clear_multi_select_widgets(shell.filter_widgets.values())
+    clear_multi_select_widgets(getattr(shell, "found_filter_widgets", {}).values())
     min_price_widget = shell.filter_field_widgets.get("min_price")
     max_price_widget = shell.filter_field_widgets.get("max_price")
     in_stock_widget = shell.filter_field_widgets.get("in_stock")
     strict_missing_widget = shell.filter_field_widgets.get("strict_missing")
     if min_price_widget is not None:
-        min_price_widget.setValue(0.0)
+        min_price_widget.setText("")
     if max_price_widget is not None:
-        max_price_widget.setValue(0.0)
+        max_price_widget.setText("")
     if in_stock_widget is not None:
         in_stock_widget.setCurrentIndex(0)
     if strict_missing_widget is not None:
@@ -100,8 +118,23 @@ def clear_filter_selections(shell: Any, filter_keys: tuple[str, ...]) -> None:
             "min_price": None,
             "max_price": None,
             "in_stock": None,
+            "found_filters": {},
             "strict_missing": False,
         }
     )
     shell.controller.set_filters(cleared_filters)
     shell._refresh_ui()
+
+
+def current_combo_value(combo: Any) -> str:
+    """Return the current data value from a combo box."""
+    return str(combo.currentData() if combo is not None else "")
+
+
+def set_combo_value(combo: Any, value: str) -> None:
+    """Select a combo item by data value when it exists."""
+    if combo is None:
+        return
+    index = combo.findData(value)
+    if index >= 0:
+        combo.setCurrentIndex(index)

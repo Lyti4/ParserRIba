@@ -18,7 +18,7 @@ class ParseMetrics(BaseModel):
     captcha_encountered: bool = Field(default=False, description="Была ли обнаружена капча")
     proxy_rotations: int = Field(default=0, description="Количество ротаций прокси")
     fingerprint_id: Optional[str] = Field(None, description="ID использованного отпечатка")
-    
+
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
@@ -77,23 +77,23 @@ class Product(BaseModel):
     id: Optional[str] = Field(None, description="Уникальный ID товара")
     name: str = Field(..., description="Название товара")
     brand: Optional[str] = Field(None, description="Бренд/производитель")
-    
+
     # Гибкое поле цены: принимает float, dict или ProductPrice
     price: ProductPrice = Field(..., description="Цена товара")
     original_price: Optional[float] = Field(None, description="Старая цена (упрощенно)")
-    
+
     dimensions: Optional[ProductDimensions] = Field(None, description="Характеристики товара")
-    
+
     image_url: Optional[HttpUrl] = Field(None, description="URL изображения товара")
     product_link: HttpUrl = Field(..., description="Ссылка на страницу товара")
-    
+
     category: Optional[str] = Field(None, description="Категория товара")
     subcategory: Optional[str] = Field(None, description="Подкатегория товара")
-    
+
     in_stock: bool = Field(default=True, description="Наличие товара")
     rating: Optional[float] = Field(None, description="Рейтинг товара")
     reviews_count: Optional[int] = Field(None, description="Количество отзывов")
-    
+
     raw_data: Optional[dict] = Field(None, description="Исходные данные парсинга")
     parsed_at: datetime = Field(default_factory=datetime.now, description="Время парсинга")
 
@@ -153,7 +153,7 @@ class ParseResult(BaseModel):
     page: int = Field(default=1, description="Номер страницы")
     has_next_page: bool = Field(default=False, description="Есть ли следующая страница")
     next_page_url: Optional[HttpUrl] = Field(None, description="URL следующей страницы")
-    
+
     errors: List[str] = Field(default_factory=list, description="Список ошибок при парсинге")
     warnings: List[str] = Field(default_factory=list, description="Предупреждения")
     parsed_at: datetime = Field(default_factory=datetime.now, description="Время парсинга")
@@ -215,7 +215,7 @@ class ParserConfig(BaseModel):
     max_retries: int = Field(default=3, description="Максимальное количество попыток")
     timeout_seconds: int = Field(default=30, description="Таймаут запроса в секундах")
     headers: dict = Field(default_factory=dict, description="HTTP заголовки")
-    
+
     model_config = ConfigDict(
         json_schema_extra={
             "example": {

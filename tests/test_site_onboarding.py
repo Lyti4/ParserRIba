@@ -85,8 +85,8 @@ def test_run_site_onboarding_for_unknown_site_creates_real_runtime_artifacts(tmp
             status_code=200,
             surface_type="category_tree",
             categories=[
-                ("Р С‹Р±Р°", "https://unknown-store.example/catalog/fish"),
-                ("РњРѕСЂРµРїСЂРѕРґСѓРєС‚С‹", "https://unknown-store.example/catalog/seafood"),
+                ("\u0420\u00a0\u0421\u2039\u0420\u00b1\u0420\u00b0", "https://unknown-store.example/catalog/fish"),
+                ("\u0420\u045a\u0420\u0455\u0421\u0402\u0420\u00b5\u0420\u0457\u0421\u0402\u0420\u0455\u0420\u0491\u0421\u0453\u0420\u0454\u0421\u201a\u0421\u2039", "https://unknown-store.example/catalog/seafood"),
             ],
         )
 
@@ -284,6 +284,7 @@ def test_run_site_onboarding_passes_browser_runtime_flags(tmp_path: Path) -> Non
         "manual_wait": True,
         "listen_seconds": 9,
         "research_mode": "live",
+        "browser_runtime": "camoufox",
     }
 
 

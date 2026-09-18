@@ -9,6 +9,7 @@ from launcher.desktop_filter_panel import FILTER_WIDGET_KEYS
 from launcher.desktop_filter_helpers import build_filter_option_labels, extract_filter_counts
 from launcher.desktop_result_table import build_result_table
 from launcher.desktop_state_readers import available_filter_counts, report_summary
+from launcher.desktop_store_identity import active_store_code, active_store_display_name
 from launcher.desktop_view_helpers import build_status_text
 from models.launcher_state import LauncherAppState
 
@@ -23,9 +24,11 @@ def build_browser_preview_html(state: LauncherAppState) -> str:
     payload = {
         "status": build_status_text(state),
         "summary": _build_preview_summary(state),
-        "site_url": "https://5ka.ru",
-        "shop": state.selection.shop,
+        "site_url": _preview_site_url(state),
+        "shop": active_store_code(state),
+        "store_label": active_store_display_name(state),
         "intent": state.selection.intent,
+        "reportTarget": _preview_report_target(state),
         "categories": state.selection.categories,
         "settings": state.settings.model_dump(mode="json"),
         "filters": filters,
@@ -72,7 +75,7 @@ def build_browser_preview_html(state: LauncherAppState) -> str:
         </div>
         <div>
           <label>Store</label>
-          <select><option selected>{html.escape(str(payload["shop"]))}</option></select>
+          <select><option selected>{html.escape(str(payload["store_label"] or payload["shop"] or "profile_pending"))}</option></select>
         </div>
         <div>
           <label>Export Intent</label>
@@ -140,7 +143,7 @@ def build_browser_preview_html(state: LauncherAppState) -> str:
     const filterTitles = {{
       suppliers: "Suppliers",
       brands: "Brands",
-      wine_styles: "Wine Style",
+      subcategories: "Subtype",
       alcohol_types: "Alcohol Type",
       sugar_classes: "Sugar Class",
       colors: "Color",
@@ -182,7 +185,7 @@ def build_browser_preview_html(state: LauncherAppState) -> str:
 
     document.getElementById("action-onboarding").onclick = () => {{
       updateStatus(
-        "Store: pyaterochka | Intent: fish_catalog | Task: site_onboarding_discovery | Status: succeeded",
+        `Store: ${{data.shop || "profile_pending"}} | Intent: ${{data.intent}} | Task: site_onboarding_discovery | Status: succeeded`,
         [
           "Preview onboarding completed.",
           `Selected categories: ${{selectedCount("#categories")}}`,
@@ -196,7 +199,7 @@ def build_browser_preview_html(state: LauncherAppState) -> str:
       const supplierCount = data.filters.suppliers.length;
       const brandCount = data.filters.brands.length;
       updateStatus(
-        "Store: pyaterochka | Intent: fish_catalog | Task: store_report_filter_options | Status: succeeded",
+        `Store: ${{data.shop || "profile_pending"}} | Intent: ${{data.intent}} | Task: store_report_filter_options | Status: succeeded`,
         [
           "Filter options loaded from local SQLite preview data.",
           `Suppliers available: ${{supplierCount}}`,
@@ -209,7 +212,7 @@ def build_browser_preview_html(state: LauncherAppState) -> str:
     document.getElementById("action-export").onclick = () => {{
       const supplierSelected = selectedCount("[data-filter='suppliers']");
       updateStatus(
-        "Store: pyaterochka | Intent: fish_catalog | Task: pyaterochka_fish_export | Status: succeeded",
+        `Store: ${{data.shop || "profile_pending"}} | Intent: ${{data.intent}} | Task: store_catalog_export | Status: succeeded`,
         [
           "Preview export completed.",
           `Categories selected: ${{selectedCount("#categories")}}`,
@@ -222,10 +225,10 @@ def build_browser_preview_html(state: LauncherAppState) -> str:
 
     document.getElementById("action-report").onclick = () => {{
       updateStatus(
-        "Store: pyaterochka | Intent: fish_catalog | Task: store_report_export | Status: succeeded",
+        `Store: ${{data.shop || "profile_pending"}} | Intent: ${{data.intent}} | Task: store_report_export | Status: succeeded`,
         [
           "Excel report built in preview mode.",
-          "Output target: data/reports/pyaterochka_fish_report.xlsx",
+          `Output target: ${{data.reportTarget}}`,
           `Products in report: ${{data.table.rows.reduce((acc, row) => acc + Number(row[1] || 0), 0)}}`,
         ],
       );
@@ -234,7 +237,7 @@ def build_browser_preview_html(state: LauncherAppState) -> str:
 
     document.getElementById("action-save").onclick = () => {{
       updateStatus(
-        "Store: pyaterochka | Intent: fish_catalog | Task: launcher_settings_save | Status: succeeded",
+        `Store: ${{data.shop || "profile_pending"}} | Intent: ${{data.intent}} | Task: launcher_settings_save | Status: succeeded`,
         [
           "Launcher settings saved locally in preview mode.",
           `Headless: ${{document.getElementById("setting-headless").checked ? "on" : "off"}}`,
@@ -256,9 +259,7 @@ def build_browser_preview_html(state: LauncherAppState) -> str:
 </body>
 </html>"""
 
-
 def _build_preview_summary(state: LauncherAppState) -> str:
-    """Build an ASCII-safe summary for the browser preview."""
     lines = [str(state.task.message or "").strip() or "Preview mode"]
     summary = report_summary(state)
     if summary:
@@ -274,10 +275,16 @@ def _build_preview_summary(state: LauncherAppState) -> str:
         if isinstance(suppliers, dict) and suppliers:
             lines.append(f"Suppliers available: {len(suppliers)}")
     return "\n".join(line for line in lines if line)
+def _preview_site_url(state: LauncherAppState) -> str: return str(state.profile.site_url or state.profile.domain or "").strip()
 
+def _preview_report_target(state: LauncherAppState) -> str:
+    if state.result.excel_path:
+        return state.result.excel_path
+    shop = active_store_code(state) or "profile_pending"
+    intent = str(state.selection.intent or "catalog").strip() or "catalog"
+    return f"data/reports/{shop}_{intent}_report.xlsx"
 
 def _normalize_preview_table(table: dict[str, list[list[str]] | list[str]]) -> dict[str, list[list[str]] | list[str]]:
-    """Map launcher table shapes to clean browser-preview headers."""
     rows = table.get("rows")
     if not isinstance(rows, list):
         rows = []

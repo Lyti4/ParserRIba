@@ -7,9 +7,12 @@ from typing import Awaitable, Callable, Literal
 from urllib.parse import urlparse
 
 from utils.category_intents import CategoryIntentResolver, get_category_intent_resolver
-from utils.pyaterochka_catalog_capture import capture_pyaterochka_catalog
+from models.schemas import Product
 
 DiscoverFunc = Callable[..., Awaitable[dict]]
+BuildProductsFunc = Callable[[dict], list[Product]]
+FilterProductsFunc = Callable[[list[Product], str], list[Product]]
+MergeProductsFunc = Callable[[list[Product]], list[Product]]
 KnownStoreStatus = Literal["discovery_only", "runtime_ready"]
 
 PYATEROCHKA_FISH_DEFAULT_CATEGORY = "Рыба"
@@ -24,6 +27,9 @@ class StoreExportBackend:
     intent: str
     default_category: str
     discover_func: DiscoverFunc
+    build_products_from_result: BuildProductsFunc
+    filter_products_for_intent: FilterProductsFunc
+    merge_products: MergeProductsFunc
     resolve_categories: CategoryIntentResolver
     site_hosts: tuple[str, ...]
 
@@ -37,6 +43,7 @@ class KnownStoreSite:
     onboarding_status: KnownStoreStatus
     kb_shop: str | None = None
     export_backend_shop: str | None = None
+    default_intent: str = ""
 
 
 def resolve_catalog_research_site(site_url: str, shop: str | None = None) -> KnownStoreSite | None:
@@ -50,30 +57,49 @@ def resolve_catalog_research_site(site_url: str, shop: str | None = None) -> Kno
     return match_known_store_site(site_url)
 
 
-def get_store_export_backend(shop: str, intent: str = "fish_catalog") -> StoreExportBackend:
+def get_store_export_backend(shop: str, intent: str) -> StoreExportBackend:
     """Return backend configuration for one supported store and intent."""
     normalized_shop = str(shop or "").strip().casefold()
     normalized_intent = str(intent or "").strip().casefold()
     if normalized_shop == "pyaterochka":
-        if normalized_intent == "fish_catalog":
-            return StoreExportBackend(
-                shop="pyaterochka",
-                intent="fish_catalog",
-                default_category=PYATEROCHKA_FISH_DEFAULT_CATEGORY,
-                discover_func=capture_pyaterochka_catalog,
-                resolve_categories=get_category_intent_resolver("fish_catalog"),
-                site_hosts=("5ka.ru", "www.5ka.ru"),
-            )
-        if normalized_intent == "wine_catalog":
-            return StoreExportBackend(
-                shop="pyaterochka",
-                intent="wine_catalog",
-                default_category=PYATEROCHKA_WINE_DEFAULT_CATEGORY,
-                discover_func=capture_pyaterochka_catalog,
-                resolve_categories=get_category_intent_resolver("wine_catalog"),
-                site_hosts=("5ka.ru", "www.5ka.ru"),
-            )
+        return _build_pyaterochka_export_backend(normalized_intent)
     raise ValueError(f"Unsupported store export backend: {shop}/{intent}")
+
+
+def _build_pyaterochka_export_backend(normalized_intent: str) -> StoreExportBackend:
+    """Build the Pyaterochka backend lazily so shared imports stay store-neutral."""
+    from stores.pyaterochka.product_export import (
+        build_products_from_result,
+        filter_products_for_intent,
+        merge_products,
+    )
+    from utils.pyaterochka_catalog_capture import capture_pyaterochka_catalog
+
+    if normalized_intent == "fish_catalog":
+        return StoreExportBackend(
+            shop="pyaterochka",
+            intent="fish_catalog",
+            default_category=PYATEROCHKA_FISH_DEFAULT_CATEGORY,
+            discover_func=capture_pyaterochka_catalog,
+            build_products_from_result=build_products_from_result,
+            filter_products_for_intent=filter_products_for_intent,
+            merge_products=merge_products,
+            resolve_categories=get_category_intent_resolver("fish_catalog"),
+            site_hosts=("5ka.ru", "www.5ka.ru"),
+        )
+    if normalized_intent == "wine_catalog":
+        return StoreExportBackend(
+            shop="pyaterochka",
+            intent="wine_catalog",
+            default_category=PYATEROCHKA_WINE_DEFAULT_CATEGORY,
+            discover_func=capture_pyaterochka_catalog,
+            build_products_from_result=build_products_from_result,
+            filter_products_for_intent=filter_products_for_intent,
+            merge_products=merge_products,
+            resolve_categories=get_category_intent_resolver("wine_catalog"),
+            site_hosts=("5ka.ru", "www.5ka.ru"),
+        )
+    raise ValueError(f"Unsupported store export backend: pyaterochka/{normalized_intent}")
 
 
 def get_known_store_site(shop: str) -> KnownStoreSite:
@@ -86,6 +112,7 @@ def get_known_store_site(shop: str) -> KnownStoreSite:
             onboarding_status="runtime_ready",
             kb_shop="pyaterochka",
             export_backend_shop="pyaterochka",
+            default_intent="fish_catalog",
         )
     if normalized == "verny":
         return KnownStoreSite(
@@ -150,7 +177,7 @@ def match_known_store_site(site_url: str) -> KnownStoreSite | None:
     return None
 
 
-def match_store_export_backend(site_url: str, intent: str = "fish_catalog") -> StoreExportBackend | None:
+def match_store_export_backend(site_url: str, intent: str) -> StoreExportBackend | None:
     """Match a known store backend by site URL host."""
     profile = match_known_store_site(site_url)
     if not profile or not profile.export_backend_shop:

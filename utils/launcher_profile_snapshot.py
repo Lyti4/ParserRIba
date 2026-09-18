@@ -1,4 +1,4 @@
-"""JSON snapshots for Launcher V2 per-site workspace profiles."""
+"""JSON snapshots for Launcher V3 per-site workspace profiles."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ def build_launcher_profile_snapshot(
     task_name: str = "",
     snapshot_id: str = "",
 ) -> dict[str, Any] | None:
-    """Build one non-secret per-site Launcher V2 workspace snapshot."""
+    """Build one non-secret per-site Launcher V3 workspace snapshot."""
     site_url = str(state.profile.site_url or "").strip()
     profile_id = str(state.profile.profile_id or "").strip()
     if not site_url and not profile_id:
@@ -25,6 +25,7 @@ def build_launcher_profile_snapshot(
     return {
         "snapshot_id": snapshot_id or _timestamp_id(),
         "task_name": str(task_name or state.task.task_name or ""),
+        "project_workspace": state.workspace.model_dump(mode="json"),
         "profile": state.profile.model_dump(mode="json"),
         "catalog": {
             "catalog_type": state.catalog.catalog_type,
@@ -35,6 +36,10 @@ def build_launcher_profile_snapshot(
         },
         "products": state.products.model_dump(mode="json"),
         "dynamic_filters": state.dynamic_filters.model_dump(mode="json"),
+        "filters": state.filters.model_dump(mode="json"),
+        "report": state.report.model_dump(mode="json"),
+        "presets": _profile_presets(state),
+        "workspace": _workspace_summary(state),
         "selection": state.selection.model_dump(mode="json"),
         "result": {
             "summary": dict(state.result.summary),
@@ -53,7 +58,7 @@ def write_launcher_profile_snapshot(
     task_name: str = "",
     snapshot_id: str = "",
 ) -> Path | None:
-    """Persist one Launcher V2 workspace snapshot and refresh latest.json."""
+    """Persist one Launcher V3 workspace snapshot and refresh latest.json."""
     payload = build_launcher_profile_snapshot(state, task_name=task_name, snapshot_id=snapshot_id)
     if payload is None:
         return None
@@ -67,6 +72,37 @@ def write_launcher_profile_snapshot(
     path.write_text(text, encoding="utf-8")
     (target_dir / "latest.json").write_text(text, encoding="utf-8")
     return path
+
+
+def _profile_presets(state: LauncherAppState) -> dict[str, Any]:
+    """Return user-facing presets that can later move into StoreProfile tables."""
+    return {
+        "filter_preset": {
+            "filters": state.filters.model_dump(mode="json"),
+            "available_filters": state.dynamic_filters.available_filters,
+            "discovered_fields": state.products.discovered_fields,
+        },
+        "report_column_preset": {
+            "available_columns": list(state.report.available_columns),
+            "selected_columns": list(state.report.selected_columns),
+            "column_titles": dict(state.report.column_titles),
+            "columns_touched": bool(state.report.columns_touched),
+        },
+    }
+
+
+def _workspace_summary(state: LauncherAppState) -> dict[str, Any]:
+    """Return compact profile workspace pointers without duplicating products."""
+    return {
+        "selected_categories": list(state.selection.categories),
+        "selected_catalog_nodes": list(state.selection.selected_catalog_nodes or state.catalog.selected_nodes),
+        "selected_node_urls": _selected_node_urls(state),
+        "selected_product_ids": list(state.selection.selected_product_ids or state.products.selected_product_ids),
+        "products_count": int(state.products.products_count or len(state.products.items)),
+        "source_categories": list(state.products.source_categories),
+        "json_path": state.products.json_path,
+        "excel_path": state.products.excel_path,
+    }
 
 
 def _selected_node_urls(state: LauncherAppState) -> list[str]:

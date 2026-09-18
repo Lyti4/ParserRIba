@@ -205,7 +205,7 @@ def test_build_markdown_report_mentions_product_candidates() -> None:
                 "samples": [
                     {
                         "source_id": "123",
-                        "name": "Р¤РѕСЂРµР»СЊ",
+                        "name": "\u0420\u00a4\u0420\u0455\u0421\u0402\u0420\u00b5\u0420\u00bb\u0421\u040a",
                         "price": 100.0,
                         "availability": True,
                         "field_sources": {"source_id": "productId", "price": "current_price"},

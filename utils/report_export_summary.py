@@ -17,18 +17,20 @@ def build_report_summary(products: list[Product]) -> dict[str, object]:
     alcohol_type_counts = _counted_values(alcohol_type(product) for product in products)
     sugar_class_counts = _counted_values(sugar_class(product.name) for product in products)
     color_counts = _counted_values(color(product.name) for product in products)
+    product_breakdown = {
+        "style_counts": style_counts,
+        "alcohol_type_counts": alcohol_type_counts,
+        "sugar_class_counts": sugar_class_counts,
+        "color_counts": color_counts,
+    }
     return {
         "products_count": len(products),
         "categories": ordered_categories(products),
         "category_counts": category_counts,
         "supplier_counts": supplier_counts,
         "brand_counts": brand_counts,
-        "wine_breakdown": {
-            "style_counts": style_counts,
-            "alcohol_type_counts": alcohol_type_counts,
-            "sugar_class_counts": sugar_class_counts,
-            "color_counts": color_counts,
-        },
+        "product_breakdown": product_breakdown,
+        "wine_breakdown": product_breakdown,
     }
 
 

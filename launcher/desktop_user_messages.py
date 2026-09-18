@@ -13,7 +13,9 @@ def friendly_error_message(error: Exception) -> str:
         return "Выбранное действие лаунчера сейчас недоступно."
     if "no such file" in lowered or "cannot find the file" in lowered:
         return "Нужный локальный файл или отчёт не найден."
-    if "timeout" in lowered:
+    if "manual_page_not_loaded" in lowered:
+        return "Браузер открылся, но сайт не загрузил страницу проверки. Проверьте вкладку браузера и запустите исследование снова."
+    if "timeout" in lowered or "timed out" in lowered:
         return "Операция превысила допустимое время ожидания."
     if "captcha" in lowered or "challenge" in lowered:
         return "Сайт запросил ручную проверку. Нужна помощь оператора."
@@ -55,6 +57,11 @@ def task_progress_message(task_name: str, category_name: str, index: int, total:
 def empty_filter_options_message() -> str:
     """Explain why the filter panel has no useful values yet."""
     return "Пока доступны только категории. Сначала собери товары, чтобы появились поставщики, бренды и другие фильтры."
+
+
+def filters_refreshed_message() -> str:
+    """Return a friendly message when filters were rebuilt from collected products."""
+    return "Фильтры обновлены из собранных товаров."
 
 
 def opened_path_message(path: str) -> str:

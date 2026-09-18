@@ -1,4 +1,4 @@
-"""Small human-like browsing routines for browser based parsers."""
+"""Small human-like browsing routines for browser-based discovery/export flows."""
 
 from __future__ import annotations
 

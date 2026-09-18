@@ -44,7 +44,7 @@ class ColoredFormatter(logging.Formatter):
 
 class JSONFormatter(logging.Formatter):
     """JSON форматтер для структурированных логов (LogStreamer)."""
-    
+
     def format(self, record: logging.LogRecord) -> str:
         log_data: Dict[str, Any] = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
@@ -55,15 +55,15 @@ class JSONFormatter(logging.Formatter):
             "function": record.funcName,
             "line": record.lineno,
         }
-        
+
         # Добавляем extra поля если есть
         if hasattr(record, 'extra'):
             log_data["extra"] = record.extra
-        
+
         # Добавляем exception если есть
         if record.exc_info:
             log_data["exception"] = self.formatException(record.exc_info)
-        
+
         return json.dumps(log_data, ensure_ascii=False, default=str)
 
 
@@ -113,7 +113,7 @@ def setup_logger(
     if log_file:
         log_path = Path(log_file)
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setLevel(logging.DEBUG)  # В файл пишем всё
         file_handler.setFormatter(file_format)
@@ -124,7 +124,7 @@ def setup_logger(
         json_file = json_log_file or (log_file.replace('.log', '.json') if log_file else 'logs/parser_riba.json')
         json_path = Path(json_file)
         json_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         json_handler = logging.FileHandler(json_file, encoding="utf-8")
         json_handler.setLevel(logging.DEBUG)
         json_handler.setFormatter(JSONFormatter())

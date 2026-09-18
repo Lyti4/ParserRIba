@@ -11,6 +11,7 @@ from typing import Any
 
 from models.task_actor import RunManifest
 from utils.launcher_task_view import build_launcher_task_view
+from utils.product_breakdown_summary import with_product_breakdown_alias
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 RUN_LOCAL_TASK_SCRIPT = ROOT_DIR / "scripts" / "run_local_task.py"
@@ -65,7 +66,7 @@ def run_local_task_subprocess(
     root_dir: Path | str,
     python_executable: str | None = None,
     show_summary: bool = False,
-    timeout_seconds: int = 900,
+    timeout_seconds: int | None = 900,
 ) -> LocalTaskProcessResult:
     """Run one local task via subprocess and parse the returned result."""
     command = build_local_task_command(
@@ -137,6 +138,7 @@ def build_local_task_process_result(
             catalog_discovery=_summary_dict(summary, "catalog_discovery"),
             intent_category_links=_summary_dict_list(summary, "intent_category_links"),
             found_filters=_summary_dict(summary, "found_filters"),
+            site_filter_facets=_summary_dict(summary, "site_filter_facets"),
         ),
     )
 
@@ -144,6 +146,8 @@ def build_local_task_process_result(
 def _summary_dict(summary: dict[str, Any], key: str) -> dict[str, Any] | None:
     value = summary.get(key)
     if isinstance(value, dict):
+        if key == "report_summary":
+            return with_product_breakdown_alias(value)
         return value
     return None
 
@@ -210,10 +214,8 @@ def _build_subprocess_failure_message(error: subprocess.CalledProcessError) -> s
 
 def _build_subprocess_timeout_message(
     error: subprocess.TimeoutExpired,
-    timeout_seconds: int,
+    timeout_seconds: int | None,
 ) -> str:
     """Render one compact launcher-safe subprocess timeout message."""
-    command = getattr(error, "cmd", None)
-    command_text = " ".join(str(part) for part in command) if isinstance(command, list) else str(command or "")
-    suffix = f" Command: {command_text[:160]}" if command_text else ""
-    return f"Local task subprocess timed out after {timeout_seconds} seconds.{suffix}"
+    del error
+    return f"Local task subprocess timed out after {timeout_seconds} seconds."

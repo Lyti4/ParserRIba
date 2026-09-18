@@ -1,4 +1,4 @@
-"""Single Camoufox launch configuration used by parsers and smoke tests."""
+"""Single Camoufox launch configuration for browser flows and smoke tests."""
 
 from __future__ import annotations
 
@@ -12,6 +12,8 @@ from loguru import logger
 from utils.fingerprint import build_fingerprint_profile
 from utils.geoip import prepare_geoip
 from utils.proxy import mask_proxy_url, parse_proxy_url
+from utils.proxy_bridge import ProxyBridge, start_proxy_bridge
+from utils.camoufox_profile_sanitizer import disable_known_content_blockers_in_profile
 from utils.catalog_tree_discovery.camoufox_runtime_profile import (
     CamoufoxResearchRuntimeProfile,
 )
@@ -20,6 +22,8 @@ DEFAULT_CAMOUFOX_PATH = Path(
     r"C:\CamoufoxBrowser\camoufox-135.0.1-beta.24-win.x86_64\camoufox.exe"
 )
 DEFAULT_FF_VERSION = 135
+PROFILE_IDENTITY_FILENAME = "camoufox_identity.pkl"
+_ACTIVE_PROXY_BRIDGES: list[ProxyBridge] = []
 
 
 def configure_windows_console() -> None:
@@ -41,11 +45,30 @@ def resolve_camoufox_executable() -> Path | None:
         if path.exists():
             return path
 
+    managed_path = _resolve_managed_camoufox_executable()
+    if managed_path is not None:
+        os.environ["CAMOUFOX_BIN"] = str(managed_path)
+        os.environ["CAMOUFOX_SKIP_DOWNLOAD"] = "1"
+        return managed_path
+
     if DEFAULT_CAMOUFOX_PATH.exists():
         os.environ["CAMOUFOX_BIN"] = str(DEFAULT_CAMOUFOX_PATH)
         os.environ["CAMOUFOX_SKIP_DOWNLOAD"] = "1"
         return DEFAULT_CAMOUFOX_PATH
     return None
+
+
+def _resolve_managed_camoufox_executable() -> Path | None:
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if not local_app_data:
+        return None
+    browser_root = Path(local_app_data) / "camoufox" / "camoufox" / "Cache" / "browsers" / "official"
+    if not browser_root.exists():
+        return None
+    candidates = [path for path in browser_root.glob("*/camoufox.exe") if path.exists()]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda path: path.stat().st_mtime)
 
 
 def build_camoufox_options(
@@ -60,24 +83,26 @@ def build_camoufox_options(
     locale: str | None = None,
     fingerprint_os: str | list[str] | None = None,
     user_data_dir: str | Path | None = None,
+    use_fingerprint_profile: bool = True,
 ) -> dict[str, Any]:
     """Build AsyncCamoufox options in one place."""
     executable_path = resolve_camoufox_executable()
     geoip_enabled = prepare_geoip() if geoip else False
-    profile = build_fingerprint_profile(
-        os_value=fingerprint_os,
-        locale=locale,
-        humanize=humanize,
-        block_images=block_images,
-        block_webrtc=block_webrtc,
-        block_webgl=block_webgl,
-    )
     options: dict[str, Any] = {
         "geoip": geoip_enabled,
         "headless": normalize_headless(headless),
         "i_know_what_im_doing": True,
     }
-    options.update(profile.launch_options())
+    if use_fingerprint_profile:
+        profile = build_fingerprint_profile(
+            os_value=fingerprint_os,
+            locale=locale,
+            humanize=humanize,
+            block_images=block_images,
+            block_webrtc=block_webrtc,
+            block_webgl=block_webgl,
+        )
+        options.update(profile.launch_options())
 
     if executable_path:
         # ИЗМЕНЕНО: используем локальный Camoufox, чтобы не требовать `camoufox fetch`.
@@ -86,7 +111,8 @@ def build_camoufox_options(
 
     if proxy_url:
         parsed_proxy = parse_proxy_url(proxy_url)
-        options["proxy"] = parsed_proxy.as_playwright()
+        browser_proxy = _browser_proxy_config(parsed_proxy, proxy_url)
+        options["proxy"] = browser_proxy
         logger.info("Using proxy {}", mask_proxy_url(proxy_url))
 
     profile_dir = user_data_dir or os.environ.get("CAMOUFOX_USER_DATA_DIR", "")
@@ -94,13 +120,54 @@ def build_camoufox_options(
         path = Path(profile_dir)
         path.mkdir(parents=True, exist_ok=True)
         disable_session_restore_in_profile(path)
-        if options.get("block_images") is False:
+        disable_known_content_blockers_in_profile(path)
+        if not use_fingerprint_profile or options.get("block_images") is False:
             allow_images_in_profile(path)
+        persistent_fingerprint = _load_profile_fingerprint_when_enabled(path)
+        if persistent_fingerprint is not None:
+            options["fingerprint"] = persistent_fingerprint
         options["persistent_context"] = True
         options["user_data_dir"] = str(path)
         logger.info("Using persistent Camoufox profile: {}", path)
 
     return options
+
+
+def _load_profile_fingerprint_when_enabled(profile_dir: Path) -> Any | None:
+    if os.environ.get("CAMOUFOX_PERSIST_FINGERPRINT", "0").strip().lower() not in {"1", "true", "yes", "on"}:
+        return None
+    identity_path = profile_dir / PROFILE_IDENTITY_FILENAME
+    try:
+        import pickle
+
+        with identity_path.open("rb") as file:
+            return pickle.load(file)  # noqa: S301 - local ignored profile identity, opt-in only.
+    except Exception as exc:
+        logger.warning("Could not load persistent Camoufox identity {}: {}", identity_path, exc)
+        return None
+
+
+def _browser_proxy_config(parsed_proxy: Any, proxy_url: str) -> dict[str, str]:
+    """Return browser proxy config, using a local auth bridge when useful."""
+    if _should_bridge_proxy(parsed_proxy):
+        bridge = start_proxy_bridge(parsed_proxy)
+        _ACTIVE_PROXY_BRIDGES.append(bridge)
+        logger.info("Using local proxy bridge for {}", mask_proxy_url(proxy_url))
+        return {"server": bridge.server_url}
+    return parsed_proxy.as_playwright()
+
+
+def _should_bridge_proxy(parsed_proxy: Any) -> bool:
+    mode = os.environ.get("PARSER_PROXY_BRIDGE", "auto").strip().lower()
+    if mode in {"0", "false", "no", "off", "disabled"}:
+        return False
+    if mode in {"1", "true", "yes", "on", "enabled"}:
+        return True
+    return (
+        parsed_proxy.server.startswith("http://")
+        and bool(parsed_proxy.username)
+        and bool(parsed_proxy.password)
+    )
 
 
 def build_research_camoufox_options(
@@ -118,6 +185,7 @@ def build_research_camoufox_options(
         proxy_url=proxy_url,
         geoip=geoip,
         block_images=runtime.block_images,
+        block_webrtc=runtime.block_webrtc,
         block_webgl=runtime.block_webgl,
         humanize=runtime.humanize,
         locale=runtime.locale,

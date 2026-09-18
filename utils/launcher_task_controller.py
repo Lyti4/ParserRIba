@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from models.browser_runtime import BrowserRuntimeKind
 from utils.launcher_report_task_controller import (
     run_launcher_fish_report_export,
     run_launcher_fish_report_filter_options,
+    run_launcher_pyaterochka_report_export,
+    run_launcher_pyaterochka_report_filter_options,
     run_launcher_report_export,
     run_launcher_report_filter_options,
     run_launcher_wine_report_export,
@@ -26,9 +29,10 @@ def run_launcher_onboarding_discovery(
     manual_wait: bool = False,
     listen_seconds: int = 6,
     research_mode: str = "live",
+    browser_runtime: str = "camoufox",
     python_executable: str | None = None,
     show_summary: bool = False,
-    timeout_seconds: int = 900,
+    timeout_seconds: int | None = 900,
 ) -> LocalTaskProcessResult:
     """Run the launcher onboarding discovery task through the local task adapter."""
     return run_local_task_subprocess(
@@ -42,6 +46,7 @@ def run_launcher_onboarding_discovery(
             "manual_wait": manual_wait,
             "listen_seconds": listen_seconds,
             "research_mode": research_mode,
+            "browser_runtime": browser_runtime,
         },
         root_dir=Path(root_dir),
         python_executable=python_executable,
@@ -64,9 +69,9 @@ def run_launcher_fish_export(
     show_summary: bool = False,
     timeout_seconds: int = 900,
 ) -> LocalTaskProcessResult:
-    """Run the launcher fish export task through the local task adapter."""
-    return _run_category_export(
-        task_name="pyaterochka_fish_export",
+    """Compatibility alias for Pyaterochka fish catalog export."""
+    return run_launcher_pyaterochka_export(
+        intent="fish_catalog",
         root_dir=root_dir,
         category=category,
         category_url=category_url,
@@ -95,9 +100,9 @@ def run_launcher_wine_export(
     show_summary: bool = False,
     timeout_seconds: int = 900,
 ) -> LocalTaskProcessResult:
-    """Run the launcher wine export task through the local task adapter."""
-    return _run_category_export(
-        task_name="pyaterochka_wine_export",
+    """Compatibility alias for Pyaterochka wine catalog export."""
+    return run_launcher_pyaterochka_export(
+        intent="wine_catalog",
         root_dir=root_dir,
         category=category,
         category_url=category_url,
@@ -112,9 +117,43 @@ def run_launcher_wine_export(
     )
 
 
-def _run_category_export(
+def run_launcher_pyaterochka_export(
     *,
-    task_name: str,
+    intent: str,
+    root_dir: Path | str,
+    category: str,
+    category_url: str = "",
+    attempts: int = 3,
+    listen_seconds: int = 15,
+    headless: bool | str | None = None,
+    manual_wait: bool = False,
+    expand_intent: bool = True,
+    python_executable: str | None = None,
+    show_summary: bool = False,
+    timeout_seconds: int = 900,
+) -> LocalTaskProcessResult:
+    """Compatibility helper for Pyaterochka catalog export with explicit intent."""
+    return run_launcher_store_export(
+        shop="pyaterochka",
+        intent=intent,
+        root_dir=root_dir,
+        category=category,
+        category_url=category_url,
+        attempts=attempts,
+        listen_seconds=listen_seconds,
+        headless=headless,
+        manual_wait=manual_wait,
+        expand_intent=expand_intent,
+        python_executable=python_executable,
+        show_summary=show_summary,
+        timeout_seconds=timeout_seconds,
+    )
+
+
+def run_launcher_store_export(
+    *,
+    shop: str,
+    intent: str,
     root_dir: Path | str,
     category: str,
     category_url: str,
@@ -123,20 +162,24 @@ def _run_category_export(
     headless: bool | str | None,
     manual_wait: bool,
     expand_intent: bool,
-    python_executable: str | None,
-    show_summary: bool,
+    browser_runtime: BrowserRuntimeKind = "camoufox",
+    python_executable: str | None = None,
+    show_summary: bool = False,
     timeout_seconds: int,
 ) -> LocalTaskProcessResult:
-    """Run one category export task through the local task adapter."""
+    """Run one profile-selected store export task through the local task adapter."""
     return run_local_task_subprocess(
-        task_name=task_name,
+        task_name="store_catalog_export",
         task_input={
+            "shop": shop,
+            "intent": intent,
             "category": category,
             "category_url": category_url,
             "attempts": attempts,
             "listen_seconds": listen_seconds,
             "headless": headless,
             "manual_wait": manual_wait,
+            "browser_runtime": browser_runtime,
             "expand_intent": expand_intent,
         },
         root_dir=Path(root_dir),

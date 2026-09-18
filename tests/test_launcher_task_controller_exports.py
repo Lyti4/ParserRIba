@@ -39,7 +39,7 @@ def test_run_launcher_wine_export_uses_named_task_and_payload(tmp_path: Path) ->
 
     assert result.manifest.task_name == "pyaterochka_wine_export"
     assert result.manifest.intent == "wine_catalog"
-    assert captured["task_name"] == "pyaterochka_wine_export"
+    assert captured["task_name"] == "store_catalog_export"
     assert captured["timeout_seconds"] == 222
     task_input = captured["task_input"]
     assert task_input["attempts"] == 2
@@ -67,14 +67,14 @@ def test_run_launcher_fish_export_uses_named_task_and_payload(tmp_path: Path) ->
                 finished_at=datetime.utcnow(),
                 summary={"products_count": 84},
             ),
-            summary_text="Task: pyaterochka_fish_export",
+            summary_text="Task: store_catalog_export",
         )
 
     launcher_task_controller.run_local_task_subprocess = fake_run_local_task_subprocess
 
     result = launcher_task_controller.run_launcher_fish_export(
         root_dir=tmp_path,
-        category="Р В РЎвЂ№Р В±Р В°",
+        category="\u0420\u00a0\u0412\u00a0\u0420\u040e\u0432\u0402\u2116\u0420\u00a0\u0412\u00b1\u0420\u00a0\u0412\u00b0",
         category_url="https://5ka.ru/catalog/zavtraki--251C12891/",
         attempts=1,
         listen_seconds=4,
@@ -85,14 +85,17 @@ def test_run_launcher_fish_export_uses_named_task_and_payload(tmp_path: Path) ->
 
     assert result.manifest.task_name == "pyaterochka_fish_export"
     assert result.manifest.intent == "fish_catalog"
-    assert captured["task_name"] == "pyaterochka_fish_export"
+    assert captured["task_name"] == "store_catalog_export"
     assert captured["timeout_seconds"] == 333
     assert captured["task_input"] == {
-        "category": "Р В РЎвЂ№Р В±Р В°",
+        "shop": "pyaterochka",
+        "intent": "fish_catalog",
+        "category": "\u0420\u00a0\u0412\u00a0\u0420\u040e\u0432\u0402\u2116\u0420\u00a0\u0412\u00b1\u0420\u00a0\u0412\u00b0",
         "category_url": "https://5ka.ru/catalog/zavtraki--251C12891/",
         "attempts": 1,
         "listen_seconds": 4,
         "headless": False,
         "manual_wait": True,
+        "browser_runtime": "camoufox",
         "expand_intent": True,
     }

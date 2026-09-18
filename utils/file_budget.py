@@ -7,7 +7,7 @@ from pathlib import Path
 DEFAULT_LONG_FILE_LIMIT = 300
 EXTENDED_LONG_FILE_LIMIT = 450
 EXTENDED_LONG_FILE_PATH_PREFIXES = ("tests/", "scripts/")
-EXTENDED_LONG_FILE_PATHS = {"main.py"}
+EXTENDED_LONG_FILE_PATHS: set[str] = set()
 
 
 def long_file_limit_for_path(rel_path: str) -> int:

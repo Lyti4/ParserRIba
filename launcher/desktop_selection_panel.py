@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from launcher.desktop_catalog_search import apply_catalog_tree_search
 from launcher.desktop_catalog_tree_widget import collect_checked_catalog_nodes, populate_catalog_tree_widget
 from launcher.desktop_state_readers import full_catalog_links, full_catalog_tree
-from launcher.desktop_ui_text import SHOP_LABELS
+from launcher.desktop_ui_text import SHOP_LABELS, STORE_URL_PLACEHOLDER
 
 
 def build_store_selection_box(shell: Any, qtwidgets: Any) -> Any:
@@ -16,14 +17,23 @@ def build_store_selection_box(shell: Any, qtwidgets: Any) -> Any:
     layout.setHorizontalSpacing(8)
     layout.setVerticalSpacing(6)
     layout.addWidget(qtwidgets.QLabel("URL сайта"), 0, 0)
-    shell.site_url_input = qtwidgets.QLineEdit("https://5ka.ru")
+    shell.site_url_input = qtwidgets.QLineEdit("")
+    shell.site_url_input.setPlaceholderText(STORE_URL_PLACEHOLDER)
+    shell.site_url_input.setMinimumWidth(0)
+    shell.site_url_input.setSizePolicy(
+        qtwidgets.QSizePolicy.Policy.Ignored,
+        qtwidgets.QSizePolicy.Policy.Fixed,
+    )
     layout.addWidget(shell.site_url_input, 0, 1, 1, 3)
-    layout.addWidget(qtwidgets.QLabel("Магазин"), 1, 0)
+    shell.profile_hint_label = qtwidgets.QLabel("Магазин определится после исследования сайта и сохранения профиля.")
+    shell.profile_hint_label.setWordWrap(True)
+    layout.addWidget(shell.profile_hint_label, 1, 1, 1, 3)
     shell.shop_combo = qtwidgets.QComboBox()
+    shell.shop_combo.addItem("Профиль ещё не выбран", "")
     for value, label in SHOP_LABELS.items():
         shell.shop_combo.addItem(label, value)
     shell.shop_combo.currentTextChanged.connect(shell._on_shop_changed)
-    layout.addWidget(shell.shop_combo, 1, 1)
+    shell.shop_combo.hide()
     return box
 
 
@@ -43,25 +53,30 @@ def build_catalog_selection_box(shell: Any, qtwidgets: Any) -> Any:
     shell.category_list.setMaximumHeight(70)
     layout.addWidget(shell.category_list, 1, 1, 1, 3)
     layout.addWidget(qtwidgets.QLabel("Разделы каталога"), 2, 0)
+    shell.catalog_search_input = qtwidgets.QLineEdit()
+    shell.catalog_search_input.setObjectName("launcherCatalogSearchInput")
+    shell.catalog_search_input.setPlaceholderText("Поиск по первым буквам")
+    shell.catalog_search_input.textChanged.connect(lambda text: _apply_catalog_search(shell, text))
+    layout.addWidget(shell.catalog_search_input, 2, 1, 1, 3)
     shell.catalog_tree = qtwidgets.QTreeWidget()
     shell.catalog_tree.setMinimumHeight(280)
     shell.catalog_tree.setSelectionMode(qtwidgets.QAbstractItemView.SelectionMode.NoSelection)
     shell.catalog_tree.itemChanged.connect(shell._on_catalog_tree_changed)
-    layout.addWidget(shell.catalog_tree, 2, 1, 1, 3)
+    layout.addWidget(shell.catalog_tree, 3, 1, 1, 3)
     button_grid = qtwidgets.QGridLayout()
     button_grid.setContentsMargins(0, 0, 0, 0)
     button_grid.setHorizontalSpacing(8)
     for index, (label, handler) in enumerate(
         (
-            ("Выбрать всё", shell._on_select_all_categories),
-            ("Снять выбор", shell._on_clear_categories),
+            ("Выбрать все разделы для сбора", shell._on_select_all_categories),
+            ("Снять выбор разделов", shell._on_clear_categories),
         )
     ):
         button = qtwidgets.QPushButton(label)
         button.clicked.connect(handler)
         shell.category_action_buttons.append(button)
         button_grid.addWidget(button, 0, index)
-    layout.addLayout(button_grid, 3, 1, 1, 3)
+    layout.addLayout(button_grid, 4, 1, 1, 3)
     return box
 
 
@@ -82,6 +97,7 @@ def refresh_catalog_tree(shell: Any) -> None:
         return
     nodes = full_catalog_tree(shell.state)
     populate_catalog_tree_widget(shell.catalog_tree, shell._qtwidgets, shell._qt, nodes, shell.state.selection.categories)
+    apply_catalog_tree_search(shell.catalog_tree, _catalog_search_text(shell))
     _refresh_catalog_context(shell)
 
 
@@ -112,6 +128,16 @@ def _refresh_catalog_context(shell: Any) -> None:
     mode = "плоский пул разделов" if _is_flat_catalog(tree) else "дерево разделов"
     preview = ", ".join(selected[:3])
     label.setText(f"Каталог: найдено {total} | выбрано {len(selected)}{(': ' + preview) if preview else ''} | структура: {mode}")
+
+
+def _catalog_search_text(shell: Any) -> str:
+    search_input = getattr(shell, "catalog_search_input", None)
+    return search_input.text() if search_input is not None else ""
+
+
+def _apply_catalog_search(shell: Any, text: str) -> None:
+    if shell.catalog_tree is not None:
+        apply_catalog_tree_search(shell.catalog_tree, text)
 
 
 def _catalog_tree_count(tree: Any) -> int:

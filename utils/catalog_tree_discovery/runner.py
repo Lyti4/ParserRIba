@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
+from models.browser_runtime import BrowserRuntimeKind
 from models.catalog_discovery import CatalogDiscoveryResult, DiscoveryPhaseEvent, SiteProfileVersion
 from utils.browser_catalog_discovery import discover_catalog_research_context_via_browser
 from utils.catalog_tree_discovery.phase_events import make_phase_event
@@ -33,6 +34,7 @@ async def run_catalog_tree_discovery(
     site_url: str,
     *,
     shop: str | None = None,
+    browser_runtime: BrowserRuntimeKind = "camoufox",
     mode: str = "live",
     headless: bool | str | None = None,
     manual_wait: bool = False,
@@ -50,6 +52,7 @@ async def run_catalog_tree_discovery(
     discovery, context = await discover_catalog_research_context_via_browser(
         site_url,
         shop=resolved_shop or None,
+        browser_runtime=browser_runtime,
         headless=headless,
         manual_wait=manual_wait,
         listen_seconds=listen_seconds,
@@ -75,6 +78,9 @@ async def run_catalog_tree_discovery(
         notes.append("partial_research_due_to_challenge")
     if not category_names:
         notes.append("empty_research_branch")
+        if not discovery.product_links and not discovery.documents:
+            partial = True
+            notes.append("partial_research_due_to_empty_catalog")
     notes.append(f"adaptive_limits:{MAX_REPEAT_URLS}/{MAX_EMPTY_BRANCHES}/{MAX_DISCOVERY_DEPTH}")
     profile = SiteProfileVersion(
         profile_id=profile_id,

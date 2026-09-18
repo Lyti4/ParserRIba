@@ -49,13 +49,14 @@ from utils.platform_reporting import (
     record_session_outcome,
 )
 from utils.product_sampling import find_cards
-from utils.proxy import choose_proxy_for_attempt, load_proxy_urls, mask_proxy_url
+from utils.proxy import choose_proxy_for_attempt, load_proxy_config_from_env, mask_proxy_url
 from utils.proxy_history import ProxyHistoryStore, build_proxy_attempt_record
 from utils.rate_profile import protected_store_rate_profile
 from utils.run_context import AttemptContext, RunContext
 from utils.session_pool import ParserSession, SessionPool
 from scripts.smoke_pyaterochka_support import (
     SmokeCooldownPage,
+    build_manual_phase_network_diagnostics,
     build_attempt_result,
     failed_attempt_result,
     parse_args,
@@ -67,7 +68,6 @@ from scripts.smoke_pyaterochka_support import (
 OUTPUT_DIR = ROOT_DIR / "data"
 PROFILE_DIR = ROOT_DIR / "profiles" / "pyaterochka"
 DEFAULT_CATEGORY = "Рыба"
-PROXY_ENV = "PARSER_PROXY"
 PROXY_PREFLIGHT_URL = "https://api.ipify.org?format=json"
 
 
@@ -138,6 +138,7 @@ async def smoke_parse_pyaterochka(
     headless: bool | str | None = None,
     pause: bool = False,
     block_images: bool = True,
+    block_webrtc: bool = True,
     persistent_profile: bool = False,
     manual_wait: bool = False,
 ) -> dict[str, Any]:
@@ -158,10 +159,7 @@ async def smoke_parse_pyaterochka(
     logger.info("Starting Camoufox for Pyaterochka smoke test")
     logger.info("Category: {} -> {}", category_name, category_url)
 
-    proxy_urls = load_proxy_urls(
-        primary=os.environ.get(PROXY_ENV, ""),
-        pool=os.environ.get("PARSER_PROXIES", ""),
-    )
+    proxy_urls = load_proxy_config_from_env(os.environ).urls
     proxy_history = ProxyHistoryStore(OUTPUT_DIR / "proxy_history.db")
     proxy_urls = proxy_history.rank_proxy_urls("pyaterochka", proxy_urls)
     geoip_enabled = os.environ.get("PARSER_GEOIP", "").lower() in {"1", "true", "yes"}
@@ -192,6 +190,7 @@ async def smoke_parse_pyaterochka(
             proxy_url=proxy_url,
             geoip=geoip_enabled,
             block_images=block_images,
+            block_webrtc=block_webrtc,
             block_webgl=False,
             humanize=True,
             fingerprint_os="windows",
@@ -216,7 +215,7 @@ async def smoke_parse_pyaterochka(
             )
         except Exception as exc:
             logger.warning("Smoke attempt {} failed: {}", attempt, exc)
-            final_result = failed_attempt_result(category_name, category_url, attempt, attempts, exc)
+            final_result = failed_attempt_result(category_name, category_url, attempt, attempts, exc, proxy_url=proxy_url)
             finish_attempt_from_result(attempt_context, final_result, success_reason="cards_found")
             attach_platform_context(
                 final_result,
@@ -252,9 +251,7 @@ async def smoke_parse_pyaterochka(
             reason = str(final_result.get("block_reason") or "empty_result")
             await cooldown_for_reason(SmokeCooldownPage(), reason, build_category_behavior_profile(category_name))
 
-    result = final_result or failed_attempt_result(
-        category_name, category_url, 0, attempts, RuntimeError("no attempts executed")
-    )
+    result = final_result or failed_attempt_result(category_name, category_url, 0, attempts, RuntimeError("no attempts executed"))
     result["attempts"] = attempt_results
     result["proxy_history"] = proxy_history.summary("pyaterochka", proxy_urls)
 
@@ -328,16 +325,32 @@ async def _run_smoke_attempt(
                 diagnostics = await wait_for_pyaterochka_state(page, response)
         else:
             diagnostics = await collect_page_diagnostics(page, response)
+        manual_phase_network = {}
         if manual_wait:
+            if network_tasks:
+                await asyncio.gather(*network_tasks, return_exceptions=True)
+            manual_network_before_prompt_count = len(network_events)
             logger.info("Manual wait enabled; solve captcha in Camoufox, then press Enter here")
             await asyncio.to_thread(
                 input,
                 "Press Enter only after product cards are visible in Camoufox...",
             )
+            if network_tasks:
+                await asyncio.gather(*network_tasks, return_exceptions=True)
+            manual_network_after_prompt_count = len(network_events)
             diagnostics, manual_cards, manual_cards_ready = await wait_for_cards_after_manual_challenge(
                 page=page,
                 response=response,
                 card_selectors=card_selectors,
+            )
+            if network_tasks:
+                await asyncio.gather(*network_tasks, return_exceptions=True)
+            manual_network_after_post_wait_count = len(network_events)
+            manual_phase_network = build_manual_phase_network_diagnostics(
+                network_events,
+                before_prompt_count=manual_network_before_prompt_count,
+                after_prompt_count=manual_network_after_prompt_count,
+                after_post_wait_count=manual_network_after_post_wait_count,
             )
             logger.info(
                 "Post-manual wait finished: cards_ready={}, cards_found={}",
@@ -375,6 +388,7 @@ async def _run_smoke_attempt(
             cards_override=manual_cards,
             manual_wait=manual_wait,
             manual_cards_ready=manual_cards_ready,
+            manual_phase_network=manual_phase_network,
         )
         finish_attempt_from_result(attempt_context, result, success_reason="cards_found")
         attach_platform_context(
@@ -405,6 +419,7 @@ if __name__ == "__main__":
             headless=args.headless,
             pause=args.pause,
             block_images=not args.load_images,
+            block_webrtc=not args.allow_webrtc,
             persistent_profile=args.persistent_profile,
             manual_wait=args.manual_wait,
         )

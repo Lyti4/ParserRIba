@@ -79,3 +79,28 @@ Do not build a public installer until:
 - [ ] Pyaterochka behavior with RU proxy is documented;
 - [ ] decision is made about bundling or separately installing Camoufox;
 - [ ] decision is made about bundling or separately downloading GeoIP.
+
+## R0 launcher-first release gates
+
+These gates extend rather than replace the historical portable-build checklist.
+
+- [ ] `docs/WINDOWS_RELEASE_PLAN.md` has a current finite acceptance matrix and
+  records verified, implemented-unverified, blocked and optional capabilities.
+- [ ] The active packaged entry is confirmed as
+  `scripts/run_desktop_launcher.py`; `ParserRIba.spec` and `main.py` are not
+  treated as evidence that legacy CLI switches work in the launcher build.
+- [ ] The actual packaged smoke command (`ParserRIba.exe --smoke`) is captured
+  from a Windows build receipt. `--check-env` and `--list-stores` require an
+  explicit active-launcher contract before they become executable release gates.
+- [ ] The build receipt records the Python executable, dependency inputs,
+  build-script revision, ZIP SHA256 and artifact location.
+- [ ] The ZIP is inspected for source/artifact hygiene: no `.env`, proxy,
+  cookies, browser profiles, credentials, generated local data or logs.
+- [ ] Camoufox Python package, external browser binary and optional CloakBrowser
+  are tracked as separate provenance/licensing decisions. Do not redistribute
+  CloakBrowser or auto-download browser runtimes without explicit approval.
+- [ ] A human clean-Windows acceptance covers settings/theme, profile save/load,
+  report export, cancel/error recovery and the user instructions. A protected
+  store crawl, login, proxy, captcha or browser binary test is a separate gate.
+- [ ] Version, changelog, rollback artifact location and independent review are
+  complete before any publication decision.

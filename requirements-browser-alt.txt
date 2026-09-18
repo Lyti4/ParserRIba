@@ -1,0 +1,3 @@
+# Optional experimental browser runtimes.
+# Install explicitly only after accepting third-party binary/license terms.
+cloakbrowser>=0.3.31

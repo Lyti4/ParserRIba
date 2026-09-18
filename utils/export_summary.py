@@ -8,15 +8,17 @@ from typing import Any
 
 def build_export_summary(payload: dict[str, Any]) -> dict[str, Any]:
     """Build one structured export summary for JSON payloads and manifests."""
+    product_breakdown = _build_product_breakdown(payload)
     return {
         "products_count": int(payload.get("products_count") or 0),
         "categories": list(payload.get("categories") or []),
         "attempt": payload.get("attempt") or {},
-        "wine_breakdown": _build_wine_breakdown(payload),
+        "product_breakdown": product_breakdown,
+        "wine_breakdown": product_breakdown,
     }
 
 
-def _build_wine_breakdown(payload: dict[str, Any]) -> dict[str, dict[str, int]]:
+def _build_product_breakdown(payload: dict[str, Any]) -> dict[str, dict[str, int]]:
     if str(payload.get("intent") or "").strip() != "wine_catalog":
         return {
             "style_counts": {},

@@ -6,6 +6,7 @@ import asyncio
 import uuid
 from pathlib import Path
 
+from models.browser_runtime import BrowserRuntimeKind
 from models.catalog_discovery import CatalogDiscoveryResult
 from models.onboarding import OnboardingResult
 from utils.browser_catalog_discovery import discover_catalog_site_via_browser_sync
@@ -33,7 +34,7 @@ from utils.store_catalog_registry import (
 def run_site_onboarding(
     *,
     site_url: str,
-    intent: str = "fish_catalog",
+    intent: str = "",
     root_dir: Path,
     require_operator_confirmation: bool = False,
     selected_categories: list[str] | None = None,
@@ -41,9 +42,11 @@ def run_site_onboarding(
     manual_wait: bool = False,
     listen_seconds: int = 6,
     research_mode: str = "live",
+    browser_runtime: BrowserRuntimeKind = "camoufox",
 ) -> OnboardingResult:
     """Create or resume a guided onboarding session for one site."""
     site_profile = match_known_store_site(site_url)
+    effective_intent = _resolve_effective_intent(site_profile, intent)
     shop_slug = site_profile.shop if site_profile else derive_shop_slug(site_url)
     artifacts = get_artifact_generator("default")(root_dir, shop_slug)
     protection = get_protection_strategy("pause_for_operator")
@@ -53,7 +56,7 @@ def run_site_onboarding(
             session_id=str(uuid.uuid4()),
             shop_slug=shop_slug,
             site_url=site_url,
-            intent=intent,
+            intent=effective_intent,
             status="needs_operator",
             selected_categories=list(selected_categories or []),
             active_profile_id=str(profile_metadata.get("profile_id") or ""),
@@ -70,7 +73,7 @@ def run_site_onboarding(
 
     result = _build_onboarding_result(
         site_url=site_url,
-        intent=intent,
+        intent=effective_intent,
         root_dir=root_dir,
         site_profile=site_profile,
         selected_categories=selected_categories,
@@ -78,6 +81,7 @@ def run_site_onboarding(
         manual_wait=manual_wait,
         listen_seconds=listen_seconds,
         research_mode=research_mode,
+        browser_runtime=browser_runtime,
     )
     _persist_onboarding_result(root_dir, result)
     return result
@@ -90,11 +94,12 @@ def resume_site_onboarding(*, session_id: str, root_dir: Path) -> OnboardingResu
     if not saved:
         raise ValueError(f"Unknown onboarding session: {session_id}")
     site_url = str(saved.get("site_url") or "")
-    intent = str(saved.get("intent") or "fish_catalog")
+    intent = str(saved.get("intent") or "")
     site_profile = match_known_store_site(site_url)
+    effective_intent = _resolve_effective_intent(site_profile, intent)
     result = _build_onboarding_result(
         site_url=site_url,
-        intent=intent,
+        intent=effective_intent,
         root_dir=root_dir,
         site_profile=site_profile,
         session_id=session_id,
@@ -115,6 +120,7 @@ def _build_onboarding_result(
     manual_wait: bool = False,
     listen_seconds: int = 6,
     research_mode: str = "live",
+    browser_runtime: BrowserRuntimeKind = "camoufox",
 ) -> OnboardingResult:
     shop_slug = site_profile.shop if site_profile else derive_shop_slug(site_url)
     artifacts = get_artifact_generator("default")(root_dir, shop_slug)
@@ -125,6 +131,7 @@ def _build_onboarding_result(
         manual_wait=manual_wait,
         listen_seconds=listen_seconds,
         research_mode=research_mode,
+        browser_runtime=browser_runtime,
     )
     discovery = research.catalog_discovery
     kb_categories = load_kb_categories(root_dir, site_profile.kb_shop if site_profile else None)
@@ -171,7 +178,7 @@ def _build_onboarding_result(
         shop_slug=shop_slug,
         site_url=site_url,
         intent=intent,
-        status=site_profile.onboarding_status if site_profile else "discovery_only",
+        status=_onboarding_status(site_profile, research),
         category_tree=category_tree,
         selected_categories=list(selected_categories or []),
         active_profile_id=research.profile.profile_id,
@@ -191,6 +198,16 @@ def _persist_onboarding_result(root_dir: Path, result: OnboardingResult) -> None
     OnboardingStorage(root_dir / "data" / "products.db").save_onboarding_session(result)
 
 
+def _resolve_effective_intent(site_profile: KnownStoreSite | None, requested_intent: str) -> str:
+    """Resolve intent from explicit input or known runtime-ready store metadata."""
+    intent = str(requested_intent or "").strip()
+    if intent:
+        return intent
+    if site_profile and site_profile.export_backend_shop:
+        return str(site_profile.default_intent or "").strip()
+    return ""
+
+
 def discover_catalog_for_onboarding(site_url: str) -> CatalogDiscoveryResult:
     """Discover one site surface for onboarding diagnostics."""
     return discover_catalog_site_sync(site_url)
@@ -204,6 +221,7 @@ def _run_catalog_research_sync(
     manual_wait: bool = False,
     listen_seconds: int = 6,
     research_mode: str = "live",
+    browser_runtime: BrowserRuntimeKind = "camoufox",
 ) -> CatalogTreeDiscoveryRunResult:
     return asyncio.run(
         run_catalog_tree_discovery(
@@ -213,6 +231,7 @@ def _run_catalog_research_sync(
             headless=headless,
             manual_wait=manual_wait,
             listen_seconds=listen_seconds,
+            browser_runtime=browser_runtime,
         )
     )
 
@@ -222,6 +241,16 @@ def _category_source(discovery: CatalogDiscoveryResult, category_tree: list[obje
     if discovery.category_links:
         return "browser_discovery"
     return "kb_fallback" if category_tree else "none"
+
+
+def _onboarding_status(
+    site_profile: KnownStoreSite | None,
+    research: CatalogTreeDiscoveryRunResult,
+) -> str:
+    """Return a fail-closed status for partial protected-store research."""
+    if site_profile and site_profile.export_backend_shop and research.partial:
+        return "needs_operator"
+    return site_profile.onboarding_status if site_profile else "discovery_only"
 
 
 def _resolve_onboarding_categories(

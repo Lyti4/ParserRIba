@@ -7,6 +7,31 @@ from typing import Any
 from launcher.desktop_state_readers import found_filter_fields
 from launcher.desktop_ui_text import FILTER_TITLES
 
+IGNORED_FOUND_FILTER_FIELDS = {
+    "field_name",
+    "fieldname",
+    "filter_type",
+    "filtertype",
+    "list_values",
+    "listvalues",
+    "range_min_val",
+    "rangeminval",
+    "range_max_val",
+    "rangemaxval",
+    "name",
+    "title",
+    "label",
+    "type",
+    "kind",
+}
+LOCAL_FILTER_TITLES = {
+    "price": "Цена, ₽",
+    "special_offers": "Со скидкой",
+    "discount": "Со скидкой",
+    "fat_percent": "Жирность",
+    "product_type": "Тип товара",
+}
+
 FOUND_FILTERS_TITLE = "Найденные фильтры"
 
 
@@ -93,9 +118,14 @@ def _extract_found_filters(found_filters: Any) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for field_name, raw_options in found_filters.items():
         key = str(field_name or "").strip()
-        if key:
+        if key and not _is_ignored_found_filter_field(key):
             result[key] = raw_options
     return result
+
+
+def extract_found_filters(found_filters: Any) -> dict[str, Any]:
+    """Return normalized dynamic filter fields."""
+    return _extract_found_filters(found_filters)
 
 
 def _normalize_found_filter_options(raw_options: Any) -> list[tuple[str, int | None]]:
@@ -115,6 +145,11 @@ def _normalize_found_filter_options(raw_options: Any) -> list[tuple[str, int | N
         return result
     label = str(raw_options or "").strip()
     return [(label, None)] if label else []
+
+
+def normalize_found_filter_options(raw_options: Any) -> list[tuple[str, int | None]]:
+    """Return normalized selectable values for one dynamic filter field."""
+    return _normalize_found_filter_options(raw_options)
 
 
 def _coerce_option_pair(raw_label: Any, raw_value: Any) -> tuple[str, int | None]:
@@ -148,8 +183,23 @@ def _build_option_label(label: str, count: int | None) -> str:
     return f"{label} ({count})" if count is not None else label
 
 
+def build_option_label(label: str, count: int | None) -> str:
+    """Return the visible label for one filter option."""
+    return _build_option_label(label, count)
+
+
 def _field_title(field_name: str) -> str:
-    return FILTER_TITLES.get(field_name) or field_name.replace("_", " ").strip().title() or field_name
+    return LOCAL_FILTER_TITLES.get(field_name) or FILTER_TITLES.get(field_name) or field_name.replace("_", " ").strip().title() or field_name
+
+
+def field_title(field_name: str) -> str:
+    """Return a user-facing title for a dynamic field."""
+    return _field_title(field_name)
+
+
+def _is_ignored_found_filter_field(field_name: str) -> bool:
+    normalized = field_name.casefold().replace("-", "_").replace(" ", "_")
+    return normalized in IGNORED_FOUND_FILTER_FIELDS
 
 
 def _clear_layout(layout: Any) -> None:

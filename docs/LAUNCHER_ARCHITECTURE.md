@@ -1,389 +1,232 @@
 # ParserRIba Launcher Architecture
 
-Date: 2026-05-22
+Date: 2026-05-31
 
 ## Purpose
 
-This document fixes the current launcher architecture in explicit terms:
+This document describes the current Launcher V3 architecture: what the user
+does, which layer receives the action, which task runs, what artifacts are
+created, and what data returns to the UI.
 
-- what the user does;
-- which layer receives that input;
-- which task runs;
-- what artifacts are produced;
-- what data returns to the UI.
+Use it together with:
 
-Use this file before changing launcher UX, onboarding/discovery flow, export
-flow, or report/filter behavior.
+- `docs/TARGET_ARCHITECTURE.md`
+- `docs/DATA_FLOW_THREADING_PLAN.md`
+- `docs/PROJECT_STATE.md`
 
-## Current Source Of Truth
+## Canonical Flow
 
-Launcher V2 design is now tracked in:
+Visible launcher workflow:
 
-- `docs/superpowers/specs/2026-05-23-launcher-v2-discovery-workflow-design.md`
+`Исследование -> Каталог -> Товары -> Отчёт`
 
-That spec supersedes the older one-screen launcher rebuild plans. Older plans
-remain in `archive/project_history/superpowers/plans/` as implementation
-history, not as current architecture.
+Layer flow:
 
-## Current Layers
+`PySide6 Launcher -> Desktop Controller -> Launcher Task Controller -> Local Task Adapter -> Local Task Registry -> Store/Onboarding Runtime -> Storage/Artifacts -> Launcher State`
 
-ParserRIba desktop flow is:
+Only GUI-thread code may mutate Qt widgets. Workers, subprocesses and browser
+runtime code return plain data.
 
-`PySide6 Launcher -> Desktop Controller -> Launcher Task Controller -> Local Task Adapter -> Local Task Registry -> Store/Onboarding Runtime -> Storage/Artifacts -> Normalized Launcher View`
+## Launcher Layer
 
-### 1. PySide6 Launcher
-
-Files:
+Main files:
 
 - `launcher/desktop_launcher.py`
-- `launcher/desktop_window_sections.py`
+- `launcher/desktop_workspace_shell.py`
+- `launcher/desktop_navigation.py`
+- `launcher/desktop_command_strip.py`
+- `launcher/desktop_inspector_panel.py`
+- `launcher/desktop_workflow_tabs.py`
+- `launcher/desktop_controller.py`
+- `launcher/desktop_controller_*.py`
+- `launcher/desktop_catalog_tree_widget.py`
 - `launcher/desktop_filter_panel.py`
+- `launcher/desktop_filter_slots.py`
+- `launcher/desktop_product_filtering.py`
+- `launcher/desktop_product_mini_catalog.py`
+- `launcher/desktop_product_details.py`
 - `launcher/desktop_result_table.py`
-- `launcher/desktop_view_helpers.py`
+- `launcher/desktop_report_panel.py`
+- `launcher/desktop_report_columns.py`
+- `launcher/desktop_error_panel.py`
+- `launcher/desktop_theme.py`
 
 Responsibilities:
 
-- render visible controls;
-- collect user selection and filters;
-- delegate actions to the desktop controller;
-- render current task state, result summary, and result rows.
+- render visible controls in Russian;
+- keep the user inside the staged workflow;
+- collect catalog, product, filter and report-column selection;
+- delegate actions to the controller;
+- render normalized launcher state;
+- never call store scripts directly.
 
-The launcher must not call runtime scripts or store backends directly.
+Current V4 shell contract:
 
-### 2. Desktop Controller
+- persistent left navigation rail with active, idle, completed, warning,
+  disabled and planned route states;
+- compact command strip with user-facing Russian current-state summary:
+  outcome, progress, product counts, latest file and next action. Raw profile
+  IDs, internal task names and internal phases belong in diagnostics and
+  support artifacts, not in the normal top strip;
+- main workspace backed by the existing workflow tab stack while migration
+  continues;
+- route-specific right inspector. Research/catalog/report routes can show
+  store/save context where it helps; the products route owns selected-product
+  details in the route context so the product table stays primary; diagnostics
+  owns error detail;
+- diagnostics workspace with masked copyable support text and a separate
+  "copy latest error" action;
+- centralized modern light/dark QSS tokens for tables, forms, focus, disabled
+  controls, route state styling, warnings and scrollbars.
 
-Files:
+## Controller And Task Bridge
+
+Main files:
 
 - `launcher/desktop_controller.py`
-- `launcher/desktop_controller_helpers.py`
-- `launcher/desktop_export_facets.py`
-
-Responsibilities:
-
-- own launcher state transitions;
-- decide which launcher action is available now;
-- invoke launcher-facing task actions;
-- merge task results into one UI state;
-- keep the UI free of subprocess/runtime details.
-
-### 3. Launcher Task Controller
-
-Files:
-
 - `utils/launcher_task_controller.py`
+- `utils/launcher_report_task_controller.py`
 - `utils/local_task_adapter.py`
-- `utils/launcher_task_view.py`
-
-Responsibilities:
-
-- convert controller calls into local task invocations;
-- normalize task manifests into `LocalTaskProcessResult`;
-- expose first-class launcher fields:
-  - `category_tree`
-  - `selected_categories`
-  - `catalog_discovery`
-  - `report_summary`
-  - `export_summary`
-  - `available_filter_counts`
-  - `launcher_view`
-
-### 4. Local Task Registry
-
-Files:
-
 - `utils/local_task_registry.py`
 - `scripts/run_local_task.py`
 
 Responsibilities:
 
-- register callable local tasks;
-- validate task input shape;
-- run one task and return `RunManifest`.
+- convert launcher actions into local tasks;
+- isolate long work from the GUI thread;
+- normalize task manifests into launcher-safe state;
+- return errors and warnings as user-readable Russian status plus technical
+  diagnostics in state/profile artifacts.
+
+## Runtime Tasks
 
 Current task families:
 
 - `site_onboarding_discovery`
-- `pyaterochka_fish_export`
-- `pyaterochka_wine_export`
+- product collection through the selected store adapter
 - `store_report_export`
-- `store_report_filter_options`
+- report/filter support tasks
 
-### 5. Runtime Layer
+Unknown sites stay `discovery_only` until a real product adapter exists.
+Generated fake runtime scaffolds are not progress.
 
-Files:
+## Stage Details
 
-- `utils/site_onboarding.py`
-- `utils/catalog_discovery.py`
-- `utils/store_export_runtime.py`
-- `utils/storage_report_builder.py`
-- `utils/product_storage.py`
+### 1. Исследование
 
-Responsibilities:
+Input:
 
-- discover catalog structure for one site;
-- run store-specific export capture;
-- persist products to SQLite;
-- build reports and filter options from storage.
+- site URL;
+- store/profile hint when available;
+- runtime settings such as headless/manual wait/timeout.
 
-### Pyaterochka Mechanics Preservation
+Output:
 
-Pyaterochka is a protected-store mechanics baseline, not the generic Launcher V2
-architecture center. The old parser/runtime path is compatibility-only while
-reusable mechanics are extracted:
+- discovered catalog/menu/tree;
+- route/API hints;
+- protection and partial-warning diagnostics;
+- profile/discovery snapshot.
 
-- Camoufox launch options from `utils.camoufox_launcher`;
-- RU proxy, GeoIP, persistent profile and session reuse behavior;
-- human-like waits, scrolling, hover and cooldown logic;
-- safe network/API interception and product API candidate capture;
-- DOM/card fallback and error/proxy/anti-bot reporting.
+### 2. Каталог
 
-The launcher must not build the new store-neutral discovery/product workspace
-around the old Pyaterochka runtime. Instead:
+Input:
 
-- keep only a Pyaterochka store adapter in the product runtime;
-- extract reusable browser/session/protection mechanics only when they fit the
-  generic contracts;
-- archive old parser/runtime files after useful mechanics are extracted;
-- keep Launcher V2 contracts centered on store profiles, selected catalog nodes,
-  product workspaces, dynamic filters and reports.
+- discovered catalog tree from the current research session.
 
-The launcher must not introduce a separate simplified Pyaterochka scraping path.
-Until the generic product pipeline is stable, the existing Pyaterochka export
-adapter may remain behind the generic selected-node collection contract.
+Output:
 
-## Store Profile Model
+- explicit selected catalog nodes with at least `name` and `url`.
 
-Launcher V2 is a multi-site profile manager. One site/domain maps to one local
-`StoreProfile`. Profiles do not share catalog trees, selected nodes, product
-workspaces, filters, diagnostics or price history.
+Rules:
 
-Each profile should track:
+- nothing should be silently preselected after research;
+- product collection must use selected node URLs, not old fixed fish/wine
+  categories.
+
+### 3. Товары
+
+Input:
+
+- selected catalog nodes;
+- collected products;
+- local filter choices.
+
+Output:
+
+- product workspace in `state.products.items`;
+- selected product IDs in `state.selection.selected_product_ids`;
+- filtered table view;
+- selected-filter summary;
+- product details with normalized and raw fields.
+
+Rules:
+
+- filters are embedded in this workspace;
+- filters apply locally to collected products;
+- original collected products are not deleted when filters change;
+- site facets that cannot map to product fields must not silently erase the
+  table.
+
+### 4. Отчёт
+
+Input:
+
+- selected product IDs, if any;
+- otherwise the current filtered product workspace;
+- selected report columns.
+
+Output:
+
+- Excel/JSON artifacts;
+- report summary;
+- file/folder paths for opening generated artifacts.
+
+Rules:
+
+- JSON is an internal artifact, not the primary user experience;
+- the user chooses report columns from available product/raw/filter fields;
+- report defaults must not fall back to obsolete wine/fish assumptions.
+
+## Pyaterochka Mechanics
+
+Pyaterochka remains the first protected-store runtime adapter. Preserve useful
+mechanics through target layers:
+
+- Camoufox launch options;
+- persistent profile;
+- RU proxy and GeoIP;
+- manual captcha wait;
+- human-like scrolling/hover/waits;
+- safe network/API interception;
+- anti-bot/proxy diagnostics;
+- DOM fallback when API payloads are incomplete.
+
+Do not rebuild the generic discovery/product core around the old Pyaterochka
+parser. Extract only proven mechanics into Browser Core, Discovery Core,
+Product Core or `stores/pyaterochka/`.
+
+## Store Profile Direction
+
+Launcher V3 should evolve into a multi-site profile manager. One site/domain
+maps to one local StoreProfile.
+
+Profile should own:
 
 - site URL and display name;
-- discovery status and last successful research run;
-- full catalog tree and full catalog links;
-- selected catalog nodes;
-- route/API hints and payload evidence refs;
-- browser/session strategy notes;
-- network/proxy/challenge diagnostics without secrets;
-- dynamic filters found from collected product data;
-- product collection history and price-history availability.
-
-The profile surface should be visible in the launcher, but advanced settings
-such as proxy mode and network diagnostics should live in a profile settings
-panel rather than cluttering the first screen.
-
-### 6. Storage And Artifacts
-
-Files / paths:
-
-- `data/products.db`
-- `data/*.json`
-- `data/reports/*.xlsx`
-- onboarding session state in `data/...`
-
-Responsibilities:
-
-- persist product snapshots;
-- persist onboarding sessions;
-- produce user-openable artifacts;
-- provide report/filter data without mandatory live re-scraping.
-
-## Current User Flow
-
-### Flow A: Catalog research
-
-1. User enters `site_url`.
-2. User chooses `shop` and `intent`.
-3. Launcher triggers `site_onboarding_discovery`.
-4. `utils/site_onboarding.py`:
-   - matches known store site if possible;
-   - runs discovery or known-site resolution;
-   - builds `category_tree`;
-   - writes onboarding session state.
-5. Manifest summary returns:
-   - `category_tree`
-   - `category_count`
-   - `catalog_discovery`
-   - `selected_categories`
-6. Launcher shows discovered sections.
-
-### Flow B: Product collection
-
-1. User chooses discovered categories.
-2. Launcher triggers live export per selected category.
-3. Store runtime writes:
-   - JSON export
-   - SQLite product state
-   - run manifest
-4. Controller merges per-category results into one export result.
-5. Launcher receives:
-   - `export_summary`
-   - fresh `available_filter_counts`
-   - artifact paths
-
-### Flow C: Narrow selection and report
-
-1. User chooses post-capture filters.
-2. Launcher triggers:
-   - `store_report_filter_options` to inspect available values;
-   - `store_report_export` to build Excel from SQLite.
-3. Report layer returns:
-   - `report_summary`
-   - Excel path
-   - categories and counts
-4. Launcher opens Excel or folder.
-
-## Target Operator Flow
-
-The intended product flow is a guided workflow for a non-technical user:
-
-1. The user opens the launcher, enters a store website URL, and clicks the
-   research action.
-2. ParserRIba opens the site through the project browser/runtime path and tries
-   to understand the catalog surface:
-   - browser-rendered links;
-   - navigation/menu/category URLs;
-   - intercepted API URLs and response candidates;
-   - catalog categories and subcategories;
-   - store-specific constraints such as region gate, anti-bot challenge or
-     PDF/flipbook catalog.
-3. ParserRIba creates or updates a local store profile from the research run.
-   The profile stores the discovered catalog tree, useful route/API markers,
-   known category URLs, run diagnostics and payload hints. It must not store
-   secrets, raw proxy credentials, cookies or captcha tokens.
-4. The launcher shows the discovered category/subcategory tree. Nothing is
-   pre-selected by default.
-5. The user selects the categories and subcategories they need.
-6. ParserRIba collects products only from the selected categories through the
-   existing store runtime path.
-7. Product collection aims to capture full product cards, not only name and
-   price. The normalized product data should keep fields when available:
-   - producer, manufacturer, supplier, vendor and brand;
-   - production country/region/place;
-   - category and subcategory;
-   - price, unit, discount and stock state;
-   - product URL and image URL;
-   - fish-specific variants and attributes;
-   - wine-specific attributes such as color, style, sugar class, alcohol type
-     and other detected variants;
-   - raw/store-specific attributes that are useful but not normalized yet.
-8. ParserRIba writes the collected products to local storage and builds a
-   narrowed product workspace for only the selected categories.
-9. The launcher derives filters from the collected data, not from hardcoded
-   guesses. Missing fields are shown honestly and do not silently exclude
-   products in default mode.
-10. The user filters and selects the exact products needed for the final report.
-11. ParserRIba exports an Excel/report table for those selected products and
-    keeps the store profile available for future runs.
-
-This flow is the target behavior. Current launcher work should move toward it
-incrementally without breaking the protected Pyaterochka runtime.
-
-## Current Mismatch With Desired Product
-
-The user wants a strict site-first flow:
-
-1. enter store URL;
-2. research store/catalog;
-3. choose needed sections;
-4. collect products across those sections;
-5. narrow the result by supplier/brand/etc.;
-6. build final report.
-
-The current code still contains category-first fallbacks:
-
-- launcher can show categories before research;
-- backend/category resolvers can inject default categories;
-- launcher can auto-select categories in some paths;
-- report/filter actions can appear meaningful before fresh product collection.
-
-This is why the launcher can feel "pre-filled" instead of truly researched.
-
-## Launcher V2 Target
-
-The new launcher target is a guided workflow:
-
-`Исследование -> Каталог -> Товары -> Фильтры -> Отчёт`
-
-The visible UI must support:
-
-- switching or creating store profiles for many sites;
-- showing the full discovered catalog separately from the chosen intent slice;
-- selecting any number of catalog tree nodes;
-- collecting products from checked nodes;
-- building one dynamic scrollable filter panel from collected product fields;
-- selecting exact products before Excel/report export.
-
-## Required V1 Launcher Contract
-
-The launcher must behave as a staged workflow:
-
-### Stage 1: Исследование магазина
-
-- input:
-  - `site_url`
-  - `shop`
-  - `intent`
-- output:
-  - `category_tree`
-  - `catalog_discovery`
-  - store profile update with discovered category URLs, route/API markers and
-    payload hints
-  - human-readable diagnostics
-
-### Stage 2: Выбор разделов
-
-- input:
-  - only discovered categories for the current research session
-- output:
-  - explicit `selected_categories`
-
-### Stage 3: Сбор товаров
-
-- input:
-  - discovered + selected categories
-  - runtime settings
-- output:
-  - export JSON
-  - SQLite product state
-  - export summary
-  - selected-category product workspace
-  - filter counts from fresh data
-
-### Stage 4: Узкий отбор и отчёт
-
-- input:
-  - post-capture filters
-  - explicit selected products
-- output:
-  - filtered report summary
-  - Excel report for selected products
+- catalog tree and selected nodes;
+- route/API hints;
+- browser/session/protection diagnostics without secrets;
+- latest product workspace;
+- found filters and selected filters;
+- report-column presets;
+- generated artifacts;
+- future price-history snapshots.
 
 ## Non-Negotiable UI Rules
 
-1. Before store research, launcher categories must not be silently injected from
-   defaults.
-2. Launcher must not auto-select categories for the user.
-3. Research action must be named `Исследование`.
-4. Export/report actions must operate on explicitly selected discovered
-   categories.
-5. Filter options must be explained as empty/unavailable until data has really
-   been collected.
-6. Pyaterochka export actions must preserve the existing protected-store
-   runtime path: Camoufox, RU proxy/GeoIP, human behavior, safe interception,
-   anti-bot diagnostics and DOM fallback.
-7. Store profiles are built from research and collection evidence. They must
-   store catalog/API knowledge and diagnostics, not secrets or raw credentials.
-8. Filters and final product selection must be based on collected product data
-   from the selected categories, not on hardcoded assumptions.
-
-## Near-Term Implementation Order
-
-1. Make launcher category UI discovery-first.
-2. Rename onboarding UX to research UX.
-3. Separate staged launcher result areas:
-   - research result;
-   - export result;
-   - report result.
-4. Keep storage/report tasks stable while the launcher flow is corrected.
+- All visible user strings are clear Russian.
+- No old fixed fish/wine defaults in generic UI.
+- No hidden auto-selection after research.
+- No blocking browser/storage/report work on the GUI thread.
+- No separate old filters tab; filters belong to `Товары`.
+- No direct runtime imports from removed legacy paths.

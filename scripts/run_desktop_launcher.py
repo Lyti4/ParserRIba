@@ -12,12 +12,14 @@ if str(ROOT_DIR) not in sys.path:
 
 from launcher.desktop_launcher import DesktopLauncherShell
 from scripts.smoke_desktop_launcher import main as smoke_main
+from scripts.cloak_runtime_probe import run_cloak_probe
 
 
 def parse_args() -> argparse.Namespace:
     """Parse CLI arguments for the desktop launcher entrypoint."""
     parser = argparse.ArgumentParser(description="Run the ParserRIba desktop launcher.")
     parser.add_argument("--smoke", action="store_true", help="Run a quick desktop smoke instead of the full event loop.")
+    parser.add_argument("--cloak-probe-result", type=Path, help="Run the bounded selected-Cloak startup/DOM/close probe and write its result JSON.")
     return parser.parse_args()
 
 
@@ -26,6 +28,8 @@ def main() -> int:
     args = parse_args()
     if args.smoke:
         return smoke_main()
+    if args.cloak_probe_result:
+        return run_cloak_probe(args.cloak_probe_result)
     shell = DesktopLauncherShell(root_dir=ROOT_DIR)
     return shell.run()
 

@@ -69,6 +69,33 @@ jobs:
           & .\scripts\build_windows.ps1 -Python $pythonExe -Clean
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Provision isolated licensed Cloak runtime
+        shell: pwsh
+        env:
+          CLOAKBROWSER_LICENSE_KEY: ${{ secrets.CLOAKBROWSER_LICENSE_KEY }}
+          CLOAKBROWSER_CACHE_DIR: ${{ runner.temp }}\parserriba-cloak-cache
+          CLOAKBROWSER_AUTO_UPDATE: "false"
+        run: |
+          $ErrorActionPreference = "Stop"
+          & .\.build-venv\Scripts\python.exe scripts\install_cloakbrowser_runtime.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Probe frozen selected Cloak runtime
+        shell: pwsh
+        env:
+          CLOAKBROWSER_CACHE_DIR: ${{ runner.temp }}\parserriba-cloak-cache
+          CLOAKBROWSER_AUTO_UPDATE: "false"
+          PARSERRIBA_CLOAK_PROBE_PROFILE: ${{ runner.temp }}\parserriba-cloak-probe-profile
+        run: |
+          $ErrorActionPreference = "Stop"
+          $result = Join-Path $env:RUNNER_TEMP "parserriba-cloak-probe.json"
+          & .\dist\ParserRIba\ParserRIba.exe --cloak-probe-result $result
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $probe = Get-Content -LiteralPath $result -Raw | ConvertFrom-Json
+          if ($probe.runtime -ne "cloak" -or -not $probe.started -or $probe.dom_title -ne "" -or -not $probe.closed) {
+            throw "Frozen Cloak probe result did not meet the bounded startup/DOM/close contract."
+          }
+
       - name: Smoke the packaged launcher
         shell: pwsh
         run: |

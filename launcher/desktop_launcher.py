@@ -212,6 +212,7 @@ class DesktopLauncherShell:
         self._refresh_ui()
     def _on_clear_filters(self) -> None: clear_filter_selections(self, FILTER_WIDGET_KEYS)
     def _on_run_onboarding(self) -> None: self._run_ui_action(lambda: self.controller.run_onboarding_discovery(site_url=self._site_url()))
+    def _on_prepare_cloak(self) -> None: self._run_ui_action(self.controller.run_cloak_runtime_install)
     def _on_run_export(self) -> None: self._run_ui_action(self.controller.run_selected_export)
     def _on_build_report(self) -> None: self._run_ui_action(self.controller.run_selected_report_export)
     def _on_report_columns_changed(self, *_: Any) -> None: handle_report_columns_changed(self)
@@ -258,6 +259,10 @@ class DesktopLauncherShell:
     def _on_background_action_failed(self, _error: object) -> None:
         self._refresh_ui()
     def _clear_background_action(self) -> None:
+        thread = self._active_task_thread
+        if thread is not None and thread.isRunning():
+            thread.finished.connect(self._clear_background_action)
+            return
         self._active_task_thread = None
         self._active_task_worker = None
 

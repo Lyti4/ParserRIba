@@ -45,7 +45,7 @@ from launcher.desktop_user_messages import (
 )
 from models.launcher_state import LauncherFilterState
 from utils.launcher_settings import LauncherSettingsStore
-from utils.local_task_adapter import LocalTaskProcessResult
+from utils.local_task_adapter import LocalTaskProcessResult, run_local_task_subprocess
 TaskRunner = Callable[..., LocalTaskProcessResult]; PathOpener = Callable[[str], None]
 class DesktopLauncherController(DesktopControllerFavoritesMixin):
     """Manage launcher state transitions and local task execution."""
@@ -120,6 +120,23 @@ class DesktopLauncherController(DesktopControllerFavoritesMixin):
     def list_available_categories(self) -> list[str]:
         """Return discovered categories for the currently researched target only."""
         return available_category_names(self.state)
+
+    def run_cloak_runtime_install(self) -> LocalTaskProcessResult:
+        """Explicit first-use Cloak provisioning independent of store selection."""
+        def install_runner(*, root_dir: Path, timeout_seconds: int) -> LocalTaskProcessResult:
+            return run_local_task_subprocess(
+                task_name="cloak_runtime_install",
+                task_input={},
+                root_dir=root_dir,
+                timeout_seconds=timeout_seconds,
+            )
+
+        return self._run_task(
+            task_name="cloak_runtime_install",
+            runner=install_runner,
+            root_dir=self.root_dir,
+            timeout_seconds=900,
+        )
 
     def run_onboarding_discovery(self, *, site_url: str) -> LocalTaskProcessResult:
         """Run onboarding discovery for a site URL."""

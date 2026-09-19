@@ -127,6 +127,7 @@ def test_local_task_registry_lists_export_and_onboarding_tasks() -> None:
     tasks = list_local_tasks()
 
     assert tasks == [
+        "cloak_runtime_install",
         "site_onboarding_discovery",
         "store_catalog_export",
         "store_report_export",

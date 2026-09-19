@@ -16,6 +16,7 @@ def build_research_actions_box(shell: Any, qtwidgets: Any) -> Any:
         "Действия",
         (
             ("onboarding", "Исследование", shell._on_run_onboarding),
+            ("cloak_install", "Подготовить CloakBrowser", shell._on_prepare_cloak),
             ("save_settings", "Запомнить режим запуска", shell._on_save_settings),
         ),
     )

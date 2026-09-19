@@ -69,7 +69,7 @@ jobs:
           & .\scripts\build_windows.ps1 -Python $pythonExe -Clean
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Provision isolated licensed Cloak runtime
+      - name: Provision isolated licensed Cloak runtime through frozen worker
         shell: pwsh
         env:
           CLOAKBROWSER_LICENSE_KEY: ${{ secrets.CLOAKBROWSER_LICENSE_KEY }}
@@ -77,8 +77,22 @@ jobs:
           CLOAKBROWSER_AUTO_UPDATE: "false"
         run: |
           $ErrorActionPreference = "Stop"
-          & .\.build-venv\Scripts\python.exe scripts\install_cloakbrowser_runtime.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $cache = $env:CLOAKBROWSER_CACHE_DIR
+          if (Test-Path -LiteralPath $cache) {
+            if (Get-ChildItem -LiteralPath $cache -Force | Select-Object -First 1) {
+              throw "Cloak first-use cache is not empty."
+            }
+          } else {
+            New-Item -ItemType Directory -Path $cache -Force | Out-Null
+          }
+          $worker = '{}'
+          $manifest = $worker | & .\dist\ParserRIba\ParserRIba.exe --local-task --task cloak_runtime_install --input-stdin | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $manifest.task_name -ne "cloak_runtime_install" -or -not $manifest.summary.binary_ready) {
+            throw "Frozen Cloak first-use worker did not return a valid ready manifest."
+          }
+          $binary = Get-ChildItem -LiteralPath $cache -Recurse -File -Filter *.exe | Select-Object -First 1
+          if ($null -eq $binary) { throw "Frozen Cloak first-use worker did not create an executable." }
+          [pscustomobject]@{ runtime="cloak"; cache_empty_before=$true; worker_exit=0; binary_present=$true; binary_name=$binary.Name; binary_sha256=(Get-FileHash -LiteralPath $binary.FullName -Algorithm SHA256).Hash } | ConvertTo-Json -Compress | Set-Content -LiteralPath .\dist\cloak-first-use-receipt.json -Encoding ascii
 
       - name: Probe frozen selected Cloak runtime
         shell: pwsh
@@ -124,5 +138,6 @@ jobs:
           path: |
             dist/ParserRIba-windows-x64.zip
             dist/ParserRIba-windows-x64.zip.sha256
+            dist/cloak-first-use-receipt.json
           if-no-files-found: error
           retention-days: 7

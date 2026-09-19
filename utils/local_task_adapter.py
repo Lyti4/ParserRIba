@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -47,13 +48,11 @@ def build_local_task_command(
 ) -> list[str]:
     """Build one launcher task command using stdin JSON transport."""
     python_path = python_executable or sys.executable
-    command = [
-        python_path,
-        str(RUN_LOCAL_TASK_SCRIPT),
-        "--task",
-        str(task_name),
-        "--input-stdin",
-    ]
+    task_args = ["--task", str(task_name), "--input-stdin"]
+    if getattr(sys, "frozen", False) and python_executable is None:
+        command = [python_path, "--local-task", *task_args]
+    else:
+        command = [python_path, str(RUN_LOCAL_TASK_SCRIPT), *task_args]
     if root_dir is not None:
         command.extend(["--root-dir", str(Path(root_dir))])
     return command
@@ -67,6 +66,7 @@ def run_local_task_subprocess(
     python_executable: str | None = None,
     show_summary: bool = False,
     timeout_seconds: int | None = 900,
+    operation_env: dict[str, str] | None = None,
 ) -> LocalTaskProcessResult:
     """Run one local task via subprocess and parse the returned result."""
     command = build_local_task_command(
@@ -77,6 +77,8 @@ def run_local_task_subprocess(
     if show_summary:
         command.append("--summary")
     input_payload = json.dumps(task_input, ensure_ascii=False)
+    child_env = os.environ.copy()
+    child_env.update(operation_env or {})
     try:
         result = subprocess.run(
             command,
@@ -86,10 +88,11 @@ def run_local_task_subprocess(
             text=True,
             encoding="utf-8",
             input=input_payload,
+        env=child_env,
             timeout=timeout_seconds,
         )
     except subprocess.CalledProcessError as error:
-        raise RuntimeError(_build_subprocess_failure_message(error)) from error
+        raise RuntimeError(_build_subprocess_failure_message(error, _sensitive_child_env(child_env, operation_env))) from error
     except subprocess.TimeoutExpired as error:
         raise RuntimeError(_build_subprocess_timeout_message(error, timeout_seconds)) from error
     manifest = RunManifest(**_extract_manifest_payload(result.stdout))
@@ -197,19 +200,34 @@ def _extract_manifest_payload(stdout: str) -> dict[str, Any]:
             continue
         if isinstance(payload, dict):
             return payload
-    snippet = payload_text[:300].replace("\n", "\\n")
-    raise ValueError(f"Local task subprocess stdout did not contain manifest JSON. Snippet: {snippet}")
+    raise ValueError("Local task subprocess stdout did not contain manifest JSON.")
 
 
-def _build_subprocess_failure_message(error: subprocess.CalledProcessError) -> str:
+def _build_subprocess_failure_message(error: subprocess.CalledProcessError, operation_env: dict[str, str] | None = None) -> str:
     """Render one compact launcher-safe subprocess failure message."""
-    stderr = str(getattr(error, "stderr", "") or "").strip()
-    stdout = str(getattr(error, "stdout", "") or "").strip()
+    stderr = _redact_operation_text(str(getattr(error, "stderr", "") or "").strip(), operation_env)
+    stdout = _redact_operation_text(str(getattr(error, "stdout", "") or "").strip(), operation_env)
     if stderr:
         return stderr
     if stdout:
         return f"Local task subprocess failed before manifest JSON was returned. Stdout: {stdout[:300]}"
     return f"Local task subprocess failed with exit code {error.returncode}."
+
+
+def _sensitive_child_env(child_env: dict[str, str], operation_env: dict[str, str] | None) -> dict[str, str]:
+    explicit_names = set((operation_env or {}).keys())
+    return {
+        name: value
+        for name, value in child_env.items()
+        if name in explicit_names or any(marker in name.upper() for marker in ("LICENSE", "PROXY", "TOKEN", "PASSWORD", "KEY"))
+    }
+
+
+def _redact_operation_text(text: str, operation_env: dict[str, str] | None) -> str:
+    for value in (operation_env or {}).values():
+        if value:
+            text = text.replace(value, "[redacted]")
+    return text
 
 
 def _build_subprocess_timeout_message(

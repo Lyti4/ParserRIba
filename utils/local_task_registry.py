@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Awaitable, Callable
@@ -215,7 +216,34 @@ async def _run_store_report_filter_options_task(
     )
 
 
+async def _run_cloak_runtime_install_task(
+    *, task_input: dict[str, Any], root_dir: Path, discover_func: DiscoverFunc | None = None
+) -> RunManifest:
+    """Explicitly provision selected Cloak runtime without serializing credentials."""
+    del task_input, root_dir, discover_func
+    from scripts.install_cloakbrowser_runtime import provision_cloakbrowser_runtime
+
+    started_at = datetime.utcnow()
+    exit_code = await asyncio.to_thread(provision_cloakbrowser_runtime)
+    if exit_code != 0:
+        raise RuntimeError("Cloak runtime provisioning failed; check the configured authorization/runtime channel.")
+    return RunManifest(
+        task_name="cloak_runtime_install",
+        shop="",
+        intent="",
+        status="ok",
+        started_at=started_at,
+        finished_at=datetime.utcnow(),
+        summary={"runtime": "cloak", "binary_ready": True},
+    )
+
+
 _TASKS: dict[str, LocalTask] = {
+    "cloak_runtime_install": LocalTask(
+        task_name="cloak_runtime_install",
+        description="Explicitly provision the selected Cloak runtime.",
+        run_func=_run_cloak_runtime_install_task,
+    ),
     "store_catalog_export": LocalTask(
         task_name="store_catalog_export",
         description="Export selected runtime-ready store catalog products into local JSON and SQLite.",

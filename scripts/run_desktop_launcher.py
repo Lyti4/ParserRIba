@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import runpy
 import sys
 from pathlib import Path
 
@@ -20,12 +21,20 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the ParserRIba desktop launcher.")
     parser.add_argument("--smoke", action="store_true", help="Run a quick desktop smoke instead of the full event loop.")
     parser.add_argument("--cloak-probe-result", type=Path, help="Run the bounded selected-Cloak startup/DOM/close probe and write its result JSON.")
-    return parser.parse_args()
+    parser.add_argument("--local-task", nargs=argparse.REMAINDER, help="Run the registered local-task worker inside the frozen executable.")
+    args = parser.parse_args()
+    if args.local_task == []:
+        parser.error("--local-task requires worker arguments")
+    return args
 
 
 def main() -> int:
     """Run the desktop launcher shell and return the process exit code."""
     args = parse_args()
+    if args.local_task is not None:
+        sys.argv = [sys.argv[0], *args.local_task]
+        runpy.run_module("scripts.run_local_task", run_name="__main__")
+        return 0
     if args.smoke:
         return smoke_main()
     if args.cloak_probe_result:
